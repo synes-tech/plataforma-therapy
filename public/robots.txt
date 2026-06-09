@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /patients
+Disallow: /session
+Disallow: /copilot
+Disallow: /diary
+Allow: /login
+Allow: /register

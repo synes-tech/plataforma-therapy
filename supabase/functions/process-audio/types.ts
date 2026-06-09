@@ -1,0 +1,24 @@
+export interface ProcessAudioInput {
+  audio_recording_id: string;
+  patient_id: string;
+  job_id: string;
+}
+
+export interface SOAPNote {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+}
+
+export interface TranscriptionResult {
+  text: string;
+  language: string;
+  duration_ms: number;
+}
+
+export interface ProcessAudioResult {
+  transcription_id: string;
+  session_note_id: string;
+  embeddings_count: number;
+}

@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# GCP / Service Account credentials — NUNCA commitar
+*.json.key
+gcp-*.json
+service-account*.json
+*service-account*.json
+*-service-account-*.json
+plataforma-therapy-ai-*.json
+credentials*.json
+*credentials*.json
+**/secrets/**
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Supabase
+supabase/.temp/
+
+# Test outputs
+coverage/
+test-results/
+playwright-report/
+
+# PWA generated
+dev-dist/

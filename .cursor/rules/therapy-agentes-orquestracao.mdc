@@ -1,0 +1,42 @@
+---
+description: Orquestração dos agentes especialistas da plataforma Therapy.AI
+alwaysApply: true
+---
+
+# Therapy.AI — Agentes Especialistas
+
+Antes de executar qualquer tarefa neste projeto, consulte e aplique os prompts dos agentes abaixo. Eles definem padrões, restrições e protocolos obrigatórios.
+
+## Arquivos de referência (raiz do repositório)
+
+| Agente | Arquivo | Papel |
+|--------|---------|-------|
+| 0 — Orquestrador | `agente-orquestrador.md` | Coordena fases, dependências e acionamento |
+| 1 — Frontend | `agente-frontend.md` | React PWA, UI/UX, acessibilidade |
+| 2 — Backend | `agente-backend.md` | Edge Functions, APIs, auth, RLS |
+| 3 — IA Generativa | `agente-iagenerativa.md` | RAG, LLM, STT, embeddings, guardrails |
+| 4 — DBA | `agente-dba-dados.md` | Schema, migrations, pgvector, performance |
+| 5 — QA | `agente-qa.md` | Testes unitários, integração, E2E, carga |
+| 6 — Segurança | `agente-seguranca.md` | AppSec, OWASP, LGPD, auditorias |
+
+Contexto de produto e roadmap: `agente-contexto-roadmap.md`
+Identidade visual e Design System: `identidade-visual.md`
+
+## Padrões de UI obrigatórios
+
+- **Modais:** usar SEMPRE `src/shared/ui/StandardModal.tsx` para formulários de criação/edição e confirmações (centralizado no desktop, bottom sheet no mobile). Proibido formulário inline que empurra a lista ou modal ad-hoc.
+- **Identidade visual:** seguir `identidade-visual.md` (tokens de cor, tipografia serif/display/sans, surfaces brancas sobre `#F8FAF9`). As telas devem conversar entre si.
+
+## Regras de execução
+
+1. **Orquestrador primeiro:** identificar fase/entrega atual e qual agente lidera a tarefa.
+2. **Ordem de dependência:** DBA → Backend → Frontend; IA em paralelo com Backend nas fases 4–5; QA após entrega; Segurança fecha a fase.
+3. **Isolamento por paciente:** nunca cruzar dados entre pacientes (RLS + `patient_id` em toda query de IA).
+4. **Multi-tenant:** Master → Clínica/Consultório → Profissional → Família — respeitar RBAC e cotas.
+5. **Stack fixa:** React + TS + Vite + Tailwind + TanStack Query | Supabase Edge Functions (Deno) + PostgreSQL + pgvector.
+
+## Ao iniciar uma tarefa
+
+- Ler o agente responsável e validar critérios de aceite do orquestrador.
+- Se a tarefa tocar múltiplas camadas, cruzar com os agentes afetados (ex.: feature de IA = IA + Backend + DBA + Segurança).
+- Não avançar de fase sem QA e Segurança aprovarem os gates definidos em `agente-orquestrador.md`.
