@@ -13,6 +13,8 @@ export interface QueryCopilotResponse {
   answer: string;
   sources: SourceReference[];
   guardrail_triggered: boolean;
+  /** true quando o modelo atingiu o limite de tokens (resposta pode estar cortada) */
+  answer_incomplete?: boolean;
   tokens_used: number;
   latency_ms: number;
 }

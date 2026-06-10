@@ -27,12 +27,14 @@ interface Message {
   content: string;
   sources?: SourceRef[];
   guardrail_triggered?: boolean;
+  answer_incomplete?: boolean;
 }
 
 interface CopilotResponse {
   answer: string;
   sources: SourceRef[];
   guardrail_triggered: boolean;
+  answer_incomplete?: boolean;
   tokens_used: number;
   latency_ms: number;
 }
@@ -93,6 +95,7 @@ export function ChatArea({ patientId, patientName, onSaveToPlan }: ChatAreaProps
           content: data.answer,
           sources: data.sources,
           guardrail_triggered: data.guardrail_triggered,
+          answer_incomplete: data.answer_incomplete,
         },
       ]);
     },
@@ -267,6 +270,12 @@ function MessageBubble({
         {message.guardrail_triggered && (
           <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-600">
             <span>Filtro de segurança ativado</span>
+          </div>
+        )}
+
+        {message.answer_incomplete && !message.guardrail_triggered && (
+          <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50/80 px-2.5 py-1.5 text-[11px] text-amber-700">
+            A resposta pode ter sido cortada. Peça para repetir ou continuar de onde parou.
           </div>
         )}
 

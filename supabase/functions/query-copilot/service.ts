@@ -180,14 +180,17 @@ ${diaryContext}`;
   // ============================================================
   let answer: string;
   let tokensUsed: number;
+  let answerIncomplete = false;
   try {
     const llm = await vertexChat(chatMessages, {
       system: systemInstruction,
       temperature: 0.3,
-      maxOutputTokens: 1500,
+      maxOutputTokens: 4096,
+      thinkingBudget: 1024,
     });
     answer = llm.text;
     tokensUsed = llm.tokens;
+    answerIncomplete = llm.truncated;
   } catch (e) {
     throw new AppError({ code: 'LLM_ERROR', message: e instanceof Error ? e.message : 'LLM error', statusCode: 502 });
   }
@@ -239,6 +242,7 @@ ${diaryContext}`;
       latency_ms: Date.now() - startTime,
       model: CHAT_MODEL,
       guardrail_triggered: false,
+      answer_incomplete: answerIncomplete,
     },
   });
 
@@ -246,6 +250,7 @@ ${diaryContext}`;
     answer,
     sources,
     guardrail_triggered: false,
+    answer_incomplete: answerIncomplete,
     tokens_used: tokensUsed,
     latency_ms: Date.now() - startTime,
   };

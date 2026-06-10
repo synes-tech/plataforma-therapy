@@ -45,8 +45,18 @@ interface GenerateOptions {
   system?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Limite de tokens de raciocínio (Gemini 2.5+). Conta dentro de maxOutputTokens. */
+  thinkingBudget?: number;
   // deno-lint-ignore no-explicit-any
   responseSchema?: Record<string, any>;
+}
+
+export interface VertexGenerateResult {
+  text: string;
+  tokens: number;
+  finishReason?: string;
+  thoughtsTokens?: number;
+  truncated: boolean;
 }
 
 // ============================================================
@@ -124,18 +134,31 @@ async function getAccessToken(): Promise<string> {
 // ============================================================
 // Core generateContent (Vertex REST)
 // ============================================================
+function isThinkingModel(model: string): boolean {
+  return model.includes('2.5') || model.includes('2-5');
+}
+
 async function generateContent(
   contents: { role: 'user' | 'model'; parts: Part[] }[],
   opts: GenerateOptions,
-): Promise<{ text: string; tokens: number }> {
+): Promise<VertexGenerateResult> {
   const model = opts.model ?? CHAT_MODEL;
   const token = await getAccessToken();
 
   // deno-lint-ignore no-explicit-any
   const generationConfig: Record<string, any> = {
     temperature: opts.temperature ?? 0.3,
-    maxOutputTokens: opts.maxOutputTokens ?? 2048,
+    maxOutputTokens: opts.maxOutputTokens ?? 4096,
   };
+
+  // Gemini 2.5 Pro: "thinking" consome maxOutputTokens antes do texto visível.
+  // Sem thinkingBudget explícito, o modelo pode gastar quase todo o limite em raciocínio.
+  if (isThinkingModel(model)) {
+    generationConfig.thinkingConfig = {
+      thinkingBudget: opts.thinkingBudget ?? 1024,
+    };
+  }
+
   if (opts.responseSchema) {
     generationConfig.responseMimeType = 'application/json';
     generationConfig.responseSchema = opts.responseSchema;
@@ -159,16 +182,44 @@ async function generateContent(
 
   const json = await res.json();
   const candidate = json.candidates?.[0];
-  const text = (candidate?.content?.parts ?? [])
-    .map((p: { text?: string }) => p.text ?? '')
-    .join('');
-  const tokens = json.usageMetadata?.totalTokenCount ?? 0;
+  const finishReason = candidate?.finishReason as string | undefined;
+  const thoughtsTokens = json.usageMetadata?.thoughtsTokenCount as number | undefined;
 
-  if (!text && candidate?.finishReason && candidate.finishReason !== 'STOP') {
-    throw new Error(`Vertex finishReason=${candidate.finishReason}`);
+  // Ignora partes marcadas como "thought" — só texto visível ao usuário
+  const text = (candidate?.content?.parts ?? [])
+    .filter((p: { thought?: boolean }) => !p.thought)
+    .map((p: { text?: string }) => p.text ?? '')
+    .join('')
+    .trim();
+
+  const tokens = json.usageMetadata?.totalTokenCount ?? 0;
+  const truncated = finishReason === 'MAX_TOKENS';
+
+  if (!text && finishReason && finishReason !== 'STOP') {
+    console.log(JSON.stringify({
+      level: 'warn',
+      action: 'vertex_empty_output',
+      model,
+      finishReason,
+      thoughtsTokens,
+      maxOutputTokens: generationConfig.maxOutputTokens,
+    }));
+    throw new Error(`Vertex finishReason=${finishReason}`);
   }
 
-  return { text, tokens };
+  if (truncated) {
+    console.log(JSON.stringify({
+      level: 'warn',
+      action: 'vertex_truncated_output',
+      model,
+      finishReason,
+      thoughtsTokens,
+      outputChars: text.length,
+      maxOutputTokens: generationConfig.maxOutputTokens,
+    }));
+  }
+
+  return { text, tokens, finishReason, thoughtsTokens, truncated };
 }
 
 // ============================================================
@@ -177,7 +228,7 @@ async function generateContent(
 export async function vertexChat(
   messages: ChatMessage[],
   opts: GenerateOptions = {},
-): Promise<{ text: string; tokens: number }> {
+): Promise<VertexGenerateResult> {
   const contents = messages.map((m) => ({
     role: (m.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
     parts: [{ text: m.content }] as Part[],
@@ -192,7 +243,10 @@ export async function vertexJSON<T>(
   parts: Part[],
   opts: GenerateOptions,
 ): Promise<{ data: T; tokens: number }> {
-  const { text, tokens } = await generateContent([{ role: 'user', parts }], opts);
+  const { text, tokens, truncated } = await generateContent([{ role: 'user', parts }], opts);
+  if (truncated) {
+    throw new Error('Vertex JSON output truncated (MAX_TOKENS)');
+  }
   let data: T;
   try {
     data = JSON.parse(text) as T;
