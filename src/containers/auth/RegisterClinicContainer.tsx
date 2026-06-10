@@ -9,6 +9,7 @@ import {
   RegisterFormView,
   type RegisterFormData,
 } from '@features/register/RegisterFormView';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -128,7 +129,7 @@ export default function RegisterClinicContainer() {
           />
         </div>
         <img
-          src="/src/assets/logotherapy.png"
+          src={BRAND_LOGO_SRC}
           alt="Therapy.AI"
           className="relative z-10 mb-8 h-10 w-auto"
         />

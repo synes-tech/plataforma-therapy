@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { ApiResponse } from '@shared/types';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -160,7 +161,7 @@ export default function RegisterFamily() {
             {/* Logo mobile */}
             <div className="mb-4 shrink-0 text-center sm:mb-6 lg:hidden [@media(max-height:640px)]:mb-3">
               <img
-                src="/src/assets/logotherapy.png"
+                src={BRAND_LOGO_SRC}
                 alt="Therapy.AI"
                 className="mx-auto h-12 w-auto sm:h-14 [@media(max-height:640px)]:h-10"
               />
@@ -168,7 +169,7 @@ export default function RegisterFamily() {
 
             {/* Logo desktop */}
             <div className="mb-6 hidden shrink-0 lg:block [@media(max-height:800px)]:mb-4">
-              <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="h-9 w-auto [@media(max-height:800px)]:h-8" />
+              <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-9 w-auto [@media(max-height:800px)]:h-8" />
             </div>
 
             {/* Título */}

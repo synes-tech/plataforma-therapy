@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@shared/hooks/useAuth';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 export default function LoginContainer() {
   const [email, setEmail] = useState('');
@@ -157,7 +158,7 @@ export default function LoginContainer() {
           {/* Mobile: Logo + Branding compacto */}
           <div className="mb-10 w-full text-center lg:hidden">
             <img
-              src="/src/assets/logotherapy.png"
+              src={BRAND_LOGO_SRC}
               alt="Therapy.AI"
               className="mx-auto h-16 w-auto"
             />
@@ -166,7 +167,7 @@ export default function LoginContainer() {
           {/* Desktop: Logo inline */}
           <div className="mb-10 hidden w-full lg:block">
             <img
-              src="/src/assets/logotherapy.png"
+              src={BRAND_LOGO_SRC}
               alt="Therapy.AI"
               className="h-10 w-auto"
             />

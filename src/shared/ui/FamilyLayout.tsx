@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { UserProfile } from './UserProfile';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 interface FamilyLayoutProps {
   children: React.ReactNode;
@@ -120,7 +121,7 @@ export function FamilyLayout({ children }: FamilyLayoutProps) {
         <SidebarWarmBackground />
 
         <div className="relative z-10 flex shrink-0 flex-col items-center px-6 py-5">
-          <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="h-11 w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-11 w-auto object-contain" />
           <p className="mt-2 font-display text-xs font-semibold uppercase tracking-wide text-charcoal-muted/70">
             Portal da Família
           </p>
@@ -147,7 +148,7 @@ export function FamilyLayout({ children }: FamilyLayoutProps) {
         {/* Mobile header */}
         <header className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/85 px-5 py-3.5 backdrop-blur-md lg:hidden">
           <div className="flex items-center gap-3">
-            <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="h-9 w-auto object-contain" />
+            <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-9 w-auto object-contain" />
             {patientName && (
               <div className="border-l border-slate-200 pl-3">
                 <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/60">Acompanhando</p>

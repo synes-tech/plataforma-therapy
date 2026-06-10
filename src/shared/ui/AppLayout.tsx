@@ -6,6 +6,7 @@ import { callFunction } from '@shared/lib/api';
 import { isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -237,7 +238,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         <div className="relative z-10 flex shrink-0 items-center justify-center px-6 py-5">
           <img
-            src="/src/assets/logotherapy.png"
+            src={BRAND_LOGO_SRC}
             alt="Therapy.AI"
             className="h-12 w-auto object-contain"
           />
@@ -275,7 +276,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <SidebarWarmBackground />
 
         <div className="relative z-10 flex shrink-0 items-center justify-center px-5 py-4">
-          <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="h-12 w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-12 w-auto object-contain" />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
@@ -315,7 +316,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="h-[2.625rem] w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-[2.625rem] w-auto object-contain" />
           <UserProfile
             name={displayName}
             role={displayRole}

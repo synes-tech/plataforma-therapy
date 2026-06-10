@@ -9,6 +9,7 @@ import {
 } from './constants';
 import { RegisterInput } from './RegisterInput';
 import { RegisterProgressBar } from './RegisterProgressBar';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 export interface RegisterFormData {
   clinic_name: string;
@@ -192,7 +193,7 @@ export function RegisterFormView({
       {/* Logo — alinhado às telas de login e planos */}
       <div className="relative z-10 flex shrink-0 justify-center pt-4 md:pt-3">
         <img
-          src="/src/assets/logotherapy.png"
+          src={BRAND_LOGO_SRC}
           alt="Therapy.AI"
           className="h-8 w-auto md:h-9"
         />

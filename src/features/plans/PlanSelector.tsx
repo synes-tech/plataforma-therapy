@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 interface Plan {
   id: 'consultorio' | 'starter' | 'professional' | 'enterprise';
@@ -117,7 +118,7 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
       {/* Desktop: Tudo centralizado verticalmente como um bloco único */}
       <section className="relative z-10 hidden flex-1 flex-col items-center justify-center px-6 md:flex">
         <img
-          src="/src/assets/logotherapy.png"
+          src={BRAND_LOGO_SRC}
           alt="Therapy.AI"
           className="mb-4 h-10 w-auto"
         />
@@ -150,7 +151,7 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center md:hidden">
         {/* Logo + título */}
         <img
-          src="/src/assets/logotherapy.png"
+          src={BRAND_LOGO_SRC}
           alt="Therapy.AI"
           className="mb-2 h-8 w-auto"
         />

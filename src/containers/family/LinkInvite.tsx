@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
+import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
 /**
  * LinkInvite — vínculo de código para quem já está autenticado mas ainda
@@ -43,7 +44,7 @@ export default function LinkInvite() {
 
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
         <div className="mb-8 text-center">
-          <img src="/src/assets/logotherapy.png" alt="Therapy.AI" className="mx-auto h-14 w-auto" />
+          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="mx-auto h-14 w-auto" />
           <h1 className="mt-6 font-serif text-2xl tracking-tight text-charcoal">Vincular paciente</h1>
           <p className="mt-1.5 text-sm text-charcoal-muted">
             Insira o código de convite que o terapeuta forneceu.
