@@ -1,26 +1,32 @@
-const ALLOWED_ORIGINS = Deno.env.get('ALLOWED_ORIGINS')?.split(',') ?? [];
+/**
+ * CORS global — homologação/produção inicial.
+ * Todas as Edge Functions usam handleCors() + response.ts (que anexa estes headers).
+ */
+export const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-idempotency-key, x-request-id',
+  'Access-Control-Max-Age': '86400',
+};
 
-export function getCorsHeaders(origin?: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0] ?? '';
-
+/** Headers de resposta: CORS + hardening básico. */
+export function getCorsHeaders(_origin?: string | null): Record<string, string> {
   return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Idempotency-Key, X-Request-ID',
-    'Access-Control-Max-Age': '86400',
+    ...corsHeaders,
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   };
 }
 
+/**
+ * Intercepta preflight OPTIONS antes de auth/DB.
+ * Chamar no topo de todo serve(): if (corsResponse) return corsResponse;
+ */
 export function handleCors(req: Request): Response | null {
   if (req.method === 'OPTIONS') {
-    const origin = req.headers.get('origin');
-    return new Response(null, {
-      status: 204,
-      headers: getCorsHeaders(origin),
-    });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
   return null;
 }
