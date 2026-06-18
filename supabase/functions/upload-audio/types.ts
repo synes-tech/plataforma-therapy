@@ -1,6 +1,6 @@
 export interface UploadAudioPayload {
   patient_id: string;
-  recording_type: 'onboarding' | 'post_session' | 'note';
+  recording_type: 'onboarding' | 'post_session' | 'note' | 'clinical_return';
   duration_seconds?: number;
 }
 

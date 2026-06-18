@@ -16,7 +16,7 @@ export function getRegisterTitle(): string {
 }
 
 export function getClinicSectionTitle(plan: PlanId): string {
-  return isSoloPlan(plan) ? '1. Dados do consultório' : '1. Dados da clínica';
+  return isSoloPlan(plan) ? '1. Seus dados profissionais' : '1. Dados da clínica';
 }
 
 export function getSubmitLabel(plan: PlanId): string {

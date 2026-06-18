@@ -80,13 +80,17 @@ serve(async (req: Request) => {
     }
 
     // session_notes recentes (últimos 2 dias) para casar por paciente + data
-    const { data: notes } = await supabase
+    const { data: notes, error: notesError } = await supabase
       .from('session_notes')
       .select('id, patient_id, status, created_at')
       .eq('professional_id', professional.id)
       .is('deleted_at', null)
       .gte('created_at', `${brDay(new Date(Date.now() - 2 * 86400000))}T00:00:00-03:00`)
       .order('created_at', { ascending: false });
+
+    if (notesError) {
+      throw new AppError({ code: 'NOTES_FETCH_FAILED', message: notesError.message, statusCode: 500 });
+    }
 
     // Mapa: `${patient_id}|${YYYY-MM-DD}` -> { status, id }
     const noteMap = new Map<string, { status: string; id: string }>();

@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Production Optimizations
+-- UNITHERY — Production Optimizations
 -- Migration: 20260608170000_production_optimizations.sql
 -- Description: Index tuning, statement timeouts, monitoring views
 -- Agente: DBA (4) — Performance e Operação

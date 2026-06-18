@@ -1,5 +1,8 @@
 import { createServiceClient } from '../_shared/supabase.ts';
-import { QuotaExceededError, AppError } from '../_shared/errors.ts';
+import { assertCanAddPatient } from '../_shared/plan-quotas.ts';
+import { assertCanCreatePatientPaywall } from '../_shared/paywall.ts';
+import { anamnesisToDbRow } from '../_shared/patient-anamnesis-schema.ts';
+import { AppError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { CreatePatientPayload, CreatePatientResponse } from './types.ts';
 
@@ -10,7 +13,6 @@ export async function createPatient(
 ): Promise<CreatePatientResponse> {
   const supabase = createServiceClient();
 
-  // 1. Get professional record for current user
   const { data: professional } = await supabase
     .from('professionals')
     .select('id, clinic_id')
@@ -24,44 +26,46 @@ export async function createPatient(
 
   const clinicId = professional.clinic_id;
 
-  // 2. Check patient quota
-  const { data: settings } = await supabase
-    .from('clinic_settings')
-    .select('max_patients_per_professional')
-    .eq('clinic_id', clinicId)
-    .single();
+  await assertCanCreatePatientPaywall(clinicId, professional.id);
+  await assertCanAddPatient(clinicId, professional.id);
 
-  // Check if professional has an override
-  const { data: profData } = await supabase
-    .from('professionals')
-    .select('max_patients_override')
-    .eq('id', professional.id)
-    .single();
+  const cpf = payload.cpf;
 
-  const maxPatients = profData?.max_patients_override ?? settings?.max_patients_per_professional ?? 30;
-
-  const { count: currentPatients } = await supabase
+  const { data: existingByCpf } = await supabase
     .from('patients')
-    .select('id', { count: 'exact', head: true })
+    .select('id, status_vinculo')
     .eq('professional_id', professional.id)
-    .is('deleted_at', null);
+    .eq('cpf', cpf)
+    .is('deleted_at', null)
+    .maybeSingle();
 
-  if ((currentPatients ?? 0) >= maxPatients) {
-    throw new QuotaExceededError('pacientes');
+  if (existingByCpf) {
+    throw new AppError({
+      code: 'CPF_ALREADY_REGISTERED',
+      message:
+        existingByCpf.status_vinculo === 'desvinculado'
+          ? 'CPF já cadastrado no seu histórico de backup. Use Reativar Vínculo.'
+          : 'CPF já vinculado a um paciente ativo na sua carteira.',
+      statusCode: 409,
+    });
   }
 
-  // 3. Create patient
+  const anamnesis = anamnesisToDbRow(payload);
+
   const { data: patient, error } = await supabase
     .from('patients')
     .insert({
       clinic_id: clinicId,
       professional_id: professional.id,
+      cpf,
       name: payload.name,
       birth_date: payload.birth_date,
       gender: payload.gender ?? 'not_informed',
       diagnoses: payload.diagnoses,
       clinical_observations: payload.clinical_observations ?? null,
+      ...anamnesis,
       status: 'active',
+      status_vinculo: 'ativo',
       created_by: caller.id,
     })
     .select('id')
@@ -75,14 +79,13 @@ export async function createPatient(
     });
   }
 
-  // 4. Audit log
   await supabase.from('audit_logs').insert({
     user_id: caller.id,
     clinic_id: clinicId,
     action: 'patient.create',
     resource_type: 'patient',
     resource_id: patient.id,
-    metadata: { diagnoses: payload.diagnoses },
+    metadata: { diagnoses: payload.diagnoses, anamnesis_complete: Boolean(payload.queixa_principal) },
   });
 
   return {

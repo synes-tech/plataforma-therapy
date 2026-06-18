@@ -1,8 +1,11 @@
 import { useRef, useEffect } from 'react';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import type { AccountType } from '@features/register/account-type';
+import type { PlanId } from '@features/register/constants';
+import { isSoloPlan } from '@features/register/constants';
 
 interface Plan {
-  id: 'consultorio' | 'starter' | 'professional' | 'enterprise';
+  id: PlanId;
   name: string;
   description: string;
   highlight: string;
@@ -68,7 +71,16 @@ const PLANS: Plan[] = [
 ];
 
 interface PlanSelectorProps {
+  accountType: AccountType;
   onSelect: (planId: Plan['id']) => void;
+  onBack?: () => void;
+}
+
+function plansForAccountType(accountType: AccountType): Plan[] {
+  if (accountType === 'solo') {
+    return PLANS.filter((p) => isSoloPlan(p.id));
+  }
+  return PLANS.filter((p) => !isSoloPlan(p.id));
 }
 
 function CheckIcon() {
@@ -87,20 +99,22 @@ function CheckIcon() {
   );
 }
 
-export function PlanSelector({ onSelect }: PlanSelectorProps) {
+export function PlanSelector({ accountType, onSelect, onBack }: PlanSelectorProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const visiblePlans = plansForAccountType(accountType);
+  const recommendedIndex = visiblePlans.findIndex((p) => p.recommended);
+  const scrollIndex = recommendedIndex >= 0 ? recommendedIndex : 0;
 
-  // No mobile, inicia no plano recomendado (index 2 = Clínica Pro)
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el) return;
+    if (!el || visiblePlans.length === 0) return;
 
     const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      const cardWidth = el.scrollWidth / PLANS.length;
-      el.scrollLeft = cardWidth * 2 - (window.innerWidth - cardWidth * 0.85) / 2;
+    if (isMobile && visiblePlans.length > 1) {
+      const cardWidth = el.scrollWidth / visiblePlans.length;
+      el.scrollLeft = cardWidth * scrollIndex - (window.innerWidth - cardWidth * 0.85) / 2;
     }
-  }, []);
+  }, [visiblePlans.length, scrollIndex]);
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden">
@@ -119,17 +133,36 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
       <section className="relative z-10 hidden flex-1 flex-col items-center justify-center px-6 md:flex">
         <img
           src={BRAND_LOGO_SRC}
-          alt="Therapy.AI"
+          alt="Unithery"
           className="mb-4 h-10 w-auto"
         />
         <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal">
-          Escolha seu plano
+          {accountType === 'solo' ? 'Plano do consultório' : 'Plano da clínica'}
         </h1>
         <p className="mt-1 text-sm text-charcoal-muted">
-          O cuidado humano, escalado para a sua realidade clínica.
+          {accountType === 'solo'
+            ? 'Para profissionais que atendem de forma independente.'
+            : 'Para equipes com múltiplos terapeutas e gestão centralizada.'}
         </p>
-        <div className="mt-24 grid w-full max-w-5xl grid-cols-4 gap-4">
-          {PLANS.map((plan) => (
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mt-3 text-xs font-medium text-charcoal-muted underline underline-offset-2 hover:text-charcoal"
+          >
+            ← Voltar ao tipo de conta
+          </button>
+        )}
+        <div
+          className={`mt-24 grid w-full max-w-5xl gap-4 ${
+            visiblePlans.length === 1
+              ? 'max-w-sm grid-cols-1'
+              : visiblePlans.length === 3
+                ? 'grid-cols-3'
+                : 'grid-cols-4'
+          }`}
+        >
+          {visiblePlans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} onSelect={onSelect} />
           ))}
         </div>
@@ -152,15 +185,26 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
         {/* Logo + título */}
         <img
           src={BRAND_LOGO_SRC}
-          alt="Therapy.AI"
+          alt="Unithery"
           className="mb-2 h-8 w-auto"
         />
         <h1 className="font-serif text-xl font-medium tracking-tight text-charcoal">
-          Escolha seu plano
+          {accountType === 'solo' ? 'Plano do consultório' : 'Plano da clínica'}
         </h1>
         <p className="mt-1 mb-16 text-xs text-charcoal-muted">
-          O cuidado humano, escalado para a sua realidade clínica.
+          {accountType === 'solo'
+            ? 'Um plano pensado para quem atende sozinho(a).'
+            : 'Planos para equipes e gestão corporativa.'}
         </p>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-8 text-xs font-medium text-charcoal-muted underline underline-offset-2"
+          >
+            ← Voltar
+          </button>
+        )}
 
         {/* Carrossel */}
         <div
@@ -168,7 +212,7 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
           className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide"
           style={{ scrollBehavior: 'smooth' }}
         >
-          {PLANS.map((plan) => (
+          {visiblePlans.map((plan) => (
             <div
               key={plan.id}
               className="w-[78vw] flex-shrink-0 snap-center"
@@ -180,7 +224,7 @@ export function PlanSelector({ onSelect }: PlanSelectorProps) {
 
         {/* Dots de paginação */}
         <div className="mt-3 flex items-center justify-center gap-1.5">
-          {PLANS.map((plan) => (
+          {visiblePlans.map((plan) => (
             <span
               key={plan.id}
               className={`h-1.5 rounded-full transition-all ${

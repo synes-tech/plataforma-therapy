@@ -38,8 +38,9 @@ serve(async (req: Request) => {
 
       const { data: patients, error } = await supabase
         .from('patients')
-        .select('id, name, birth_date, diagnoses, status, created_at')
+        .select('id, name, birth_date, diagnoses, status, status_vinculo, created_at, foto_url')
         .eq('clinic_id', adminRecord.clinic_id)
+        .eq('status_vinculo', 'ativo')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
@@ -50,8 +51,9 @@ serve(async (req: Request) => {
     // Professional: list only their patients
     const { data: patients, error } = await supabase
       .from('patients')
-      .select('id, name, birth_date, diagnoses, status, created_at')
+      .select('id, name, birth_date, diagnoses, status, status_vinculo, created_at, foto_url')
       .eq('professional_id', professional.id)
+      .eq('status_vinculo', 'ativo')
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 

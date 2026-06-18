@@ -69,6 +69,7 @@ serve(async (req: Request) => {
       .from('patients')
       .select('id', { count: 'exact', head: true })
       .eq('clinic_id', clinicId)
+      .eq('status_vinculo', 'ativo')
       .is('deleted_at', null);
 
     const monthStart = new Date();

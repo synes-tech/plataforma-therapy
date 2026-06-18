@@ -7,6 +7,7 @@ import { isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { PaywallProvider } from '@containers/paywall';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -137,7 +138,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Faturas',
+    label: 'Plano e Faturas',
     href: '/billing',
     roles: ['master', 'clinic_admin', 'professional'],
     ownerOnly: true,
@@ -231,6 +232,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const displayRole = user ? roleLabels[user.role] ?? user.role : '';
 
   return (
+    <PaywallProvider>
     <div className="flex min-h-dvh bg-[#F8FAF9]">
       {/* Desktop Sidebar — altura fixa; fundo pastel do Login; só a navegação rola */}
       <aside className="relative sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-[#EDE4DC]/80 lg:flex">
@@ -239,7 +241,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="relative z-10 flex shrink-0 items-center justify-center px-6 py-5">
           <img
             src={BRAND_LOGO_SRC}
-            alt="Therapy.AI"
+            alt="Unithery"
             className="h-12 w-auto object-contain"
           />
         </div>
@@ -276,7 +278,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <SidebarWarmBackground />
 
         <div className="relative z-10 flex shrink-0 items-center justify-center px-5 py-4">
-          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-12 w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-12 w-auto object-contain" />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
@@ -316,7 +318,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-[2.625rem] w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-[2.625rem] w-auto object-contain" />
           <UserProfile
             name={displayName}
             role={displayRole}
@@ -328,5 +330,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
+    </PaywallProvider>
   );
 }

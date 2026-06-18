@@ -6,11 +6,14 @@ export default defineConfig({
     plugins: [
         react(),
         VitePWA({
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.ts',
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'favicon-16.png', 'favicon-32.png', 'robots.txt', 'apple-touch-icon.png'],
             manifest: {
-                name: 'Therapy.AI',
-                short_name: 'Therapy.AI',
+                name: 'Unithery',
+                short_name: 'Unithery',
                 description: 'Copiloto clínico com IA para terapeutas infantis',
                 theme_color: '#1A1A2E',
                 background_color: '#121212',

@@ -1,6 +1,7 @@
 export interface QueryCopilotPayload {
   patient_id: string;
   message: string;
+  stream?: boolean;
   conversation_history?: ConversationMessage[];
 }
 

@@ -4,11 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@shared/lib/supabase';
 import { AudioRecorder } from '@features/audio-recorder/AudioRecorder';
 import { SessionNoteReview } from '@features/audio-recorder/SessionNoteReview';
+import { SessionHistoryPanel } from './session/SessionHistoryPanel';
 
 export default function SessionContainer() {
   const { patientId } = useParams<{ patientId: string }>();
 
-  // Subscribe to ai_jobs Realtime to know when processing completes
   useEffect(() => {
     if (!patientId) return;
 
@@ -24,7 +24,6 @@ export default function SessionContainer() {
         },
         (payload) => {
           if (payload.new.status === 'completed') {
-            // Trigger refetch of session notes
             window.dispatchEvent(new CustomEvent('ai-job-complete', { detail: payload.new }));
           }
         },
@@ -36,7 +35,6 @@ export default function SessionContainer() {
     };
   }, [patientId]);
 
-  // Get patient name
   const { data: patient } = useQuery({
     queryKey: ['patient-detail', patientId],
     queryFn: async () => {
@@ -60,36 +58,42 @@ export default function SessionContainer() {
     );
   }
 
+  const patientName = patient?.name ?? 'Paciente';
+
   return (
     <div className="min-h-dvh bg-surface p-6 lg:p-8">
-      {/* Header */}
       <header className="mb-6">
-        <h1 className="text-xl font-semibold text-text">
-          Sessão — {patient?.name ?? 'Carregando...'}
+        <h1 className="font-display text-xl font-semibold text-charcoal">
+          Central de Sessão — {patientName}
         </h1>
-        {patient?.diagnoses && (
-          <p className="mt-1 text-xs text-text-muted">
+        {patient?.diagnoses && patient.diagnoses.length > 0 && (
+          <p className="mt-1 text-xs text-charcoal-muted">
             {patient.diagnoses.join(' • ')}
           </p>
         )}
+        <p className="mt-2 max-w-2xl text-sm text-charcoal-muted">
+          Grave o ditado pós-consulta, revise relatórios pendentes e consulte o histórico completo.
+        </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left: Audio Recorder */}
         <section>
           <AudioRecorder
             patientId={patientId}
             recordingType="post_session"
-            onComplete={(jobId) => {
-              console.log('Job initiated:', jobId);
+            onComplete={() => {
+              /* realtime + SessionHistoryPanel refetch */
             }}
           />
         </section>
 
-        {/* Right: Session Notes Review */}
         <section>
           <SessionNoteReview patientId={patientId} />
         </section>
+      </div>
+
+      <div className="mt-8 border-t border-slate-200/80 pt-8">
+        <SessionHistoryPanel patientId={patientId} patientName={patientName} />
       </div>
     </div>
   );

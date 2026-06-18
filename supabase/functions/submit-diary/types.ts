@@ -7,6 +7,8 @@ export interface SubmitDiaryPayload {
   crisis_level?: number;
   categories: string[];
   notes?: string;
+  audio_note_url?: string;
+  transcricao?: string;
 }
 
 export interface SubmitDiaryResponse {

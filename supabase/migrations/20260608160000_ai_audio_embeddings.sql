@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — AI Motor: Audio, Transcriptions, Notes & Embeddings
+-- UNITHERY — AI Motor: Audio, Transcriptions, Notes & Embeddings
 -- Migration: 20260608160000_ai_audio_embeddings.sql
 -- Description: Tables for audio pipeline, SOAP notes, and pgvector embeddings
 -- ============================================================

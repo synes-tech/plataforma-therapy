@@ -1,4 +1,4 @@
-# Therapy.AI — Tech Stack & Build System
+# Unithery — Tech Stack & Build System
 
 ## Stack
 

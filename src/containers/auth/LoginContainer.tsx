@@ -159,7 +159,7 @@ export default function LoginContainer() {
           <div className="mb-10 w-full text-center lg:hidden">
             <img
               src={BRAND_LOGO_SRC}
-              alt="Therapy.AI"
+              alt="Unithery"
               className="mx-auto h-16 w-auto"
             />
           </div>
@@ -168,7 +168,7 @@ export default function LoginContainer() {
           <div className="mb-10 hidden w-full lg:block">
             <img
               src={BRAND_LOGO_SRC}
-              alt="Therapy.AI"
+              alt="Unithery"
               className="h-10 w-auto"
             />
           </div>
@@ -314,7 +314,7 @@ export default function LoginContainer() {
         {/* Footer absoluto — apenas mobile */}
         <div className="pb-6 pt-8 text-center lg:hidden">
           <p className="text-xs text-charcoal-muted/40">
-            © 2024 Therapy.AI · Privacidade · Termos
+            © 2026 Unithery · Privacidade · Termos
           </p>
         </div>
       </main>

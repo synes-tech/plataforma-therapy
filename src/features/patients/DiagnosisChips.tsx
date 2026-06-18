@@ -23,7 +23,7 @@ function chipClass(label: string): string {
 function Chip({ label }: { label: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${chipClass(label)}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${chipClass(label)}`}
     >
       {label}
     </span>
@@ -50,7 +50,7 @@ export function DiagnosisChips({ diagnoses, max, className = '' }: DiagnosisChip
         <Chip key={d} label={d} />
       ))}
       {hidden > 0 && (
-        <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-charcoal-muted">
+        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-charcoal-muted">
           +{hidden}
         </span>
       )}

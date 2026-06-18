@@ -1,4 +1,4 @@
-# Therapy.AI — Identidade Visual & Design System
+# Unithery — Identidade Visual & Design System
 
 > Documento canônico da identidade visual implementada na plataforma.
 > Substitui a referência histórica "dark High-Tech Minimal" do `agente-frontend.md`:

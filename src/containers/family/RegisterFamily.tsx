@@ -162,14 +162,14 @@ export default function RegisterFamily() {
             <div className="mb-4 shrink-0 text-center sm:mb-6 lg:hidden [@media(max-height:640px)]:mb-3">
               <img
                 src={BRAND_LOGO_SRC}
-                alt="Therapy.AI"
+                alt="Unithery"
                 className="mx-auto h-12 w-auto sm:h-14 [@media(max-height:640px)]:h-10"
               />
             </div>
 
             {/* Logo desktop */}
             <div className="mb-6 hidden shrink-0 lg:block [@media(max-height:800px)]:mb-4">
-              <img src={BRAND_LOGO_SRC} alt="Therapy.AI" className="h-9 w-auto [@media(max-height:800px)]:h-8" />
+              <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-9 w-auto [@media(max-height:800px)]:h-8" />
             </div>
 
             {/* Título */}

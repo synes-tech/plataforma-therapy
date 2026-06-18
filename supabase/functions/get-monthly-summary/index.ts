@@ -8,16 +8,79 @@ import { AppError, ValidationError } from '../_shared/errors.ts';
 /**
  * get-monthly-summary
  *
- * Payload leve para os "spoilers" do grid mensal: contagem agregada de sessões
- * por dia (fuso BR) do terapeuta autenticado. Não retorna dados de pacientes.
+ * Contagem agregada de sessões por dia (fuso BR) do terapeuta.
+ * Aceita year+month (visão mensal) ou start_date+end_date (semana/lista).
  */
 
 const BR_TZ = 'America/Sao_Paulo';
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function brDay(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: BR_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: BR_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).format(d);
+}
+
+function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y!, (m ?? 1) - 1, d);
+  date.setDate(date.getDate() + days);
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function resolveWindow(body: Record<string, unknown>): {
+  rangeStart: string;
+  rangeEndExclusive: string;
+  year?: number;
+  month?: number;
+  start_date?: string;
+  end_date?: string;
+} {
+  const startDate = typeof body.start_date === 'string' ? body.start_date : '';
+  const endDate = typeof body.end_date === 'string' ? body.end_date : '';
+
+  if (startDate || endDate) {
+    if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
+      throw new ValidationError({
+        start_date: 'Informe start_date e end_date no formato YYYY-MM-DD.',
+      });
+    }
+    if (startDate > endDate) {
+      throw new ValidationError({
+        end_date: 'end_date deve ser igual ou posterior a start_date.',
+      });
+    }
+
+    return {
+      rangeStart: `${startDate}T00:00:00-03:00`,
+      rangeEndExclusive: `${addDaysISO(endDate, 1)}T00:00:00-03:00`,
+      start_date: startDate,
+      end_date: endDate,
+    };
+  }
+
+  const year = Number(body.year);
+  const month = Number(body.month);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    throw new ValidationError({ month: 'Informe year (ex: 2026) e month (1-12), ou start_date/end_date.' });
+  }
+
+  const mm = String(month).padStart(2, '0');
+  const firstDay = `${year}-${mm}-01`;
+  const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+  return {
+    rangeStart: `${firstDay}T00:00:00-03:00`,
+    rangeEndExclusive: `${nextMonth}T00:00:00-03:00`,
+    year,
+    month,
+  };
 }
 
 serve(async (req: Request) => {
@@ -29,11 +92,7 @@ serve(async (req: Request) => {
     requireRole(user, ['professional']);
 
     const body = await req.json().catch(() => ({}));
-    const year = Number(body.year);
-    const month = Number(body.month); // 1-12
-    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
-      throw new ValidationError({ month: 'Informe year (ex: 2026) e month (1-12).' });
-    }
+    const window = resolveWindow(body as Record<string, unknown>);
 
     const supabase = createServiceClient();
 
@@ -48,19 +107,13 @@ serve(async (req: Request) => {
       throw new AppError({ code: 'NO_ACCESS', message: 'Profissional não encontrado', statusCode: 403 });
     }
 
-    // Janela do mês no fuso BR (com folga de 1 dia em cada ponta para cobrir bordas de fuso)
-    const mm = String(month).padStart(2, '0');
-    const firstDay = `${year}-${mm}-01T00:00:00-03:00`;
-    const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
-    const monthEnd = `${nextMonth}T00:00:00-03:00`;
-
     const { data: rows, error } = await supabase
       .from('therapist_schedule')
       .select('scheduled_at, status')
       .eq('professional_id', professional.id)
       .is('deleted_at', null)
-      .gte('scheduled_at', firstDay)
-      .lt('scheduled_at', monthEnd);
+      .gte('scheduled_at', window.rangeStart)
+      .lt('scheduled_at', window.rangeEndExclusive);
 
     if (error) {
       throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });
@@ -76,7 +129,17 @@ serve(async (req: Request) => {
       .map(([date, total_sessions]) => ({ date, total_sessions }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    return successResponse({ year, month, days }, req, 200);
+    return successResponse(
+      {
+        year: window.year,
+        month: window.month,
+        start_date: window.start_date,
+        end_date: window.end_date,
+        days,
+      },
+      req,
+      200,
+    );
   } catch (error) {
     return errorResponse(error, req);
   }

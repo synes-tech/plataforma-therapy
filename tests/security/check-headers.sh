@@ -9,7 +9,7 @@
 URL=${1:-"http://localhost:5173"}
 ERRORS=0
 
-echo "🔒 Therapy.AI — Security Headers Check"
+echo "🔒 Unithery — Security Headers Check"
 echo "Target: $URL"
 echo "=========================================="
 

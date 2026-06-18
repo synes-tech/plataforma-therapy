@@ -19,7 +19,7 @@ const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
 };
 
 /**
- * StandardModal — componente universal de modal da plataforma Therapy.AI.
+ * StandardModal — componente universal de modal da plataforma Unithery.
  *
  * Padrão arquitetural ÚNICO para formulários de criação/edição e confirmações:
  * - Desktop: diálogo centralizado com glassmorphism no backdrop.

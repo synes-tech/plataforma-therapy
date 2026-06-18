@@ -223,6 +223,126 @@ async function generateContent(
 }
 
 // ============================================================
+// Streaming chat (streamGenerateContent SSE)
+// ============================================================
+export interface VertexStreamChunk {
+  text: string;
+  done: boolean;
+  tokens?: number;
+  truncated?: boolean;
+  finishReason?: string;
+}
+
+async function* readVertexSseStream(
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<Record<string, unknown>> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':')) continue;
+        const payload = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          yield JSON.parse(payload) as Record<string, unknown>;
+        } catch {
+          // ignora fragmentos incompletos
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function extractTextFromVertexChunk(json: Record<string, unknown>): string {
+  const candidate = (json.candidates as Record<string, unknown>[] | undefined)?.[0];
+  const parts = (candidate?.content as { parts?: { text?: string; thought?: boolean }[] } | undefined)?.parts ?? [];
+  return parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? '')
+    .join('');
+}
+
+export async function* vertexChatStream(
+  messages: ChatMessage[],
+  opts: GenerateOptions = {},
+): AsyncGenerator<VertexStreamChunk> {
+  const model = opts.model ?? CHAT_MODEL;
+  const token = await getAccessToken();
+
+  const contents = messages.map((m) => ({
+    role: (m.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+    parts: [{ text: m.content }] as Part[],
+  }));
+
+  // deno-lint-ignore no-explicit-any
+  const generationConfig: Record<string, any> = {
+    temperature: opts.temperature ?? 0.3,
+    maxOutputTokens: opts.maxOutputTokens ?? 4096,
+  };
+
+  if (isThinkingModel(model)) {
+    generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget ?? 1024 };
+  }
+
+  // deno-lint-ignore no-explicit-any
+  const body: Record<string, any> = { contents, generationConfig };
+  if (opts.system) {
+    body.systemInstruction = { parts: [{ text: opts.system }] };
+  }
+
+  const res = await fetch(`${VERTEX_BASE}/${model}:streamGenerateContent?alt=sse`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`Vertex streamGenerateContent ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  }
+
+  let totalTokens = 0;
+  let finishReason: string | undefined;
+  let truncated = false;
+
+  for await (const json of readVertexSseStream(res.body)) {
+    const text = extractTextFromVertexChunk(json);
+    const usage = json.usageMetadata as { totalTokenCount?: number } | undefined;
+    if (usage?.totalTokenCount) totalTokens = usage.totalTokenCount;
+
+    const candidate = (json.candidates as Record<string, unknown>[] | undefined)?.[0];
+    if (candidate?.finishReason) {
+      finishReason = candidate.finishReason as string;
+      truncated = finishReason === 'MAX_TOKENS';
+    }
+
+    if (text) {
+      yield { text, done: false };
+    }
+  }
+
+  yield {
+    text: '',
+    done: true,
+    tokens: totalTokens,
+    truncated,
+    finishReason,
+  };
+}
+
+// ============================================================
 // Chat (conversational)
 // ============================================================
 export async function vertexChat(

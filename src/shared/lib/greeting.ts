@@ -1,3 +1,10 @@
+export function getGreetingEmoji(date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 12) return '☀️';
+  if (hour < 18) return '🌤️';
+  return '🌙';
+}
+
 export function getTimeGreeting(date = new Date()): string {
   const hour = date.getHours();
   if (hour < 12) return 'Bom dia';

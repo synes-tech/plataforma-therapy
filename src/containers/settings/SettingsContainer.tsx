@@ -242,7 +242,7 @@ export default function SettingsContainer() {
                 {planLabel(data?.clinic.subscription_plan ?? '', isSolo)}
               </p>
             </div>
-            <a href="/billing" className="text-xs font-medium text-primary hover:text-primary-dark">
+            <a href="/billing/invoices" className="text-xs font-medium text-primary hover:text-primary-dark">
               Ver faturas →
             </a>
           </div>

@@ -1,19 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlanSelector } from '@features/plans/PlanSelector';
+import type { AccountType } from '@features/register/account-type';
+import { useAuthStore } from '@shared/lib/auth-store';
 import {
-  type PlanId,
-  isSoloPlan,
-} from '@features/register/constants';
-import {
-  RegisterFormView,
-  type RegisterFormData,
-} from '@features/register/RegisterFormView';
-import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+  RegisterOnboardingView,
+  type RegisterOnboardingFormData,
+} from './RegisterOnboardingView';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
-const INITIAL_FORM: RegisterFormData = {
+const INITIAL_FORM: RegisterOnboardingFormData = {
   clinic_name: '',
   clinic_email: '',
   clinic_phone: '',
@@ -24,8 +20,8 @@ const INITIAL_FORM: RegisterFormData = {
   specialty: '',
 };
 
-function validateStep1(form: RegisterFormData): string | null {
-  if (!form.clinic_name.trim()) return 'Informe o nome do consultório ou clínica.';
+function validateStep1(form: RegisterOnboardingFormData, isSolo: boolean): string | null {
+  if (!isSolo && !form.clinic_name.trim()) return 'Informe o nome da clínica.';
   if (!form.clinic_email.trim()) return 'Informe o e-mail de contato.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clinic_email)) {
     return 'Informe um e-mail de contato válido.';
@@ -35,27 +31,21 @@ function validateStep1(form: RegisterFormData): string | null {
 
 export default function RegisterClinicContainer() {
   const navigate = useNavigate();
-  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
+  const login = useAuthStore((s) => s.login);
+  const [accountType, setAccountType] = useState<AccountType>('solo');
   const [mobileStep, setMobileStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState<RegisterFormData>(INITIAL_FORM);
+  const [form, setForm] = useState<RegisterOnboardingFormData>(INITIAL_FORM);
 
-  const isSolo = selectedPlan ? isSoloPlan(selectedPlan) : false;
+  const isSolo = accountType === 'solo';
 
-  function updateField(field: keyof RegisterFormData, value: string) {
+  function updateField(field: keyof RegisterOnboardingFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleBackToPlans() {
-    setSelectedPlan(null);
-    setMobileStep(1);
-    setError(null);
-  }
-
   function handleMobileNext() {
-    const stepError = validateStep1(form);
+    const stepError = validateStep1(form, isSolo);
     if (stepError) {
       setError(stepError);
       return;
@@ -73,14 +63,28 @@ export default function RegisterClinicContainer() {
     e.preventDefault();
     setError(null);
 
-    const stepError = validateStep1(form);
+    const stepError = validateStep1(form, isSolo);
     if (stepError) {
       setMobileStep(1);
       setError(stepError);
       return;
     }
 
-    if (!selectedPlan) return;
+    if (!form.admin_name.trim()) {
+      setError('Informe seu nome completo.');
+      setMobileStep(2);
+      return;
+    }
+    if (!form.admin_email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.admin_email)) {
+      setError('Informe um e-mail de login válido.');
+      setMobileStep(2);
+      return;
+    }
+    if (form.admin_password.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres.');
+      setMobileStep(2);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -89,9 +93,15 @@ export default function RegisterClinicContainer() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          plan: selectedPlan,
-          specialty: isSolo ? form.specialty : undefined,
+          account_type: accountType,
+          clinic_name: isSolo ? undefined : form.clinic_name.trim(),
+          clinic_email: form.clinic_email.trim(),
+          clinic_phone: form.clinic_phone.trim() || undefined,
+          clinic_document: isSolo ? undefined : form.clinic_document.trim() || undefined,
+          admin_name: form.admin_name.trim(),
+          admin_email: form.admin_email.trim(),
+          admin_password: form.admin_password,
+          specialty: isSolo ? form.specialty.trim() || undefined : undefined,
         }),
       });
 
@@ -102,61 +112,25 @@ export default function RegisterClinicContainer() {
         return;
       }
 
-      setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
-    } catch {
-      setError('Erro de conexão. Tente novamente.');
+      await login(form.admin_email.trim(), form.admin_password);
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro de conexão. Tente novamente.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  if (!selectedPlan) {
-    return <PlanSelector onSelect={(plan) => setSelectedPlan(plan)} />;
-  }
-
-  if (success) {
-    return (
-      <div className="relative flex min-h-dvh flex-col items-center justify-center px-4">
-        <div className="absolute inset-0">
-          <div className="h-1/2 bg-white" />
-          <div
-            className="h-1/2"
-            style={{
-              background:
-                'linear-gradient(145deg, #FDF8F4 0%, #F5EDE8 30%, #EDE4DC 60%, #F8F0EB 100%)',
-            }}
-          />
-        </div>
-        <img
-          src={BRAND_LOGO_SRC}
-          alt="Therapy.AI"
-          className="relative z-10 mb-8 h-10 w-auto"
-        />
-        <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-soft">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mint-50">
-            <svg className="h-7 w-7 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="font-serif text-xl font-medium text-charcoal">
-            {isSolo ? 'Consultório criado!' : 'Clínica registrada!'}
-          </h2>
-          <p className="mt-2 text-sm text-charcoal-muted">Redirecionando para o login...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <RegisterFormView
-      plan={selectedPlan}
+    <RegisterOnboardingView
+      accountType={accountType}
+      onAccountTypeChange={setAccountType}
       form={form}
       mobileStep={mobileStep}
       isSubmitting={isSubmitting}
       error={error}
       onFieldChange={updateField}
-      onBackToPlans={handleBackToPlans}
       onMobileNext={handleMobileNext}
       onMobileBack={handleMobileBack}
       onSubmit={handleSubmit}

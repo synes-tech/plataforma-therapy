@@ -10,6 +10,7 @@ const RegisterClinicContainer = lazy(() => import('@containers/auth/RegisterClin
 const InviteContainer = lazy(() => import('@containers/auth/InviteContainer'));
 const DashboardContainer = lazy(() => import('@containers/dashboard/DashboardContainer'));
 const PatientListContainer = lazy(() => import('@containers/patient/PatientListContainer'));
+const PatientRecordContainer = lazy(() => import('@containers/patient/PatientRecordContainer'));
 const ProfessionalsContainer = lazy(() => import('@containers/admin/ProfessionalsContainer'));
 const SessionContainer = lazy(() => import('@containers/patient/SessionContainer'));
 const IACopilot = lazy(() => import('@containers/copilot/IACopilot'));
@@ -17,6 +18,8 @@ const RegisterFamily = lazy(() => import('@containers/family/RegisterFamily'));
 const LinkInvite = lazy(() => import('@containers/family/LinkInvite'));
 const RoutineDiary = lazy(() => import('@containers/family/RoutineDiary'));
 const Agreements = lazy(() => import('@containers/family/Agreements'));
+const BillingHubContainer = lazy(() => import('@containers/billing/BillingHubContainer'));
+const PlanControlContainer = lazy(() => import('@containers/billing/PlanControlContainer'));
 const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
 const ReportsCentral = lazy(() => import('@containers/reports/ReportsCentral'));
@@ -62,10 +65,26 @@ export function AppRoutes() {
         }
       />
       <Route
+        path="/patients/archive"
+        element={
+          <ProtectedRoute allowedRoles={['professional', 'clinic_admin', 'master']}>
+            <WithLayout><PatientListContainer /></WithLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/patients"
         element={
           <ProtectedRoute allowedRoles={['professional', 'clinic_admin', 'master']}>
             <WithLayout><PatientListContainer /></WithLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/patients/:patientId"
+        element={
+          <ProtectedRoute allowedRoles={['professional', 'clinic_admin', 'master']}>
+            <WithLayout><PatientRecordContainer /></WithLayout>
           </ProtectedRoute>
         }
       />
@@ -148,10 +167,13 @@ export function AppRoutes() {
         path="/billing"
         element={
           <ProtectedRoute ownerOnly>
-            <WithLayout><BillingContainer /></WithLayout>
+            <WithLayout><BillingHubContainer /></WithLayout>
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<PlanControlContainer />} />
+        <Route path="invoices" element={<BillingContainer />} />
+      </Route>
       <Route
         path="/settings"
         element={

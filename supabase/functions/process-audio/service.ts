@@ -9,6 +9,7 @@ import type { ProcessAudioInput, SOAPNote, ProcessAudioResult } from './types.ts
 
 interface StructuredSession extends SOAPNote {
   transcription: string;
+  summary_markdown?: string;
 }
 
 const SOAP_SCHEMA = {
@@ -19,23 +20,36 @@ const SOAP_SCHEMA = {
     objective: { type: 'STRING' },
     assessment: { type: 'STRING' },
     plan: { type: 'STRING' },
+    summary_markdown: { type: 'STRING' },
   },
-  required: ['transcription', 'subjective', 'objective', 'assessment', 'plan'],
-  propertyOrdering: ['transcription', 'subjective', 'objective', 'assessment', 'plan'],
+  required: ['transcription', 'subjective', 'objective', 'assessment', 'plan', 'summary_markdown'],
+  propertyOrdering: ['transcription', 'subjective', 'objective', 'assessment', 'plan', 'summary_markdown'],
 };
 
 const SOAP_PROMPT = `Você é um assistente clínico especializado em terapia infantil (TEA e TDAH).
 Você recebeu o ÁUDIO de uma sessão ditada pelo terapeuta.
 
 Tarefas:
-1. Transcreva o áudio fielmente em português brasileiro (campo "transcription").
+1. Transcreva o áudio fielmente em português brasileiro (campo "transcription") — texto integral, sem resumir.
 2. Estruture o conteúdo no formato SOAP (Subjective, Objective, Assessment, Plan).
+3. Gere "summary_markdown": resumo clínico em Markdown limpo para exibição e exportação PDF.
+
+FORMATO do summary_markdown (use exatamente estes títulos ##):
+## Subjetivo
+(parágrafo)
+## Objetivo
+(parágrafo)
+## Avaliação
+(parágrafo)
+## Plano
+(parágrafo)
 
 REGRAS:
 - Extraia apenas informações presentes no áudio. NÃO invente dados.
-- Se uma seção não tiver dados suficientes, escreva "Não relatado nesta sessão.".
+- Se uma seção SOAP não tiver dados suficientes, escreva "Não relatado nesta sessão.".
+- O summary_markdown deve ser conciso (2–4 frases por seção), sem emojis, sem blocos de código.
 - Não sugira medicações, dosagens ou diagnósticos novos.
-- Tom profissional e objetivo; cada seção SOAP com 2 a 5 frases concisas.
+- Tom profissional e objetivo.
 
 Responda APENAS no JSON do schema fornecido.`;
 
@@ -103,11 +117,13 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
     );
 
     const transcription = structured.transcription ?? '';
+    const summaryMarkdown = structured.summary_markdown?.trim() || buildSummaryMarkdown(structured);
     const soap: SOAPNote = {
       subjective: structured.subjective,
       objective: structured.objective,
       assessment: structured.assessment,
       plan: structured.plan,
+      summary_markdown: summaryMarkdown,
     };
 
     // Save transcription
@@ -140,7 +156,7 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
         audio_recording_id: input.audio_recording_id,
         transcription_id: transcriptionRecord!.id,
         status: 'draft',
-        content: soap,
+        content: { ...soap, transcription },
         ai_generated: true,
         llm_model: model,
         llm_tokens_used: tokensUsed,
@@ -223,4 +239,20 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
 
     throw error;
   }
+}
+
+function buildSummaryMarkdown(soap: StructuredSession): string {
+  return [
+    '## Subjetivo',
+    soap.subjective || 'Não relatado nesta sessão.',
+    '',
+    '## Objetivo',
+    soap.objective || 'Não relatado nesta sessão.',
+    '',
+    '## Avaliação',
+    soap.assessment || 'Não relatado nesta sessão.',
+    '',
+    '## Plano',
+    soap.plan || 'Não relatado nesta sessão.',
+  ].join('\n');
 }

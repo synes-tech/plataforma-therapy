@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Authentication Flow', () => {
   test('should show login page with correct branding', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: 'Therapy.AI' })).toBeVisible();
+    await expect(page.getByAltText('Unithery')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Senha')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();

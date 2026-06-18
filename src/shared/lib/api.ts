@@ -10,7 +10,11 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   UNAUTHORIZED: 'Sessão expirada. Faça login novamente.',
   FORBIDDEN: 'Você não tem permissão para realizar esta ação.',
   NOT_FOUND: 'Recurso não encontrado.',
-  QUOTA_EXCEEDED: 'Limite do plano atingido. Entre em contato com o administrador.',
+  QUOTA_EXCEEDED: 'Limite do plano atingido. Faça upgrade para continuar.',
+  PAYMENT_REQUIRED: 'Desbloqueie o poder total da Unithery. Inicie seus 14 dias grátis agora.',
+  ALREADY_SUBSCRIBED: 'Assinatura já está ativa para este espaço.',
+  CHECKOUT_NOT_ALLOWED: 'Checkout não disponível para esta conta.',
+  PLAN_NOT_ALLOWED: 'Plano incompatível com seu perfil.',
   CONFLICT: 'Este registro já existe.',
   INVITE_NOT_FOUND: 'Código de convite inválido.',
   INVITE_CONSUMED: 'Este convite já foi utilizado.',
@@ -18,7 +22,11 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   FAMILY_QUOTA_EXCEEDED: 'Limite de familiares para este paciente já atingido.',
   DUPLICATE_ENTRY: 'Já existe um registro para esta data.',
   LLM_ERROR: 'O serviço de IA está indisponível. Tente novamente em instantes.',
+  NO_CLINICAL_DATA: 'Este paciente ainda não possui sessões ou registros clínicos suficientes para gerar um resumo.',
+  CONTEXT_FETCH_FAILED:
+    'Não foi possível montar o contexto clínico. Verifique se as migrações do banco foram aplicadas ou tente novamente.',
   VALIDATION_ERROR: 'Dados inválidos. Verifique os campos abaixo.',
+  REACTIVATION_COOLDOWN: 'Reativação temporariamente bloqueada por segurança.',
 };
 
 /**
@@ -122,9 +130,26 @@ export async function callFunction<T>(
       Authorization: `Bearer ${session.access_token}`,
     },
     body: method !== 'GET' ? JSON.stringify(payload) : undefined,
+  }).catch(() => {
+    throw new Error(
+      `Não foi possível conectar ao serviço "${functionName}". Verifique sua conexão ou se a função está publicada no Supabase.`,
+    );
   });
 
-  const data: ApiResponse<T> = await response.json();
+  let data: ApiResponse<T>;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      response.ok
+        ? `Resposta inválida do serviço "${functionName}".`
+        : `Erro ${response.status} no serviço "${functionName}". Verifique se a função está publicada e configurada.`,
+    );
+  }
+
+  if (!response.ok && data.success !== false) {
+    throw new Error(`Erro ${response.status} no serviço "${functionName}".`);
+  }
 
   if (!data.success) {
     const code = data.error?.code ?? 'UNKNOWN';
@@ -136,9 +161,143 @@ export async function callFunction<T>(
     }
 
     // Use translated message or fallback to backend message
-    const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
-    throw new Error(message);
+    const message =
+      (code === 'QUOTA_EXCEEDED' || code === 'REACTIVATION_COOLDOWN' || code === 'BACKUP_QUOTA_EXCEEDED') &&
+      data.error?.message
+        ? data.error.message
+        : ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
+    const err = new Error(message) as Error & { code?: string };
+    err.code = code;
+    throw err;
   }
 
   return data.data as T;
+}
+
+export interface CopilotStreamMeta {
+  answer: string;
+  sources: Array<{
+    content_preview: string;
+    document_type: string;
+    created_at: string;
+    similarity: number;
+  }>;
+  guardrail_triggered: boolean;
+  answer_incomplete?: boolean;
+  tokens_used: number;
+  latency_ms: number;
+}
+
+/**
+ * Chama Edge Function com resposta NDJSON em stream (copiloto).
+ * AbortSignal cancela o fetch e interrompe a leitura do stream.
+ */
+export async function callFunctionStream(
+  functionName: string,
+  payload: Record<string, unknown>,
+  handlers: {
+    onChunk: (text: string) => void;
+    onDone: (meta: CopilotStreamMeta) => void;
+    onError: (error: Error) => void;
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    handlers.onError(new Error('Sessão expirada. Faça login novamente.'));
+    return;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        Accept: 'application/x-ndjson',
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) return;
+    handlers.onError(err instanceof Error ? err : new Error('Falha na conexão com o copiloto.'));
+    return;
+  }
+
+  if (!response.ok) {
+    try {
+      const data = await response.json() as ApiResponse<unknown>;
+      const code = data.error?.code ?? 'UNKNOWN';
+      const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
+      const err = new Error(message) as Error & { code?: string };
+      err.code = code;
+      handlers.onError(err);
+    } catch {
+      handlers.onError(new Error(`Erro HTTP ${response.status}`));
+    }
+    return;
+  }
+
+  if (!response.body) {
+    handlers.onError(new Error('Resposta sem stream.'));
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (signal?.aborted) {
+        await reader.cancel();
+        return;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+
+        if (event.type === 'chunk' && typeof event.text === 'string') {
+          handlers.onChunk(event.text);
+        } else if (event.type === 'done') {
+          handlers.onDone({
+            answer: String(event.answer ?? ''),
+            sources: (event.sources as CopilotStreamMeta['sources']) ?? [],
+            guardrail_triggered: Boolean(event.guardrail_triggered),
+            answer_incomplete: event.answer_incomplete as boolean | undefined,
+            tokens_used: Number(event.tokens_used ?? 0),
+            latency_ms: Number(event.latency_ms ?? 0),
+          });
+        } else if (event.type === 'error') {
+          const code = String(event.code ?? 'LLM_ERROR');
+          const err = new Error(ERROR_TRANSLATIONS[code] ?? String(event.message ?? 'Erro no stream.')) as Error & { code?: string };
+          err.code = code;
+          handlers.onError(err);
+        }
+      }
+    }
+  } catch (err) {
+    if (!signal?.aborted) {
+      handlers.onError(err instanceof Error ? err : new Error('Stream interrompido.'));
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }

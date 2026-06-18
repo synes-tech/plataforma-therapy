@@ -1,9 +1,9 @@
 ---
-description: Orquestração dos agentes especialistas da plataforma Therapy.AI
+description: Orquestração dos agentes especialistas da plataforma Unithery
 alwaysApply: true
 ---
 
-# Therapy.AI — Agentes Especialistas
+# Unithery — Agentes Especialistas
 
 Antes de executar qualquer tarefa neste projeto, consulte e aplique os prompts dos agentes abaixo. Eles definem padrões, restrições e protocolos obrigatórios.
 

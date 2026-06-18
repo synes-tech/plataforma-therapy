@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Therapy.AI — Apply All Migrations to Remote
+# Unithery — Apply All Migrations to Remote
 # Usage: ./scripts/deploy-migrations.sh
 # ============================================================
 

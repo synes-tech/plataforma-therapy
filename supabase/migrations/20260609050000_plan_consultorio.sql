@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Add 'consultorio' plan type
+-- UNITHERY — Add 'consultorio' plan type
 -- Migration: 20260609050000_plan_consultorio.sql
 -- Description: New plan for solo professionals (no clinic admin layer)
 -- ============================================================

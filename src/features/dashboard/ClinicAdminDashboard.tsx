@@ -53,24 +53,40 @@ function ProfessionalRow({ professional }: { professional: DashboardProfessional
           <p className="truncate text-sm font-medium text-charcoal">{professional.name}</p>
           <p className="truncate text-xs text-charcoal-muted">{specialty}</p>
         </div>
-        <Link
-          to="/professionals"
-          className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary-dark"
-        >
-          Gerenciar
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            to="/patients"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary-dark"
+          >
+            Prontuários
+          </Link>
+          <Link
+            to="/professionals"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary-dark"
+          >
+            Gerenciar
+          </Link>
+        </div>
       </div>
 
       {/* Mobile card */}
       <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm md:hidden">
         <p className="text-sm font-medium text-charcoal">{professional.name}</p>
         <p className="mt-0.5 text-xs text-charcoal-muted">{specialty}</p>
-        <Link
-          to="/professionals"
-          className="mt-3 inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50"
-        >
-          Gerenciar acesso
-        </Link>
+        <div className="mt-3 flex gap-2">
+          <Link
+            to="/patients"
+            className="inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal"
+          >
+            Ver prontuários
+          </Link>
+          <Link
+            to="/professionals"
+            className="inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal"
+          >
+            Gerenciar
+          </Link>
+        </div>
       </div>
     </>
   );
@@ -148,6 +164,34 @@ export function ClinicAdminDashboard() {
             detail={isLoading ? undefined : 'gerados este mês'}
           />
         </div>
+      </section>
+
+      {/* Atalho prontuários da clínica */}
+      <section className="mt-8" aria-labelledby="clinic-records-title">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="clinic-records-title" className="font-display text-base font-semibold text-charcoal">
+            Prontuários da clínica
+          </h2>
+          <Link
+            to="/patients"
+            className="text-xs font-medium text-primary hover:text-primary-dark"
+          >
+            Ver todos ({isLoading ? '—' : data?.patients_count ?? 0})
+          </Link>
+        </div>
+        <p className="mt-1 text-xs text-charcoal-muted">
+          Acesso de leitura a todos os pacientes vinculados aos seus profissionais.
+        </p>
+        <Link
+          to="/patients"
+          className="mt-4 flex items-center justify-between rounded-xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm transition-colors hover:border-primary/30 hover:bg-primary-50/30"
+        >
+          <div>
+            <p className="text-sm font-medium text-charcoal">Explorar pacientes</p>
+            <p className="text-xs text-charcoal-muted">Abrir lista completa com atalho ao prontuário</p>
+          </div>
+          <span className="text-primary" aria-hidden>→</span>
+        </Link>
       </section>
 
       {/* Profissionais recentes */}

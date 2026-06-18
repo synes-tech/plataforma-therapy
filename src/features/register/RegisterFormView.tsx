@@ -8,6 +8,7 @@ import {
   isSoloPlan,
 } from './constants';
 import { RegisterInput } from './RegisterInput';
+import { PhoneInput } from './PhoneInput';
 import { RegisterProgressBar } from './RegisterProgressBar';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
@@ -48,18 +49,20 @@ function ClinicFields({
 
   return (
     <div className="space-y-3 md:space-y-3.5">
-      <RegisterInput
-        id="clinic_name"
-        label={solo ? 'Nome da clínica/consultório *' : 'Nome da clínica *'}
-        value={form.clinic_name}
-        onChange={(v) => onFieldChange('clinic_name', v)}
-        required
-        placeholder={solo ? 'Ex: Consultório Dra. Ana' : 'Ex: Clínica Evoluir'}
-        autoComplete="organization"
-      />
+      {!solo && (
+        <RegisterInput
+          id="clinic_name"
+          label="Nome da clínica *"
+          value={form.clinic_name}
+          onChange={(v) => onFieldChange('clinic_name', v)}
+          required
+          placeholder="Ex: Clínica Evoluir"
+          autoComplete="organization"
+        />
+      )}
       <RegisterInput
         id="clinic_email"
-        label="E-mail de contato *"
+        label={solo ? 'E-mail profissional *' : 'E-mail de contato *'}
         type="email"
         value={form.clinic_email}
         onChange={(v) => onFieldChange('clinic_email', v)}
@@ -67,7 +70,7 @@ function ClinicFields({
         placeholder="contato@exemplo.com"
         autoComplete="email"
       />
-      <RegisterInput
+      <PhoneInput
         id="clinic_phone"
         label="Telefone"
         value={form.clinic_phone}
@@ -194,7 +197,7 @@ export function RegisterFormView({
       <div className="relative z-10 flex shrink-0 justify-center pt-4 md:pt-3">
         <img
           src={BRAND_LOGO_SRC}
-          alt="Therapy.AI"
+          alt="Unithery"
           className="h-8 w-auto md:h-9"
         />
       </div>

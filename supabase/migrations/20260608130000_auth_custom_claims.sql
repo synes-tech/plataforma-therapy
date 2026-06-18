@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Auth Custom Claims
+-- UNITHERY — Auth Custom Claims
 -- Migration: 20260608130000_auth_custom_claims.sql
 -- Description: Inject role + clinic_id into JWT via Database Hook
 -- ============================================================

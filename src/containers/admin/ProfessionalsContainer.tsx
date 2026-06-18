@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { getInitials } from '@shared/lib/greeting';
 import { StandardModal } from '@shared/ui/StandardModal';
+import { UpgradePlanModal } from '@containers/billing/UpgradePlanModal';
 
 interface Professional {
   id: string;
@@ -33,6 +34,8 @@ export default function ProfessionalsContainer() {
   const [form, setForm] = useState({ name: '', email: '', password: '', specialty: '', crp: '' });
   const [editForm, setEditForm] = useState({ name: '', specialty: '', crp: '' });
   const [createError, setCreateError] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
 
   const { data: professionals, isLoading } = useQuery({
     queryKey: ['professionals'],
@@ -53,7 +56,16 @@ export default function ProfessionalsContainer() {
       setForm({ name: '', email: '', password: '', specialty: '', crp: '' });
       setCreateError(null);
     },
-    onError: (err: Error) => setCreateError(err.message),
+    onError: (err: Error & { code?: string }) => {
+      if (err.code === 'QUOTA_EXCEEDED') {
+        setUpgradeMessage(err.message);
+        setUpgradeOpen(true);
+        setCreateError(null);
+        setShowCreate(false);
+        return;
+      }
+      setCreateError(err.message);
+    },
   });
 
   const editMutation = useMutation({
@@ -233,6 +245,12 @@ export default function ProfessionalsContainer() {
           </div>
         </>
       )}
+
+      <UpgradePlanModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        message={upgradeMessage}
+      />
     </div>
   );
 }

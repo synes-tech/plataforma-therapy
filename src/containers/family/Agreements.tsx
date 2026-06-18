@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
+import { SessionBriefCards } from '@features/family-portal/SessionBriefCards';
 
 interface Agreement {
   id: string;
@@ -11,23 +12,40 @@ interface Agreement {
   created_at: string;
 }
 
+interface LatestAgreementsData {
+  patient_id: string;
+  patient_name: string;
+  last_session: {
+    date: string;
+    summary_for_family: string;
+    plan_highlight: string;
+  } | null;
+  attention_points: string[];
+  activity_suggestions: string[];
+  clinical_summary: string;
+  summary_updated_at: string | null;
+  agreements: Agreement[];
+}
+
 export default function Agreements() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['agreements'],
-    queryFn: () => callFunction<{ agreements: Agreement[] }>('list-agreements', {}),
+    queryKey: ['latest-agreements'],
+    queryFn: () => callFunction<LatestAgreementsData>('get-latest-agreements', {}),
+    staleTime: 2 * 60_000,
   });
 
   const toggle = useMutation({
     mutationFn: (vars: { id: string; done: boolean }) =>
       callFunction('toggle-agreement', { agreement_id: vars.id, done: vars.done }),
     onMutate: async (vars) => {
-      await queryClient.cancelQueries({ queryKey: ['agreements'] });
-      const prev = queryClient.getQueryData<{ agreements: Agreement[] }>(['agreements']);
-      queryClient.setQueryData<{ agreements: Agreement[] }>(['agreements'], (old) =>
+      await queryClient.cancelQueries({ queryKey: ['latest-agreements'] });
+      const prev = queryClient.getQueryData<LatestAgreementsData>(['latest-agreements']);
+      queryClient.setQueryData<LatestAgreementsData>(['latest-agreements'], (old) =>
         old
           ? {
+              ...old,
               agreements: old.agreements.map((a) =>
                 a.id === vars.id ? { ...a, status: vars.done ? 'done' : 'pending' } : a,
               ),
@@ -37,9 +55,9 @@ export default function Agreements() {
       return { prev };
     },
     onError: (_e, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['agreements'], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(['latest-agreements'], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['agreements'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['latest-agreements'] }),
   });
 
   const agreements = data?.agreements ?? [];
@@ -51,13 +69,14 @@ export default function Agreements() {
       <header className="mb-6 lg:mb-8">
         <h1 className="font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Combinados</h1>
         <p className="mt-1 text-sm text-charcoal-muted lg:text-base">
-          Orientações que o terapeuta combinou para praticar em casa.
+          Orientações do terapeuta e o que praticar em casa com {data?.patient_name?.split(' ')[0] ?? 'seu filho(a)'}.
         </p>
       </header>
 
       {isLoading && (
-        <div className="flex h-48 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="space-y-4">
+          <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
         </div>
       )}
 
@@ -67,16 +86,22 @@ export default function Agreements() {
         </div>
       )}
 
+      {data && !isLoading && (
+        <SessionBriefCards
+          patientName={data.patient_name}
+          lastSession={data.last_session}
+          clinicalSummary={data.clinical_summary}
+          attentionPoints={data.attention_points}
+          activitySuggestions={data.activity_suggestions}
+          summaryUpdatedAt={data.summary_updated_at}
+        />
+      )}
+
       {!isLoading && !error && agreements.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 py-16 text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-            <svg className="h-6 w-6 text-charcoal-muted/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <p className="text-sm text-charcoal-muted">Nenhum combinado por enquanto.</p>
+        <div className="mb-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 py-12 text-center">
+          <p className="text-sm text-charcoal-muted">Nenhum combinado na lista ainda.</p>
           <p className="mt-1 max-w-xs text-xs text-charcoal-muted/70">
-            Quando o terapeuta enviar uma orientação, ela aparecerá aqui.
+            Quando o terapeuta enviar tarefas para casa, elas aparecerão abaixo.
           </p>
         </div>
       )}

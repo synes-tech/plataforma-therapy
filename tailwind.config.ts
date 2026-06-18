@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // === THERAPY.AI — Visual Identity ===
+        // === UNITHERY — Visual Identity ===
 
         // Primary: Azul Tech vibrante (#1A86E2)
         primary: {

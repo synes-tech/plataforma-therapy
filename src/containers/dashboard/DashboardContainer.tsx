@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@shared/hooks/useAuth';
 import { ClinicAdminDashboard } from '@features/dashboard/ClinicAdminDashboard';
-import { ProfessionalDashboard } from '@features/dashboard/ProfessionalDashboard';
+import { ProfessionalDashboard } from './ProfessionalDashboard';
 
 export default function DashboardContainer() {
   const { user } = useAuth();

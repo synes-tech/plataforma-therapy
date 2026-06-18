@@ -1,4 +1,4 @@
-# Therapy.AI — API Reference
+# Unithery — API Reference
 
 ## Base URL
 ```

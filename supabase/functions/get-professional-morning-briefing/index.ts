@@ -27,10 +27,42 @@ function brToday(): string {
   }).format(new Date());
 }
 
+function brWeekday(date = new Date()): number {
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: BR_TZ, weekday: 'short' }).format(date);
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[wd.slice(0, 3)] ?? 0;
+}
+
+function brDateParts(date = new Date()): { y: number; m: number; d: number } {
+  const [y, m, d] = brToday().split('-').map(Number);
+  void date;
+  return { y, m, d };
+}
+
+function shiftBrDate(y: number, m: number, d: number, days: number): string {
+  const shifted = new Date(Date.UTC(y, m - 1, d + days, 15, 0, 0));
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BR_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(shifted);
+}
+
+function brWeekBounds(): { start: string; end: string } {
+  const { y, m, d } = brDateParts();
+  const weekday = brWeekday();
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  const start = shiftBrDate(y, m, d, mondayOffset);
+  const end = shiftBrDate(y, m, d, mondayOffset + 6);
+  return { start, end };
+}
+
 interface SchedulePatient {
   id: string;
   name: string;
   birth_date: string | null;
+  foto_url: string | null;
 }
 
 serve(async (req: Request) => {
@@ -58,8 +90,9 @@ serve(async (req: Request) => {
     // 2. Pacientes vinculados ao profissional (base do isolamento)
     const { data: patientsData } = await supabase
       .from('patients')
-      .select('id, name, birth_date')
+      .select('id, name, birth_date, foto_url')
       .eq('professional_id', professional.id)
+      .eq('status_vinculo', 'ativo')
       .is('deleted_at', null);
 
     const patients = (patientsData ?? []) as SchedulePatient[];
@@ -93,7 +126,7 @@ serve(async (req: Request) => {
         duration_minutes: s.duration_minutes,
         status: s.status,
         patient: patient
-          ? { id: patient.id, name: patient.name, birth_date: patient.birth_date }
+          ? { id: patient.id, name: patient.name, birth_date: patient.birth_date, foto_url: patient.foto_url ?? null }
           : null,
       };
     });
@@ -138,6 +171,19 @@ serve(async (req: Request) => {
       });
     }
 
+    const { start: weekStart, end: weekEnd } = brWeekBounds();
+    const { count: sessionsThisWeek, error: weekCountError } = await supabase
+      .from('therapist_schedule')
+      .select('id', { count: 'exact', head: true })
+      .eq('professional_id', professional.id)
+      .is('deleted_at', null)
+      .gte('scheduled_at', `${weekStart}T00:00:00-03:00`)
+      .lte('scheduled_at', `${weekEnd}T23:59:59-03:00`);
+
+    if (weekCountError) {
+      throw new AppError({ code: 'WEEK_SCHEDULE_COUNT_FAILED', message: weekCountError.message, statusCode: 500 });
+    }
+
     return successResponse(
       {
         professional: { id: professional.id, name: professional.name },
@@ -146,6 +192,8 @@ serve(async (req: Request) => {
         alerts,
         summary: {
           sessions_today: schedule.length,
+          sessions_this_week: sessionsThisWeek ?? 0,
+          active_patients_count: patients.length,
           alerts_count: alerts.length,
           crisis_count: alerts.filter((a) => a.type === 'crisis').length,
         },

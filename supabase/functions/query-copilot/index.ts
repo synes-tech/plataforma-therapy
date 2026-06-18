@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
 import { QueryCopilotSchema } from './schema.ts';
-import { queryCopilot } from './service.ts';
+import { queryCopilot, queryCopilotStream, streamResponse } from './service.ts';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
@@ -27,9 +27,17 @@ serve(async (req: Request) => {
       return errorResponse(new ValidationError(parseResult.error.flatten().fieldErrors), req);
     }
 
-    const result = await queryCopilot(parseResult.data, user);
+    const result = parseResult.data.stream
+      ? queryCopilotStream(parseResult.data, user)
+      : null;
 
-    return successResponse(result, req, 200);
+    if (result) {
+      return streamResponse(result, req);
+    }
+
+    const response = await queryCopilot(parseResult.data, user);
+
+    return successResponse(response, req, 200);
   } catch (error) {
     return errorResponse(error, req);
   }

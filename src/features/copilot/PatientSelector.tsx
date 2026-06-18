@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { getInitials } from '@shared/lib/greeting';
+import { PatientAvatar } from '@containers/patient/PatientAvatar';
 
 export interface CopilotPatient {
   id: string;
   name: string;
   birth_date?: string | null;
   diagnoses?: string[];
+  foto_url?: string | null;
 }
 
 interface PatientSelectorProps {
@@ -67,13 +68,12 @@ export function PatientSelector({ patients, selectedId, onSelect, isLoading, com
                         : 'border-l-transparent hover:bg-slate-50'
                     }`}
                   >
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                        isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-charcoal-muted'
-                      }`}
-                    >
-                      {getInitials(patient.name)}
-                    </span>
+                    <PatientAvatar
+                      name={patient.name}
+                      fotoUrl={patient.foto_url}
+                      size="sm"
+                      className={isActive ? 'ring-indigo-200' : ''}
+                    />
                     <span className="min-w-0">
                       <span className={`block truncate text-sm ${isActive ? 'font-medium text-indigo-900' : 'text-charcoal'}`}>
                         {patient.name}

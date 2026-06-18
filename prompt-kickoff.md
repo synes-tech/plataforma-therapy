@@ -1,4 +1,4 @@
-# PROMPT DE KICKOFF — THERAPY.AI
+# PROMPT DE KICKOFF — UNITHERY
 
 Cole este prompt para iniciar o desenvolvimento da plataforma:
 
@@ -6,7 +6,7 @@ Cole este prompt para iniciar o desenvolvimento da plataforma:
 
 ## COMANDO
 
-Você é o meu agente de desenvolvimento full-stack para a plataforma Therapy.AI. Os steerings já estão carregados com o contexto completo (product, tech stack, structure). Siga rigorosamente este plano:
+Você é o meu agente de desenvolvimento full-stack para a plataforma Unithery. Os steerings já estão carregados com o contexto completo (product, tech stack, structure). Siga rigorosamente este plano:
 
 ### FASE 0 — FUNDAÇÃO (Execute agora)
 

@@ -1,5 +1,6 @@
 import { createServiceClient } from '../_shared/supabase.ts';
-import { AppError, ConflictError, QuotaExceededError } from '../_shared/errors.ts';
+import { assertCanAddProfessional } from '../_shared/plan-quotas.ts';
+import { AppError, ConflictError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { RegisterProfessionalPayload, RegisterProfessionalResponse } from './types.ts';
 
@@ -18,26 +19,8 @@ export async function registerProfessional(
     });
   }
 
-  // 1. Check clinic quota
-  const { data: settings } = await supabase
-    .from('clinic_settings')
-    .select('max_professionals')
-    .eq('clinic_id', clinicId)
-    .single();
+  await assertCanAddProfessional(clinicId);
 
-  const maxProfessionals = settings?.max_professionals ?? 5;
-
-  const { count: currentCount } = await supabase
-    .from('professionals')
-    .select('id', { count: 'exact', head: true })
-    .eq('clinic_id', clinicId)
-    .is('deleted_at', null);
-
-  if ((currentCount ?? 0) >= maxProfessionals) {
-    throw new QuotaExceededError('professionals');
-  }
-
-  // 2. Check if email already in use
   const { data: existingProfessional } = await supabase
     .from('professionals')
     .select('id')
@@ -49,7 +32,6 @@ export async function registerProfessional(
     throw new ConflictError('A professional with this email already exists');
   }
 
-  // 3. Create auth user
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: payload.email,
     password: payload.password,
@@ -70,7 +52,6 @@ export async function registerProfessional(
 
   const userId = authData.user.id;
 
-  // 4. Create professional record
   const { data: professional, error: profError } = await supabase
     .from('professionals')
     .insert({
@@ -87,7 +68,6 @@ export async function registerProfessional(
     .single();
 
   if (profError || !professional) {
-    // Rollback auth user
     await supabase.auth.admin.deleteUser(userId);
     throw new AppError({
       code: 'PROFESSIONAL_CREATE_FAILED',
@@ -96,7 +76,6 @@ export async function registerProfessional(
     });
   }
 
-  // 5. Audit log
   await supabase.from('audit_logs').insert({
     user_id: caller.id,
     clinic_id: clinicId,

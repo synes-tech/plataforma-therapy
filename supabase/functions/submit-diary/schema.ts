@@ -9,4 +9,6 @@ export const SubmitDiarySchema = z.object({
   crisis_level: z.number().int().min(1).max(5).optional(),
   categories: z.array(z.string()).default([]),
   notes: z.string().max(1000).optional(),
+  audio_note_url: z.string().max(500).optional(),
+  transcricao: z.string().max(5000).optional(),
 });

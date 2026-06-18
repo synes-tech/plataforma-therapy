@@ -65,16 +65,7 @@ export default function BillingContainer() {
   const summary = data?.summary;
 
   return (
-    <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
-      <header className="mb-6 md:mb-8">
-        <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-          Faturas
-        </h1>
-        <p className="mt-1 text-sm text-charcoal-muted">
-          Histórico de cobranças e situação da sua assinatura.
-        </p>
-      </header>
-
+    <div>
       {error && (
         <div role="alert" className="mb-6 rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error">
           Não foi possível carregar suas faturas. Tente novamente.

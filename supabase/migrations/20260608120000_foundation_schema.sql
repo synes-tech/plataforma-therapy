@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Foundation Schema
+-- UNITHERY — Foundation Schema
 -- Migration: 20260608120000_foundation_schema.sql
 -- Description: Base tables for multi-tenant SaaS hierarchy
 -- ============================================================

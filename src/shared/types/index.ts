@@ -1,5 +1,5 @@
 // ============================================================
-// Therapy.AI — Shared Type Definitions
+// Unithery — Shared Type Definitions
 // ============================================================
 
 export type UserRole = 'master' | 'clinic_admin' | 'professional' | 'family';

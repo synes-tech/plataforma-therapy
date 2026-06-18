@@ -1,4 +1,4 @@
-# Therapy.AI — Product Overview
+# Unithery — Product Overview
 
 ## What It Is
 A SaaS digital ecosystem for pediatric therapy clinics (focus: ASD/ADHD) with two integrated fronts:

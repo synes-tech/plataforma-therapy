@@ -1,12 +1,28 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ConflictError } from '../_shared/errors.ts';
+import { applyPlanoToClinicSettings } from '../_shared/plan-quotas.ts';
+import { computeTrialEndsAt, defaultTrialPlanId } from '../_shared/trial.ts';
 import type { RegisterClinicPayload, RegisterClinicResponse } from './types.ts';
 
 export async function registerClinic(payload: RegisterClinicPayload): Promise<RegisterClinicResponse> {
   const supabase = createServiceClient();
-  const isSoloProfessional = payload.plan === 'consultorio';
+  const isSoloProfessional = payload.account_type === 'solo';
+  const trialEndsAt = computeTrialEndsAt();
+  const trialEndsIso = trialEndsAt.toISOString();
+  const planId = defaultTrialPlanId(payload.account_type);
 
-  // 1. Check if clinic email already exists
+  const clinicName = isSoloProfessional
+    ? `Consultório ${payload.admin_name}`.slice(0, 200)
+    : (payload.clinic_name ?? '').trim();
+
+  if (!isSoloProfessional && clinicName.length < 2) {
+    throw new AppError({
+      code: 'VALIDATION_ERROR',
+      message: 'Nome da clínica é obrigatório',
+      statusCode: 400,
+    });
+  }
+
   const { data: existingClinic } = await supabase
     .from('clinics')
     .select('id')
@@ -18,7 +34,6 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     throw new ConflictError('Já existe um espaço cadastrado com este email.');
   }
 
-  // 2. Create the auth user
   const userRole = isSoloProfessional ? 'professional' : 'clinic_admin';
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: payload.admin_email,
@@ -40,17 +55,19 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
 
   const userId = authData.user.id;
 
-  // 3. Create the clinic/consultório
   const { data: clinic, error: clinicError } = await supabase
     .from('clinics')
     .insert({
-      name: payload.clinic_name,
-      document: payload.clinic_document ?? null,
+      name: clinicName,
+      document: isSoloProfessional ? null : (payload.clinic_document ?? null),
       email: payload.clinic_email,
       phone: payload.clinic_phone ?? null,
       status: 'active',
-      subscription_plan: payload.plan ?? 'starter',
+      subscription_plan: planId,
+      subscription_status: 'trialing',
+      trial_ends_at: trialEndsIso,
       is_solo_professional: isSoloProfessional,
+      account_type: isSoloProfessional ? 'solo' : 'corporate',
       created_by: userId,
     })
     .select('id')
@@ -65,16 +82,18 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     });
   }
 
-  // 4. Create clinic_settings with plan-appropriate defaults
-  const settingsDefaults = isSoloProfessional
-    ? { clinic_id: clinic.id, max_professionals: 1, max_patients_per_professional: 50, max_ai_queries_per_month: 300, max_audio_minutes_per_month: 200 }
-    : { clinic_id: clinic.id };
+  await applyPlanoToClinicSettings(clinic.id, planId);
 
-  await supabase.from('clinic_settings').insert(settingsDefaults);
+  await supabase.from('clinic_subscriptions').insert({
+    clinic_id: clinic.id,
+    plan: planId,
+    status: 'trialing',
+    started_at: new Date().toISOString(),
+    ends_at: trialEndsIso,
+    metadata: { trial_days: 14, onboarding: 'phase1_plg' },
+  });
 
-  // 5. For CONSULTÓRIO plan: create both clinic_admin AND professional records (same user)
   if (isSoloProfessional) {
-    // Create professional record (the solo practitioner)
     const { error: profError } = await supabase
       .from('professionals')
       .insert({
@@ -93,13 +112,10 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
       throw new AppError({ code: 'PROFESSIONAL_CREATE_FAILED', message: profError.message, statusCode: 500 });
     }
 
-    // Update auth metadata with clinic_id (role stays 'professional')
     await supabase.auth.admin.updateUserById(userId, {
       app_metadata: { role: 'professional', clinic_id: clinic.id, is_solo: true },
     });
-
   } else {
-    // Standard clinic flow: create clinic_admin record
     const { error: adminError } = await supabase
       .from('clinic_admins')
       .insert({
@@ -116,27 +132,30 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
       throw new AppError({ code: 'ADMIN_LINK_FAILED', message: adminError.message, statusCode: 500 });
     }
 
-    // Update auth metadata
     await supabase.auth.admin.updateUserById(userId, {
       app_metadata: { role: 'clinic_admin', clinic_id: clinic.id },
     });
   }
 
-  // 6. Audit log
   await supabase.from('audit_logs').insert({
     user_id: userId,
     clinic_id: clinic.id,
     action: 'clinic.register',
     resource_type: 'clinic',
     resource_id: clinic.id,
-    metadata: { plan: payload.plan ?? 'starter', is_solo_professional: isSoloProfessional },
+    metadata: {
+      plan: planId,
+      is_solo_professional: isSoloProfessional,
+      subscription_status: 'trialing',
+      trial_ends_at: trialEndsIso,
+    },
   });
 
   return {
     clinic_id: clinic.id,
     admin_user_id: userId,
-    message: isSoloProfessional
-      ? 'Consultório criado com sucesso! Faça login para começar.'
-      : 'Clínica registrada com sucesso! Faça login para começar.',
+    message: 'Conta criada com sucesso! Bem-vindo ao Unithery.',
+    trial_ends_at: trialEndsIso,
+    subscription_status: 'trialing',
   };
 }

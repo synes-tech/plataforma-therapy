@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
+import { RoutineMonthCalendar } from '@features/family-portal/RoutineMonthCalendar';
+import { PushNotificationPrompt } from './PushNotificationPrompt';
+import { FamilyDiaryAudioRecorder } from './FamilyDiaryAudioRecorder';
 
 const MOODS = [
   { value: 1, emoji: '😢', label: 'Difícil' },
@@ -54,6 +57,8 @@ export default function RoutineDiary() {
   const [crisisLevel, setCrisisLevel] = useState(3);
   const [categories, setCategories] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [transcricao, setTranscricao] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const mutation = useMutation({
@@ -66,10 +71,13 @@ export default function RoutineDiary() {
         crisis_level: crisisOccurred ? crisisLevel : undefined,
         categories,
         notes: notes || undefined,
+        audio_note_url: audioUrl ?? undefined,
+        transcricao: transcricao ?? undefined,
       }),
     onSuccess: () => {
       setSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['family-calendar'] });
     },
   });
 
@@ -103,6 +111,8 @@ export default function RoutineDiary() {
     setCrisisLevel(3);
     setCategories([]);
     setNotes('');
+    setAudioUrl(null);
+    setTranscricao(null);
   }
 
   const today = new Intl.DateTimeFormat('pt-BR', {
@@ -135,6 +145,9 @@ export default function RoutineDiary() {
 
   return (
     <div className="animate-fade-in">
+      <PushNotificationPrompt />
+      <RoutineMonthCalendar />
+
       <header className="mb-6 lg:mb-8">
         <p className="text-xs font-medium uppercase tracking-wide text-primary">{today}</p>
         <h1 className="mt-1 font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Diário de Rotina</h1>
@@ -256,9 +269,26 @@ export default function RoutineDiary() {
           </div>
         </section>
 
+        <FamilyDiaryAudioRecorder
+          patientId={link.patient_id}
+          disabled={mutation.isPending}
+          onTranscription={({ transcricao: text, audioUrl: url }) => {
+            setTranscricao(text);
+            setAudioUrl(url);
+            setNotes(text.slice(0, 1000));
+          }}
+        />
+
         {/* Notes */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft lg:col-span-2">
-          <h4 className="mb-2 text-sm font-medium text-charcoal">Observações (opcional)</h4>
+          <h4 className="mb-2 text-sm font-medium text-charcoal">
+            Observações {transcricao ? '(revise a transcrição)' : '(opcional)'}
+          </h4>
+          {transcricao && (
+            <p className="mb-2 rounded-lg bg-mint/10 px-3 py-2 text-xs text-mint-dark">
+              Áudio transcrito com sucesso. Ajuste o texto se necessário antes de registrar.
+            </p>
+          )}
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

@@ -9,6 +9,7 @@ export interface SOAPNote {
   objective: string;
   assessment: string;
   plan: string;
+  summary_markdown?: string;
 }
 
 export interface TranscriptionResult {

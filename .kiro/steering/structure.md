@@ -1,9 +1,9 @@
-# Therapy.AI — Project Structure
+# Unithery — Project Structure
 
 ## Repository Layout (Target)
 
 ```
-therapy-ai/
+unithery/
 ├── supabase/
 │   ├── migrations/           # Versioned SQL migrations (YYYYMMDDHHMMSS_name.sql)
 │   ├── seed.sql              # Development seed data

@@ -2,7 +2,7 @@
 
 ## 1. VISÃO GERAL DO PRODUTO
 
-### 1.1 O que é a Therapy.AI
+### 1.1 O que é a Unithery
 Um ecossistema digital SaaS com duas frentes integradas (Terapeuta e Família/Paciente) conectado a um Agente de IA Seguro e Especializado. A IA aprende o perfil único de cada paciente e atua como um copiloto clínico, sugerindo atividades personalizadas, analisando o comportamento reportado e automatizando relatórios.
 
 ### 1.2 Problema que Resolve

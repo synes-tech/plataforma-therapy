@@ -1,5 +1,5 @@
 # RIPD — Relatório de Impacto à Proteção de Dados Pessoais
-## Therapy.AI — Plataforma de Copiloto Clínico com IA
+## Unithery — Plataforma de Copiloto Clínico com IA
 
 **Versão:** 1.0
 **Data:** Junho 2026
@@ -124,7 +124,7 @@ Para pacientes menores de idade, todos os consentimentos devem ser assinados pel
 ## 8. ENCARREGADO DE DADOS (DPO)
 
 **Nome:** [A definir]
-**Email:** dpo@therapy-ai.com.br
+**Email:** dpo@unithery.com.br
 **Canal de atendimento:** Formulário in-app (seção "Meus Dados")
 
 ---

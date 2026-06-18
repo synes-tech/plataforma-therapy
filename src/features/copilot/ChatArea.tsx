@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
-import { callFunction } from '@shared/lib/api';
+import { callFunctionStream, type CopilotStreamMeta } from '@shared/lib/api';
 
 export interface PlanItemInput {
   title: string;
@@ -12,6 +11,8 @@ interface ChatAreaProps {
   patientId: string;
   patientName: string;
   onSaveToPlan: (item: PlanItemInput) => void;
+  onBeforeSend?: () => boolean;
+  onPaymentRequired?: () => void;
 }
 
 interface SourceRef {
@@ -28,15 +29,7 @@ interface Message {
   sources?: SourceRef[];
   guardrail_triggered?: boolean;
   answer_incomplete?: boolean;
-}
-
-interface CopilotResponse {
-  answer: string;
-  sources: SourceRef[];
-  guardrail_triggered: boolean;
-  answer_incomplete?: boolean;
-  tokens_used: number;
-  latency_ms: number;
+  streaming?: boolean;
 }
 
 const QUICK_PROMPTS = [
@@ -60,58 +53,109 @@ function SparkIcon({ className = 'h-4 w-4' }: { className?: string }) {
   );
 }
 
-export function ChatArea({ patientId, patientName, onSaveToPlan }: ChatAreaProps) {
+export function ChatArea({ patientId, patientName, onSaveToPlan, onBeforeSend, onPaymentRequired }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const firstName = patientName.split(' ')[0] ?? patientName;
 
   // Reset conversation ao trocar de paciente (isolamento de contexto)
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setMessages([]);
     setInput('');
+    setIsStreaming(false);
   }, [patientId]);
+
+  // Aborta stream ao desmontar (ex: fechar copiloto)
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const mutation = useMutation({
-    mutationFn: async (userMessage: string) => {
-      const conversationHistory = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
-      return callFunction<CopilotResponse>('query-copilot', {
+  async function streamReply(userMessage: string, assistantId: string) {
+    const conversationHistory = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsStreaming(true);
+
+    await callFunctionStream(
+      'query-copilot',
+      {
         patient_id: patientId,
         message: userMessage,
         conversation_history: conversationHistory,
-      });
-    },
-    onSuccess: (data) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: data.answer,
-          sources: data.sources,
-          guardrail_triggered: data.guardrail_triggered,
-          answer_incomplete: data.answer_incomplete,
+        stream: true,
+      },
+      {
+        onChunk: (text) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + text } : m)),
+          );
         },
-      ]);
-    },
-    onError: (err: Error) => {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', content: `Erro ao processar: ${err.message}` },
-      ]);
-    },
-  });
+        onDone: (meta: CopilotStreamMeta) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: meta.answer,
+                    sources: meta.sources,
+                    guardrail_triggered: meta.guardrail_triggered,
+                    answer_incomplete: meta.answer_incomplete,
+                    streaming: false,
+                  }
+                : m,
+            ),
+          );
+          setIsStreaming(false);
+          abortRef.current = null;
+        },
+        onError: (err: Error & { code?: string }) => {
+          if (controller.signal.aborted) return;
+          if (err.code === 'PAYMENT_REQUIRED') {
+            onPaymentRequired?.();
+            setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+            setIsStreaming(false);
+            abortRef.current = null;
+            return;
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: `Erro ao processar: ${err.message}`, streaming: false }
+                : m,
+            ),
+          );
+          setIsStreaming(false);
+          abortRef.current = null;
+        },
+      },
+      controller.signal,
+    );
+  }
 
   function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || mutation.isPending) return;
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content: trimmed }]);
-    mutation.mutate(trimmed);
+    if (!trimmed || isStreaming) return;
+    if (onBeforeSend && !onBeforeSend()) return;
+
+    const assistantId = crypto.randomUUID();
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', content: trimmed },
+      { id: assistantId, role: 'assistant', content: '', streaming: true },
+    ]);
+    streamReply(trimmed, assistantId);
     setInput('');
     inputRef.current?.focus();
   }
@@ -163,16 +207,6 @@ export function ChatArea({ patientId, patientName, onSaveToPlan }: ChatAreaProps
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} onSaveToPlan={onSaveToPlan} />
             ))}
-            {mutation.isPending && (
-              <div className="flex items-center gap-2 text-sm text-indigo-500">
-                <span className="inline-flex gap-1">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400" style={{ animationDelay: '0ms' }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400" style={{ animationDelay: '150ms' }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400" style={{ animationDelay: '300ms' }} />
-                </span>
-                Analisando o contexto de {firstName}...
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -195,7 +229,7 @@ export function ChatArea({ patientId, patientName, onSaveToPlan }: ChatAreaProps
             />
             <button
               type="submit"
-              disabled={!input.trim() || mutation.isPending}
+              disabled={!input.trim() || isStreaming}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
               aria-label="Enviar mensagem"
             >
@@ -251,6 +285,9 @@ function MessageBubble({
           className="whitespace-pre-wrap text-sm text-charcoal"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.content, { ALLOWED_TAGS: [] }) }}
         />
+        {message.streaming && (
+          <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-indigo-500 align-middle" aria-hidden />
+        )}
 
         {message.sources && message.sources.length > 0 && (
           <div className="mt-3 border-t border-slate-100 pt-2">
@@ -279,7 +316,7 @@ function MessageBubble({
           </div>
         )}
 
-        {!message.guardrail_triggered && (
+        {!message.guardrail_triggered && !message.streaming && (
           <button
             onClick={handleSave}
             disabled={saved}

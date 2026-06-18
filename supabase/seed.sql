@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Development Seed Data
+-- UNITHERY — Development Seed Data
 -- Run with: supabase db reset (applies migrations + seed)
 -- ============================================================
 

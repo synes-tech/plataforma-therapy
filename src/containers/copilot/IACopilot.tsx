@@ -3,14 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
-import { getInitials } from '@shared/lib/greeting';
+import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import { ChatArea, type PlanItemInput } from '@features/copilot/ChatArea';
 import { PatientSelector, type CopilotPatient } from '@features/copilot/PatientSelector';
 import { PlanSidebar, type PlanItem } from '@features/copilot/PlanSidebar';
+import { usePaywall } from '@containers/paywall';
 
 export default function IACopilot() {
   const navigate = useNavigate();
   const { patientId } = useParams<{ patientId: string }>();
+  const { interceptAiFeature, handlePaymentRequired } = usePaywall();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [planSheetOpen, setPlanSheetOpen] = useState(false);
@@ -67,9 +69,7 @@ export default function IACopilot() {
           className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-charcoal hover:bg-slate-50"
         >
           {selected ? (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-semibold text-indigo-700">
-              {getInitials(selected.name)}
-            </span>
+            <PatientAvatar name={selected.name} fotoUrl={selected.foto_url} size="sm" />
           ) : null}
           <span className="truncate">{selected ? selected.name : 'Escolher paciente'}</span>
           <svg className="h-4 w-4 shrink-0 text-charcoal-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -130,6 +130,14 @@ export default function IACopilot() {
               patientId={selected.id}
               patientName={selected.name}
               onSaveToPlan={handleSaveToPlan}
+              onBeforeSend={() => {
+                let allowed = false;
+                interceptAiFeature(() => {
+                  allowed = true;
+                });
+                return allowed;
+              }}
+              onPaymentRequired={handlePaymentRequired}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">

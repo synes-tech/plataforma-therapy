@@ -57,7 +57,9 @@ export async function submitDiary(
       crisis_occurred: payload.crisis_occurred,
       crisis_level: payload.crisis_occurred ? payload.crisis_level : null,
       categories: payload.categories,
-      notes: payload.notes ?? null,
+      notes: payload.notes ?? payload.transcricao ?? null,
+      audio_note_url: payload.audio_note_url ?? null,
+      transcricao: payload.transcricao ?? null,
     })
     .select('id')
     .single();

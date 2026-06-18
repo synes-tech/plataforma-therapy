@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Billing & Clinic Preferences
+-- UNITHERY — Billing & Clinic Preferences
 -- Migration: 20260609060000_billing_and_preferences.sql
 -- Agentes: DBA (4) + Backend (2) + Segurança (6)
 -- Description: Tabelas de faturas (billing) e preferências da clínica

@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Patients & Invite System
+-- UNITHERY — Patients & Invite System
 -- Migration: 20260608140000_patients_and_invites.sql
 -- Description: Patients table, invite codes, and patient-family links
 -- ============================================================

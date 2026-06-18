@@ -1,5 +1,5 @@
 #!/bin/bash
-# Therapy.AI — Deploy de todas as Edge Functions (CORS global via _shared/cors.ts)
+# Unithery — Deploy de todas as Edge Functions (CORS global via _shared/cors.ts)
 # Uso: ./scripts/deploy-functions.sh
 # Pré-requisito: npx supabase login && npx supabase link --project-ref <ref>
 
@@ -28,10 +28,39 @@ FUNCTIONS=(
   "list-pending-evolutions"
   "get-daily-sessions"
   "get-monthly-summary"
+  "create-schedule"
   "reschedule-session"
   "list-agreements"
   "toggle-agreement"
   "create-agreement"
+  "get-patient-record"
+  "get-session-recommendations"
+  "generate-patient-summary"
+  "generate-proactive-summary"
+  "get-pdf-data"
+  "get-family-calendar-status"
+  "get-latest-agreements"
+  "process-family-audio"
+  "register-push-subscription"
+  "check-and-send-reminders"
+  "process-clinical-return"
+  "generate-report-summary"
+  "update-report"
+  "list-all-reports"
+  "verify-patient-cpf"
+  "reactivate-patient"
+  "manage-patient-link"
+  "get-archived-patients"
+  "get-plan-control-state"
+  "purchase-addon-bypass"
+  "delete-saved-recommendation"
+  "get-paywall-state"
+  "process-checkout-bypass"
+  "save-recommendation"
+  "list-saved-recommendations"
+  "update-patient"
+  "get-patient-sessions"
+  "upload-patient-avatar"
 )
 
 echo "Deploying ${#FUNCTIONS[@]} Edge Functions..."

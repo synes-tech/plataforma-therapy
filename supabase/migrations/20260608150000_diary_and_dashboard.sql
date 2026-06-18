@@ -1,5 +1,5 @@
 -- ============================================================
--- THERAPY.AI — Diary Entries & Dashboard Data
+-- UNITHERY — Diary Entries & Dashboard Data
 -- Migration: 20260608150000_diary_and_dashboard.sql
 -- Description: Family diary, mood tracking, alerts, materialized views
 -- ============================================================

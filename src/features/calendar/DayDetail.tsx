@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
-import { getInitials } from '@shared/lib/greeting';
+import { PatientAvatar } from '@containers/patient/PatientAvatar';
 
 interface Contact {
   name: string;
@@ -15,7 +16,7 @@ interface DailySession {
   duration_minutes: number | null;
   status: string;
   title: string | null;
-  patient: { id: string; name: string; birth_date: string | null } | null;
+  patient: { id: string; name: string; birth_date: string | null; foto_url?: string | null } | null;
   contact: Contact | null;
 }
 
@@ -77,6 +78,7 @@ export function DayDetail({ date, onRescheduled }: { date: string; onRescheduled
 
 function SessionRow({ session, date, onRescheduled }: { session: DailySession; date: string; onRescheduled?: () => void }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [rescheduling, setRescheduling] = useState(false);
   const [newTime, setNewTime] = useState(formatTime(session.scheduled_at));
   const [newDate, setNewDate] = useState(date);
@@ -96,6 +98,7 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
       setRescheduling(false);
       queryClient.invalidateQueries({ queryKey: ['daily-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['list-sessions'] });
       onRescheduled?.();
     },
   });
@@ -110,11 +113,18 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="font-mono text-sm text-slate-400">{formatTime(session.scheduled_at)}</span>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
-            {getInitials(name)}
-          </span>
+          <PatientAvatar name={name} fotoUrl={session.patient?.foto_url} size="sm" className="!h-9 !w-9" />
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-charcoal">{name}</span>
+            {session.patient ? (
+              <button
+                onClick={() => navigate(`/patients/${session.patient!.id}`)}
+                className="block truncate text-sm font-medium text-charcoal transition-colors hover:text-primary"
+              >
+                {name}
+              </button>
+            ) : (
+              <span className="block truncate text-sm font-medium text-charcoal">{name}</span>
+            )}
             <span className="text-xs text-charcoal-muted capitalize">{session.title ?? 'Atendimento'}</span>
           </span>
         </div>
