@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LoadingButton } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
@@ -90,13 +91,17 @@ export default function LinkInvite() {
               />
             </div>
 
-            <button
+            <LoadingButton
               type="submit"
-              disabled={isSubmitting || code.length !== 8 || !name}
-              className="mt-2 h-12 w-full rounded-xl bg-charcoal text-sm font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              loading={isSubmitting}
+              loadingLabel="Vinculando..."
+              variant="dark"
+              fullWidth
+              disabled={code.length !== 8 || !name}
+              className="mt-2 h-12"
             >
-              {isSubmitting ? 'Vinculando...' : 'Vincular'}
-            </button>
+              Vincular
+            </LoadingButton>
           </form>
         </div>
       </div>

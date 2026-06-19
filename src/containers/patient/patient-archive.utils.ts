@@ -13,12 +13,26 @@ export function filterArchivedPatients(
 
   return patients.filter((patient) => {
     if (patient.name.toLowerCase().includes(lower)) return true;
-    if (!patient.cpf || cpfDigits.length < 3) return false;
-    return patient.cpf.includes(cpfDigits);
+    if (patient.nome_responsavel?.toLowerCase().includes(lower)) return true;
+    if (cpfDigits.length < 3) return false;
+    if (patient.cpf_paciente?.includes(cpfDigits)) return true;
+    if (patient.cpf_responsavel?.includes(cpfDigits)) return true;
+    return false;
   });
 }
 
 export function formatArchiveLicenseLabel(inUse: number, licenses: number): string {
   const licenseLabel = licenses === 1 ? 'licença' : 'licenças';
   return `Pacientes Arquivados: ${inUse} / ${licenses} ${licenseLabel} em uso`;
+}
+
+export function formatPatientIdentityLine(patient: ArchivedPatient): string | null {
+  if (patient.cpf_paciente) {
+    return `CPF paciente`;
+  }
+  if (patient.cpf_responsavel) {
+    const name = patient.nome_responsavel ? `Resp.: ${patient.nome_responsavel}` : 'Resp.';
+    return name;
+  }
+  return null;
 }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { DashboardHero } from './DashboardHero';
 import { DashboardQuickStats } from './DashboardQuickStats';
@@ -14,6 +15,10 @@ export function ProfessionalDashboard() {
 
   const schedule = data?.schedule ?? [];
   const alerts = data?.alerts ?? [];
+
+  if (isLoading && !data) {
+    return <PageLoader label="Carregando seu resumo..." className="min-h-[60vh]" />;
+  }
 
   return (
     <div className="min-h-full bg-gray-50 px-5 py-6 lg:px-8 lg:py-8">

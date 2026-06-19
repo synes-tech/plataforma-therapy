@@ -3,7 +3,9 @@ export interface ArchivedPatientRow {
   name: string;
   birth_date: string;
   diagnoses: string[];
-  cpf: string | null;
+  cpf_paciente: string | null;
+  cpf_responsavel: string | null;
+  nome_responsavel: string | null;
   foto_url: string | null;
   status_vinculo: 'desvinculado';
   created_at: string;

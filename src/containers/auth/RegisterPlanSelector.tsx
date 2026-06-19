@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { SkeletonBlock } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 import type { AccountType } from '@features/register/account-type';
@@ -132,7 +133,7 @@ export default function RegisterPlanSelector({
         )}
 
         {isLoading ? (
-          <div className="mt-24 h-48 w-full max-w-5xl animate-pulse rounded-2xl bg-slate-100" />
+          <SkeletonBlock className="mt-24 h-48 w-full max-w-5xl rounded-2xl" />
         ) : (
           <div
             className={`mt-16 grid w-full max-w-5xl gap-4 ${

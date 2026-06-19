@@ -1,14 +1,15 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
+import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
 import { ProcessClinicalReturnSchema } from './schema.ts';
 import { processClinicalReturn } from './service.ts';
 
 /**
- * process-clinical-return — Async AI Pipeline (Clean Transcription)
+ * process-clinical-return — AI Pipeline (Clean Transcription)
  *
- * Triggered by the job queue when a 'clinical_return' recording is uploaded.
+ * Called after a 'clinical_return' recording is uploaded.
  * Unlike process-audio (which generates SOAP + embeddings), this function:
  * 1. Transcribes the audio via Gemini
  * 2. Cleans filler words and formats into professional clinical language
@@ -28,7 +29,9 @@ serve(async (req: Request) => {
       return errorResponse(new ValidationError({ method: 'Only POST is allowed' }), req);
     }
 
-    // NOTE: Invoked internally by service role (webhook/cron), not user-facing.
+    // Authenticate — professionals can trigger their own recordings
+    await authenticateRequest(req);
+
     const body = await req.json();
     const parseResult = ProcessClinicalReturnSchema.safeParse(body);
 

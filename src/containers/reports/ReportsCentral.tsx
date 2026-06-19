@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { InlineLoadingButton, ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { StudioRecorder } from '@features/reports/StudioRecorder';
@@ -121,14 +122,14 @@ export default function ReportsCentral() {
           {error && (
             <div role="alert" className="mb-6 rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error">
               <p>{error instanceof Error ? error.message : 'Não foi possível carregar a fila de evoluções.'}</p>
-              <button
+              <InlineLoadingButton
                 type="button"
                 onClick={() => refetch()}
-                disabled={isFetching}
-                className="mt-3 rounded-lg border border-error/20 bg-white px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-light/30 disabled:opacity-50"
+                loading={isFetching}
+                className="mt-3 rounded-lg border border-error/20 bg-white px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-light/30"
               >
-                {isFetching ? 'Carregando...' : 'Tentar novamente'}
-              </button>
+                Tentar novamente
+              </InlineLoadingButton>
             </div>
           )}
 
@@ -141,10 +142,7 @@ export default function ReportsCentral() {
                 </div>
 
                 {isLoading || isFetching ? (
-                  <div className="space-y-px">
-                    <div className="h-20 animate-pulse bg-slate-50" />
-                    <div className="h-20 animate-pulse bg-slate-50" />
-                  </div>
+                  <ListPageSkeleton rows={2} rowClassName="h-20" className="space-y-px" />
                 ) : items.length === 0 ? (
                   <div className="px-5 py-12 text-center">
                     <p className="text-sm text-charcoal-muted">Nenhuma sessão agendada para hoje.</p>
@@ -209,7 +207,7 @@ export default function ReportsCentral() {
                         </p>
                       </div>
                       <Link
-                        to={`/copilot/${selected.patient.id}`}
+                        to={`/patients/${selected.patient.id}/copilot`}
                         className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                       >
                         Ver histórico

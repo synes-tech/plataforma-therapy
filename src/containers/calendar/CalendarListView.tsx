@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { CalendarListEmptyState } from './CalendarListEmptyState';
 import { CalendarListSessionCard } from './CalendarListSessionCard';
@@ -14,12 +15,8 @@ interface CalendarListViewProps {
 function ListSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="h-10 animate-pulse rounded-xl bg-slate-100" />
-      <div className="space-y-3">
-        <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-        <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-        <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-      </div>
+      <ListPageSkeleton rows={1} rowClassName="h-10" />
+      <ListPageSkeleton rows={3} rowClassName="h-16" />
     </div>
   );
 }

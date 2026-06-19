@@ -1,4 +1,15 @@
+import { useEffect, useState } from 'react';
+import { InlineLoadingButton, ListPageSkeleton } from '@containers/loading';
 import type { AlertItem } from './dashboard.types';
+import { useClearDashboardAlerts } from './useClearDashboardAlerts';
+
+function CheckCircleIcon() {
+  return (
+    <svg className="h-8 w-8 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
 
 function MutedBellIllustration() {
   return (
@@ -32,7 +43,21 @@ function AlertCard({ alert }: { alert: AlertItem }) {
   );
 }
 
-function AlertsEmptyState() {
+function AlertsEmptyState({ cleared = false }: { cleared?: boolean }) {
+  if (cleared) {
+    return (
+      <div className="flex flex-col items-center rounded-3xl border border-dashed border-mint/30 bg-white px-5 py-12 text-center shadow-sm animate-fade-in">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-mint-50">
+          <CheckCircleIcon />
+        </div>
+        <p className="text-sm font-medium text-charcoal">Tudo limpo!</p>
+        <p className="mt-1 max-w-xs text-sm text-charcoal-muted/80">
+          Você não possui alertas pendentes.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center rounded-3xl border border-dashed border-gray-200 bg-white px-5 py-12 text-center shadow-sm">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
@@ -52,31 +77,77 @@ interface DashboardAlertsCardProps {
 }
 
 export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProps) {
+  const clearMutation = useClearDashboardAlerts();
+  const [fadingOut, setFadingOut] = useState(false);
+  const [justCleared, setJustCleared] = useState(false);
+
+  useEffect(() => {
+    if (alerts.length > 0) {
+      setJustCleared(false);
+    }
+  }, [alerts.length]);
+
+  async function handleClearAll() {
+    if (alerts.length === 0 || clearMutation.isPending) return;
+
+    setFadingOut(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 280));
+      await clearMutation.mutateAsync();
+      setJustCleared(true);
+    } finally {
+      setFadingOut(false);
+    }
+  }
+
+  const showClearedEmpty = justCleared && alerts.length === 0;
+  const showDefaultEmpty = !justCleared && alerts.length === 0;
+
   return (
     <section className="lg:col-span-4" aria-labelledby="alerts-title">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 id="alerts-title" className="font-display text-base font-semibold text-charcoal">
-          Alertas Recentes
-        </h2>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 id="alerts-title" className="font-display text-base font-semibold text-charcoal">
+            Alertas nos Últimos 7 Dias
+          </h2>
+          {alerts.length > 0 && (
+            <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
+              {alerts.length}
+            </span>
+          )}
+        </div>
+
         {alerts.length > 0 && (
-          <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
-            {alerts.length}
-          </span>
+          <InlineLoadingButton
+            type="button"
+            onClick={() => void handleClearAll()}
+            loading={clearMutation.isPending}
+            disabled={fadingOut}
+            className="shrink-0 text-sm text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Marcar como lidos
+          </InlineLoadingButton>
         )}
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />
-          <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />
-        </div>
-      ) : alerts.length === 0 ? (
+        <ListPageSkeleton rows={2} rowClassName="h-24" />
+      ) : showClearedEmpty ? (
+        <AlertsEmptyState cleared />
+      ) : showDefaultEmpty ? (
         <AlertsEmptyState />
       ) : (
-        <div className="space-y-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          {alerts.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} />
-          ))}
+        <div
+          className={`max-h-96 overflow-y-auto rounded-3xl border border-gray-100 bg-white p-4 shadow-sm scrollbar-thin transition-opacity duration-300 ${
+            fadingOut ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <div className="space-y-3">
+            {alerts.map((alert) => (
+              <AlertCard key={alert.id} alert={alert} />
+            ))}
+          </div>
         </div>
       )}
     </section>

@@ -1,4 +1,5 @@
 import { type FormEvent } from 'react';
+import { LoadingButton } from '@containers/loading';
 import type { AccountType } from '@features/register/account-type';
 import { ACCOUNT_TYPE_DESCRIPTIONS, ACCOUNT_TYPE_LABELS } from '@features/register/account-type';
 import { RegisterInput } from '@features/register/RegisterInput';
@@ -229,22 +230,18 @@ export function RegisterOnboardingView({
               >
                 ← Voltar
               </button>
-              <button
+              <LoadingButton
                 type="submit"
-                disabled={isSubmitting}
-                className={`mt-6 h-12 w-full rounded-xl border border-primary/30 bg-primary/10 text-sm font-medium text-primary shadow-[0_0_20px_rgba(13,148,136,0.15)] backdrop-blur-sm transition-all hover:bg-primary/15 hover:shadow-[0_0_28px_rgba(13,148,136,0.22)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 md:mt-8 ${
+                loading={isSubmitting}
+                loadingLabel="Criando sua conta..."
+                variant="ghost"
+                fullWidth
+                className={`mt-6 h-12 border border-primary/30 bg-primary/10 text-sm font-medium text-primary shadow-[0_0_20px_rgba(13,148,136,0.15)] backdrop-blur-sm hover:bg-primary/15 hover:shadow-[0_0_28px_rgba(13,148,136,0.22)] md:mt-8 ${
                   showAccessStep ? 'block' : 'hidden md:block'
                 }`}
               >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-                    Criando sua conta...
-                  </span>
-                ) : (
-                  'Começar teste grátis'
-                )}
-              </button>
+                Começar teste grátis
+              </LoadingButton>
             </section>
           </div>
         </div>

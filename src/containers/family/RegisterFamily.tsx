@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { LoadingButton } from '@containers/loading';
 import type { ApiResponse } from '@shared/types';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
@@ -291,13 +292,16 @@ export default function RegisterFamily() {
                     />
                   </Field>
 
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={isSubmitting}
-                    className="mt-1 h-11 w-full rounded-xl bg-charcoal text-sm font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:mt-2 sm:h-12 [@media(max-height:640px)]:h-10 [@media(max-height:640px)]:text-xs"
+                    loading={isSubmitting}
+                    loadingLabel="Criando conta..."
+                    variant="dark"
+                    fullWidth
+                    className="mt-1 h-11 sm:mt-2 sm:h-12 [@media(max-height:640px)]:h-10 [@media(max-height:640px)]:text-xs"
                   >
-                    {isSubmitting ? 'Criando conta...' : 'Criar conta e vincular'}
-                  </button>
+                    Criar conta e vincular
+                  </LoadingButton>
                 </form>
                 )}
               </div>

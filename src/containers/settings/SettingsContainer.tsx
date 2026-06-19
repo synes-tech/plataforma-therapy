@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingButton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { planLabel } from '@features/billing/format';
 
@@ -190,11 +191,7 @@ export default function SettingsContainer() {
   if (isLoading) {
     return (
       <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
-        <div className="h-8 w-40 animate-pulse rounded bg-slate-100" />
-        <div className="mt-6 space-y-4">
-          <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
-          <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
-        </div>
+        <PageLoader label="Carregando configurações..." className="min-h-[40vh]" />
       </div>
     );
   }
@@ -324,14 +321,14 @@ export default function SettingsContainer() {
             {(mutation.error as Error)?.message ?? 'Erro ao salvar.'}
           </span>
         )}
-        <button
+        <LoadingButton
           type="button"
+          variant="dark"
+          loading={mutation.isPending}
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
-          className="h-11 rounded-xl bg-charcoal px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {mutation.isPending ? 'Salvando...' : 'Salvar alterações'}
-        </button>
+          Salvar alterações
+        </LoadingButton>
       </div>
     </div>
   );

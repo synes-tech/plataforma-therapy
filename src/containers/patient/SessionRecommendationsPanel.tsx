@@ -1,3 +1,4 @@
+import { Spinner } from '@containers/loading';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
@@ -80,6 +81,7 @@ export function SessionRecommendationsPanel({ patientId }: Props) {
     onSuccess: () => {
       setToast({ message: 'Recomendação salva com sucesso', variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['saved-recommendations', patientId] });
+      queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
     },
     onError: (err: Error) => {
       setToast({ message: err.message || 'Falha ao salvar', variant: 'error' });
@@ -119,7 +121,7 @@ export function SessionRecommendationsPanel({ patientId }: Props) {
             <div className="relative h-14 w-14">
               <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
               <span className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary/30 bg-primary/5">
-                <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <Spinner size="md" />
               </span>
             </div>
             <p className="text-sm font-medium text-primary">Analisando contexto selecionado...</p>
@@ -165,7 +167,7 @@ export function SessionRecommendationsPanel({ patientId }: Props) {
                   className="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg border border-primary/20 bg-primary-50 px-3 text-xs font-medium text-primary transition-all hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saveMutation.isPending ? (
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <Spinner size="sm" />
                   ) : (
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />

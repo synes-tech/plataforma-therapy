@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { LoadingButton } from '@containers/loading';
 import {
   CONTEXT_SOURCE_OPTIONS,
   EMPTY_CONTEXT_FLAGS,
@@ -132,14 +133,16 @@ export function RecommendationsContextModal({
           >
             Cancelar
           </button>
-          <button
+          <LoadingButton
             type="button"
             disabled={!canSubmit}
+            loading={isSubmitting}
+            loadingLabel="Gerando..."
             onClick={() => onConfirm(flags)}
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/40 bg-primary/20 px-6 text-sm font-medium text-primary-100 shadow-[0_0_20px_rgba(13,148,136,0.25)] transition-all hover:bg-primary/30 hover:shadow-[0_0_28px_rgba(13,148,136,0.35)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-11 border border-primary/40 bg-primary/20 px-6 font-medium text-primary-100 shadow-[0_0_20px_rgba(13,148,136,0.25)] hover:bg-primary/30 hover:shadow-[0_0_28px_rgba(13,148,136,0.35)] disabled:opacity-40"
           >
-            {isSubmitting ? 'Gerando...' : 'Gerar recomendações'}
-          </button>
+            Gerar recomendações
+          </LoadingButton>
         </footer>
       </div>
     </div>,

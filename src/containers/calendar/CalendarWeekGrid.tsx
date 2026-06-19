@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Spinner } from '@containers/loading';
 import { CalendarWeekEventBlock } from './CalendarWeekEventBlock';
 import type { LayoutedWeekEvent } from './calendar-week.types';
 import {
@@ -123,7 +124,8 @@ export function CalendarWeekGrid({
                   ))}
 
                   {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-white/60">
+                      <Spinner size="sm" />
                       <span className="text-xs text-charcoal-muted">Carregando...</span>
                     </div>
                   )}

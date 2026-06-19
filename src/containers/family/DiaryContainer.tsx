@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { DiaryForm } from '@features/diary-form/DiaryForm';
@@ -25,11 +26,7 @@ export default function DiaryContainer() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-surface">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <PageLoader minHeight="screen" label="Carregando diário..." />;
   }
 
   if (!familyData) {

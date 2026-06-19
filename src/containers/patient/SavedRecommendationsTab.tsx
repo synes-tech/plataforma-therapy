@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LoadingButton, ListPageSkeleton } from '@containers/loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -52,13 +53,7 @@ export function SavedRecommendationsTab({ patientId }: SavedRecommendationsTabPr
   const items = data?.items ?? [];
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-6">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-40 animate-pulse rounded-2xl bg-slate-100" />
-        ))}
-      </div>
-    );
+    return <ListPageSkeleton rows={2} rowClassName="h-40 rounded-2xl" className="flex flex-col gap-6" />;
   }
 
   if (error) {
@@ -108,14 +103,15 @@ export function SavedRecommendationsTab({ patientId }: SavedRecommendationsTabPr
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               type="button"
               onClick={() => pendingDeleteId && deleteMutation.mutate(pendingDeleteId)}
-              disabled={deleteMutation.isPending}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-error px-5 text-sm font-medium text-white hover:bg-error/90 disabled:opacity-50 md:w-auto"
+              loading={deleteMutation.isPending}
+              variant="danger"
+              className="min-h-11 md:w-auto"
             >
-              {deleteMutation.isPending ? 'Removendo...' : 'Remover'}
-            </button>
+              Remover
+            </LoadingButton>
           </>
         }
       >

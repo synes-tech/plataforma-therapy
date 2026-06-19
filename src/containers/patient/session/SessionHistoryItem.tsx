@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { InlineLoadingButton } from '@containers/loading';
 import { SessionAudioPlayer } from './SessionAudioPlayer';
 import { exportSessionSummaryPdf } from './exportSessionSummaryPdf';
 import {
@@ -109,21 +110,17 @@ export function SessionHistoryItem({
               <MarkdownSummary content={summaryMarkdown} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
+              <InlineLoadingButton
                 type="button"
                 onClick={() => void handleExportPdf()}
-                disabled={exporting}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10 disabled:opacity-50"
+                loading={exporting}
+                className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
               >
-                {exporting ? (
-                  <span className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
-                ) : (
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
-                  </svg>
-                )}
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                </svg>
                 Exportar Resumo (PDF)
-              </button>
+              </InlineLoadingButton>
               {exportError && (
                 <span className="text-xs text-error">{exportError}</span>
               )}

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { SessionBriefCards } from '@features/family-portal/SessionBriefCards';
 
@@ -74,10 +75,7 @@ export default function Agreements() {
       </header>
 
       {isLoading && (
-        <div className="space-y-4">
-          <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
-          <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
-        </div>
+        <ListPageSkeleton rows={2} rowClassName="h-32 rounded-2xl" className="space-y-4" />
       )}
 
       {error && (

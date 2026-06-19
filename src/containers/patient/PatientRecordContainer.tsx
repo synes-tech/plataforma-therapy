@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { RecordPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { ExportPdfButton } from '@features/pdf/ExportPdfButton';
 import { PatientRecordTabs } from './PatientRecordTabs';
 import { PatientOverviewTab } from './PatientOverviewTab';
 import { PatientClinicalRecordTab } from './PatientClinicalRecordTab';
-import { SavedRecommendationsTab } from './SavedRecommendationsTab';
+import { PatientCopilotTab } from './PatientCopilotTab';
+import { PatientDocumentsTab } from './documents/PatientDocumentsTab';
+import { PatientCrisisControlTab } from './PatientCrisisControlTab';
 import { PatientAvatar } from './PatientAvatar';
 import {
   PatientFamilyInviteButton,
-  PatientFamilyInvitePanel,
+  PatientFamilyInviteModal,
   usePatientFamilyInvite,
 } from './PatientFamilyInvite';
 import { PatientLinkManageFlow } from './PatientLinkManageFlow';
@@ -26,6 +29,7 @@ import {
   formToPartialUpdatePayload,
   type PatientAnamnesisForm,
 } from './patient-anamnesis.types';
+import { pathFromTab, tabFromPath } from './patient-record.tabs';
 
 function getAge(birthDate: string): number {
   return Math.floor(
@@ -40,11 +44,11 @@ interface UpdatePatientResponse {
 }
 
 export default function PatientRecordContainer() {
-  const { patientId } = useParams<{ patientId: string }>();
+  const { patientId, tab: tabParam } = useParams<{ patientId: string; tab?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<PatientRecordTab>('overview');
+  const activeTab = tabFromPath(tabParam);
   const [patient, setPatient] = useState<PatientInfo | null>(null);
   const [clinicalForm, setClinicalForm] = useState<PatientAnamnesisForm | null>(null);
   const [savedForm, setSavedForm] = useState<PatientAnamnesisForm | null>(null);
@@ -56,6 +60,13 @@ export default function PatientRecordContainer() {
     queryFn: () => callFunction<PatientRecordData>('get-patient-record', { patient_id: patientId }),
     enabled: !!patientId,
   });
+
+  useEffect(() => {
+    if (!patientId) return;
+    if (!tabParam) {
+      navigate(`/patients/${patientId}/copilot`, { replace: true });
+    }
+  }, [patientId, tabParam, navigate]);
 
   useEffect(() => {
     if (!data) return;
@@ -95,8 +106,8 @@ export default function PatientRecordContainer() {
   });
 
   function handleTabChange(tab: PatientRecordTab) {
-    if (tab === activeTab) return;
-    setActiveTab(tab);
+    if (!patientId || tab === activeTab) return;
+    navigate(`/patients/${patientId}/${pathFromTab(tab)}`);
   }
 
   function handleCancelEdit() {
@@ -113,16 +124,7 @@ export default function PatientRecordContainer() {
   }
 
   if (isLoading) {
-    return (
-      <div className="space-y-4 px-5 py-6 lg:px-8 lg:py-8">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-100" />
-        <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
-        <div className="mt-6 grid gap-4 lg:grid-cols-12">
-          <div className="h-72 animate-pulse rounded-2xl bg-slate-100 lg:col-span-8" />
-          <div className="h-72 animate-pulse rounded-2xl bg-slate-100 lg:col-span-4" />
-        </div>
-      </div>
-    );
+    return <RecordPageSkeleton />;
   }
 
   if (error || !data) {
@@ -184,10 +186,7 @@ export default function PatientRecordContainer() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <PatientFamilyInviteButton
-              active={familyInvite.open}
-              onClick={() => familyInvite.setOpen((v) => !v)}
-            />
+            <PatientFamilyInviteButton onClick={() => familyInvite.setOpen(true)} />
             <ExportPdfButton patientId={patientId} patientName={patient.name} />
             <PatientLinkManageFlow
               patientId={patientId}
@@ -203,22 +202,16 @@ export default function PatientRecordContainer() {
               </svg>
               Gravar sessão
             </button>
-            <button
-              onClick={() => navigate(`/copilot/${patientId}`)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-charcoal px-4 text-xs font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98]"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              Copiloto IA
-            </button>
           </div>
         </div>
-
-        {familyInvite.open && (
-          <PatientFamilyInvitePanel invite={familyInvite} className="mt-4" />
-        )}
       </header>
+
+      <PatientFamilyInviteModal
+        isOpen={familyInvite.open}
+        onClose={familyInvite.close}
+        patientName={patient.name}
+        invite={familyInvite}
+      />
 
       <PatientRecordTabs
         active={activeTab}
@@ -235,6 +228,10 @@ export default function PatientRecordContainer() {
         </div>
       )}
 
+      {activeTab === 'copilot' && (
+        <PatientCopilotTab patientId={patientId} patientName={patient.name} />
+      )}
+
       {activeTab === 'overview' && (
         <PatientOverviewTab
           patientId={patientId}
@@ -246,6 +243,8 @@ export default function PatientRecordContainer() {
           totalSessions={data.total_sessions}
         />
       )}
+
+      {activeTab === 'checkins' && <PatientCrisisControlTab patientId={patientId} />}
 
       {activeTab === 'clinical' && (
         <PatientClinicalRecordTab
@@ -270,8 +269,8 @@ export default function PatientRecordContainer() {
         />
       )}
 
-      {activeTab === 'saved-recommendations' && (
-        <SavedRecommendationsTab patientId={patientId} />
+      {activeTab === 'documents' && (
+        <PatientDocumentsTab patientId={patientId} />
       )}
     </div>
   );

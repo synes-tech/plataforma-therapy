@@ -1,171 +1,143 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { DiagnosisChips } from '@features/patients/DiagnosisChips';
-import { usePaywall } from '@containers/paywall';
-import { PatientCreateModal } from './PatientCreateModal';
-import { PatientAvatar } from './PatientAvatar';
+import { useAuthStore } from '@shared/lib/auth-store';
+import { PatientActiveTable } from './PatientActiveTable';
+import { PatientListFiltersBar } from './PatientListFiltersBar';
+import { PatientListPagination } from './PatientListPagination';
 import {
-  PatientFamilyInviteButton,
-  PatientFamilyInvitePanel,
-  usePatientFamilyInvite,
-} from './PatientFamilyInvite';
+  DEFAULT_PATIENT_FILTERS,
+  PATIENT_PAGE_SIZE,
+  type PatientListFilters,
+  type PatientListItem,
+} from './patient-list.types';
+import {
+  applyPatientListFilters,
+  getPaginationMeta,
+  paginatePatients,
+} from './patient-list.utils';
 
-interface Patient {
-  id: string;
-  name: string;
-  birth_date: string;
-  diagnoses: string[];
-  status: string;
-  created_at: string;
-  foto_url?: string | null;
+interface PatientActiveListViewProps {
+  onOpenCreate: () => void;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  active: 'Ativo',
-  inactive: 'Inativo',
-  suspended: 'Suspenso',
-};
+export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewProps) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filters, setFilters] = useState<PatientListFilters>(DEFAULT_PATIENT_FILTERS);
+  const [page, setPage] = useState(1);
 
-function statusClass(status: string): string {
-  if (status === 'active') return 'bg-mint-50 text-mint-dark';
-  if (status === 'suspended') return 'bg-error-light text-error';
-  return 'bg-slate-100 text-charcoal-muted';
-}
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-function statusDotClass(status: string): string {
-  if (status === 'active') return 'bg-mint';
-  if (status === 'suspended') return 'bg-error';
-  return 'bg-slate-400';
-}
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filters]);
 
-function getAge(birthDate: string): number {
-  return Math.floor(
-    (Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
-  );
-}
-
-export function PatientActiveListView() {
-  const { interceptNewPatient } = usePaywall();
-  const [showCreate, setShowCreate] = useState(false);
-
-  const { data: patients, isLoading } = useQuery({
-    queryKey: ['patients'],
-    queryFn: () => callFunction<Patient[]>('list-patients', {}),
+  const { data: patients, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['patients', debouncedSearch],
+    queryFn: () =>
+      callFunction<PatientListItem[]>('list-patients', {
+        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+      }),
+    enabled: isAuthenticated,
   });
 
-  function openCreateModal() {
-    interceptNewPatient(() => setShowCreate(true));
-  }
+  const processed = useMemo(
+    () => applyPatientListFilters(patients ?? [], filters),
+    [patients, filters],
+  );
 
-  const list = patients ?? [];
+  const pagination = useMemo(
+    () => getPaginationMeta(processed.length, page, PATIENT_PAGE_SIZE),
+    [processed.length, page],
+  );
+
+  const pageItems = useMemo(
+    () => paginatePatients(processed, pagination.safePage, PATIENT_PAGE_SIZE),
+    [processed, pagination.safePage],
+  );
+
+  const hasActiveFilters =
+    filters.status !== 'all' ||
+    filters.diagnosis !== 'all' ||
+    filters.sort !== DEFAULT_PATIENT_FILTERS.sort ||
+    debouncedSearch.length > 0;
 
   return (
-    <>
-      <div className="mb-6 flex justify-end">
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:w-auto"
+    <div className="space-y-4">
+      <PatientListFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFiltersChange={setFilters}
+        isFetching={isFetching && !isLoading}
+      />
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Novo Paciente
-        </button>
-      </div>
-
-      <PatientCreateModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
-
-      {!isLoading && list.length > 0 && (
-        <p className="mb-4 text-xs text-charcoal-muted/80">
-          {list.length} {list.length === 1 ? 'paciente ativo' : 'pacientes ativos'}
-        </p>
+          <p>{error instanceof Error ? error.message : 'Não foi possível carregar os pacientes.'}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="mt-3 rounded-lg border border-error/20 bg-white px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-light/30 disabled:opacity-50"
+          >
+            Tentar novamente
+          </button>
+        </div>
       )}
 
       {isLoading ? (
-        <div className="flex flex-col gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl border border-slate-100 bg-white shadow-sm" />
-          ))}
-        </div>
-      ) : list.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <p className="text-sm text-charcoal-muted">Nenhum paciente cadastrado ainda.</p>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98]"
-          >
-            Cadastrar o primeiro paciente
-          </button>
+        <ListPageSkeleton rows={5} rowClassName="h-14" />
+      ) : error ? null : processed.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+          <p className="text-sm text-charcoal-muted">
+            {hasActiveFilters
+              ? 'Nenhum paciente encontrado com os filtros aplicados.'
+              : 'Nenhum paciente cadastrado ainda.'}
+          </p>
+          {!hasActiveFilters && (
+            <button
+              type="button"
+              onClick={onOpenCreate}
+              className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98]"
+            >
+              Cadastrar o primeiro paciente
+            </button>
+          )}
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {list.map((patient) => (
-            <PatientListCard key={patient.id} patient={patient} />
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-function PatientListCard({ patient }: { patient: Patient }) {
-  const invite = usePatientFamilyInvite(patient.id);
-  const navigate = useNavigate();
-  const age = getAge(patient.birth_date);
-
-  return (
-    <article className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-        <button
-          type="button"
-          onClick={() => navigate(`/patients/${patient.id}`)}
-          className="flex min-w-0 items-center gap-4 text-left transition-opacity hover:opacity-90 lg:w-56 lg:shrink-0"
-        >
-          <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="md" />
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold text-charcoal">{patient.name}</p>
-            <p className="mt-0.5 text-sm text-charcoal-muted">{age} anos</p>
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-3 sm:px-5">
+            <p className="text-xs text-charcoal-muted">
+              <span className="font-medium text-charcoal">{processed.length}</span>{' '}
+              {processed.length === 1 ? 'paciente ativo' : 'pacientes ativos'}
+              {debouncedSearch ? (
+                <span className="text-charcoal-muted/80"> · busca: &quot;{debouncedSearch}&quot;</span>
+              ) : null}
+            </p>
           </div>
-        </button>
 
-        <div className="min-w-0 flex-1 border-t border-slate-50 pt-4 lg:border-t-0 lg:pt-0">
-          <DiagnosisChips diagnoses={patient.diagnoses} max={4} />
-        </div>
+          <PatientActiveTable patients={pageItems} />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-50 pt-4 sm:justify-end lg:w-auto lg:shrink-0 lg:border-t-0 lg:pt-0">
-          <StatusBadge status={patient.status} />
-          <PatientFamilyInviteButton
-            active={invite.open}
-            onClick={() => invite.setOpen((v) => !v)}
+          <PatientListPagination
+            page={pagination.safePage}
+            totalPages={pagination.totalPages}
+            total={processed.length}
+            start={pagination.start}
+            end={pagination.end}
+            onPageChange={setPage}
           />
         </div>
-      </div>
-
-      {invite.open && (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <PatientFamilyInvitePanel invite={invite} />
-        </div>
       )}
-    </article>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABEL[status] ?? status;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusClass(status)}`}
-    >
-      <span
-        className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass(status)}`}
-        aria-hidden
-      />
-      {label}
-    </span>
+    </div>
   );
 }

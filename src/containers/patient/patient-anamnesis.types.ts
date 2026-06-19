@@ -73,13 +73,6 @@ function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
   };
 }
 
-export function formToCreatePayload(form: PatientAnamnesisForm, cpf: string) {
-  return {
-    cpf,
-    ...anamnesisFieldsFromForm(form),
-  };
-}
-
 export function formToUpdatePayload(patientId: string, form: PatientAnamnesisForm) {
   return {
     patient_id: patientId,

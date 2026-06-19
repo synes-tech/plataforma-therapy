@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingButton, PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
-import { RoutineMonthCalendar } from '@features/family-portal/RoutineMonthCalendar';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { FamilyDiaryAudioRecorder } from './FamilyDiaryAudioRecorder';
 
@@ -82,11 +82,7 @@ export default function RoutineDiary() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <PageLoader minHeight="screen" label="Carregando diário..." />;
   }
 
   if (!link) {
@@ -146,7 +142,6 @@ export default function RoutineDiary() {
   return (
     <div className="animate-fade-in">
       <PushNotificationPrompt />
-      <RoutineMonthCalendar />
 
       <header className="mb-6 lg:mb-8">
         <p className="text-xs font-medium uppercase tracking-wide text-primary">{today}</p>
@@ -300,13 +295,16 @@ export default function RoutineDiary() {
           <p className="mt-1 text-right text-[10px] text-charcoal-muted/60">{notes.length}/1000</p>
         </section>
 
-        <button
+        <LoadingButton
           type="submit"
-          disabled={!mood || !sleep || mutation.isPending}
-          className="h-12 w-full rounded-xl bg-charcoal text-sm font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 lg:col-span-2 lg:max-w-sm"
+          variant="dark"
+          fullWidth
+          loading={mutation.isPending}
+          disabled={!mood || !sleep}
+          className="h-12 lg:col-span-2 lg:max-w-sm"
         >
-          {mutation.isPending ? 'Enviando...' : 'Registrar dia'}
-        </button>
+          Registrar dia
+        </LoadingButton>
       </form>
     </div>
   );

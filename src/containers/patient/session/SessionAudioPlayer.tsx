@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Spinner } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { formatSessionDuration } from './session-history.utils';
 
@@ -76,7 +77,7 @@ export function SessionAudioPlayer({
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <Spinner size="md" />
         <span className="text-xs text-charcoal-muted">Carregando áudio...</span>
       </div>
     );

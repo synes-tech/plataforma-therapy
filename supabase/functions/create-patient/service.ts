@@ -29,26 +29,9 @@ export async function createPatient(
   await assertCanCreatePatientPaywall(clinicId, professional.id);
   await assertCanAddPatient(clinicId, professional.id);
 
-  const cpf = payload.cpf;
-
-  const { data: existingByCpf } = await supabase
-    .from('patients')
-    .select('id, status_vinculo')
-    .eq('professional_id', professional.id)
-    .eq('cpf', cpf)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (existingByCpf) {
-    throw new AppError({
-      code: 'CPF_ALREADY_REGISTERED',
-      message:
-        existingByCpf.status_vinculo === 'desvinculado'
-          ? 'CPF já cadastrado no seu histórico de backup. Use Reativar Vínculo.'
-          : 'CPF já vinculado a um paciente ativo na sua carteira.',
-      statusCode: 409,
-    });
-  }
+  const cpf_paciente = payload.possui_cpf_proprio ? payload.cpf_paciente : null;
+  const cpf_responsavel = payload.possui_cpf_proprio ? null : payload.cpf_responsavel;
+  const nome_responsavel = payload.possui_cpf_proprio ? null : payload.nome_responsavel;
 
   const anamnesis = anamnesisToDbRow(payload);
 
@@ -57,7 +40,9 @@ export async function createPatient(
     .insert({
       clinic_id: clinicId,
       professional_id: professional.id,
-      cpf,
+      cpf_paciente,
+      cpf_responsavel,
+      nome_responsavel,
       name: payload.name,
       birth_date: payload.birth_date,
       gender: payload.gender ?? 'not_informed',
@@ -85,7 +70,11 @@ export async function createPatient(
     action: 'patient.create',
     resource_type: 'patient',
     resource_id: patient.id,
-    metadata: { diagnoses: payload.diagnoses, anamnesis_complete: Boolean(payload.queixa_principal) },
+    metadata: {
+      diagnoses: payload.diagnoses,
+      anamnesis_complete: Boolean((payload as Record<string, unknown>).queixa_principal),
+      possui_cpf_proprio: payload.possui_cpf_proprio,
+    },
   });
 
   return {

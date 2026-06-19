@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import { PageLoader } from '@containers/loading';
 import { useAuth } from '@shared/hooks/useAuth';
 import { isClinicOwner } from '@shared/lib/roles';
 import type { UserRole } from '@shared/types';
@@ -13,11 +14,7 @@ export function ProtectedRoute({ children, allowedRoles, ownerOnly }: ProtectedR
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-surface">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <PageLoader minHeight="screen" label="Verificando sessão..." />;
   }
 
   if (!isAuthenticated || !user) {

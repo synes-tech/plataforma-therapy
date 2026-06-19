@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Spinner } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { pickRecorderMime } from '@shared/lib/audio-wav';
 
@@ -290,7 +291,7 @@ export function FamilyDiaryAudioRecorder({
 
         {state === 'transcribing' && (
           <div className="text-center">
-            <div className="mx-auto mb-2 h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <Spinner size="md" className="mx-auto mb-2" />
             <p className="text-sm text-charcoal">Transcrevendo seu relato…</p>
             <p className="mt-1 text-xs text-charcoal-muted">Isso leva alguns segundos</p>
           </div>

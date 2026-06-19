@@ -59,6 +59,30 @@ export function ClinicalReturnRecorder({ patientId, patientName, onTranscribed }
   useEffect(() => {
     if (state !== 'processing') return;
 
+    // Poll immediately in case the job completed before Realtime connected (race condition)
+    async function checkJobStatus() {
+      if (!jobIdRef.current) return;
+      const { data } = await supabase
+        .from('ai_jobs')
+        .select('id, status, output_data')
+        .eq('id', jobIdRef.current)
+        .single();
+
+      if (data?.status === 'completed' && data.output_data?.cleaned_text) {
+        setCleanedText(data.output_data.cleaned_text);
+        setState('done');
+        onTranscribed?.(data.output_data.cleaned_text);
+      } else if (data?.status === 'failed') {
+        setError('A IA não conseguiu processar o áudio. Tente novamente.');
+        setState('error');
+      }
+    }
+
+    // Check after a short delay (give the function a moment to start)
+    const pollTimer = setTimeout(checkJobStatus, 3000);
+    // Also check again after a longer interval as fallback
+    const fallbackTimer = setTimeout(checkJobStatus, 10000);
+
     const channel = supabase
       .channel(`clinical-return-${patientId}`)
       .on(
@@ -82,6 +106,8 @@ export function ClinicalReturnRecorder({ patientId, patientName, onTranscribed }
       .subscribe();
 
     return () => {
+      clearTimeout(pollTimer);
+      clearTimeout(fallbackTimer);
       supabase.removeChannel(channel);
     };
   }, [state, patientId, onTranscribed]);
@@ -156,6 +182,14 @@ export function ClinicalReturnRecorder({ patientId, patientName, onTranscribed }
         body: wavBlob,
       });
       if (!uploadResponse.ok) throw new Error('Falha ao enviar o áudio.');
+
+      // Fire-and-forget: trigger processing pipeline (Realtime will notify when done)
+      callFunction('process-clinical-return', {
+        audio_recording_id: response.audio_recording_id,
+        patient_id: patientId,
+        job_id: response.job_id,
+      }).catch((err) => console.error('process-clinical-return trigger failed:', err));
+
       return response;
     },
     onSuccess: (data) => {

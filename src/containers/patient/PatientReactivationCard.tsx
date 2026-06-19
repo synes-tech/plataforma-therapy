@@ -1,10 +1,11 @@
+import { LoadingButton } from '@containers/loading';
 import { formatBirthDateBr } from './patient-cpf.utils';
-import type { VerifyPatientCpfFound } from './patient-cpf.types';
+import type { VerifyPatientCpfMatch } from './patient-cpf.types';
 import { getReactivationCooldownStatus } from './patient-reactivation-cooldown.utils';
 import { PatientReactivationCooldownBadge } from './PatientReactivationCooldownBadge';
 
 interface PatientReactivationCardProps {
-  match: VerifyPatientCpfFound;
+  match: VerifyPatientCpfMatch;
   onReactivate: () => void;
   isReactivating?: boolean;
 }
@@ -42,28 +43,33 @@ export function PatientReactivationCard({
           </div>
         </div>
       </div>
-      <button
+      <LoadingButton
         type="button"
         onClick={onReactivate}
-        disabled={isReactivating || !cooldown.canReactivate}
-        className={`mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold shadow-sm transition-colors ${
-          cooldown.canReactivate
-            ? 'bg-primary text-white hover:bg-primary-dark'
-            : 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50'
-        } disabled:opacity-50`}
+        loading={isReactivating}
+        disabled={!cooldown.canReactivate}
+        fullWidth
+        className={`mt-4 min-h-12 font-semibold ${
+          cooldown.canReactivate ? '' : 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50'
+        }`}
       >
-        {isReactivating ? 'Reativando...' : 'Reativar Vínculo'}
-      </button>
+        Reativar Vínculo
+      </LoadingButton>
     </div>
   );
 }
 
 interface PatientAlreadyActiveCardProps {
-  match: VerifyPatientCpfFound;
+  match: VerifyPatientCpfMatch;
   onViewRecord: () => void;
+  onRegisterAnother?: () => void;
 }
 
-export function PatientAlreadyActiveCard({ match, onViewRecord }: PatientAlreadyActiveCardProps) {
+export function PatientAlreadyActiveCard({
+  match,
+  onViewRecord,
+  onRegisterAnother,
+}: PatientAlreadyActiveCardProps) {
   const birthLabel = formatBirthDateBr(match.birth_date);
 
   return (
@@ -83,6 +89,15 @@ export function PatientAlreadyActiveCard({ match, onViewRecord }: PatientAlready
       >
         Ver prontuário
       </button>
+      {onRegisterAnother && (
+        <button
+          type="button"
+          onClick={onRegisterAnother}
+          className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal transition-colors hover:bg-slate-50"
+        >
+          Cadastrar outro dependente com este CPF
+        </button>
+      )}
     </div>
   );
 }

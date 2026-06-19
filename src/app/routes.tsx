@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ProtectedRoute } from '@shared/ui/ProtectedRoute';
 import { AppLayout } from '@shared/ui/AppLayout';
 import { FamilyLayout } from '@shared/ui/FamilyLayout';
@@ -13,16 +13,15 @@ const PatientListContainer = lazy(() => import('@containers/patient/PatientListC
 const PatientRecordContainer = lazy(() => import('@containers/patient/PatientRecordContainer'));
 const ProfessionalsContainer = lazy(() => import('@containers/admin/ProfessionalsContainer'));
 const SessionContainer = lazy(() => import('@containers/patient/SessionContainer'));
-const IACopilot = lazy(() => import('@containers/copilot/IACopilot'));
 const RegisterFamily = lazy(() => import('@containers/family/RegisterFamily'));
 const LinkInvite = lazy(() => import('@containers/family/LinkInvite'));
 const RoutineDiary = lazy(() => import('@containers/family/RoutineDiary'));
+const FamilyCalendar = lazy(() => import('@containers/family/FamilyCalendar'));
 const Agreements = lazy(() => import('@containers/family/Agreements'));
 const BillingHubContainer = lazy(() => import('@containers/billing/BillingHubContainer'));
 const PlanControlContainer = lazy(() => import('@containers/billing/PlanControlContainer'));
 const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
-const ReportsCentral = lazy(() => import('@containers/reports/ReportsCentral'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
 
 /**
@@ -37,6 +36,11 @@ function WithLayout({ children }: { children: React.ReactNode }) {
  */
 function WithFamilyLayout({ children }: { children: React.ReactNode }) {
   return <FamilyLayout>{children}</FamilyLayout>;
+}
+
+function CopilotLegacyRedirect() {
+  const { patientId } = useParams<{ patientId: string }>();
+  return <Navigate to={`/patients/${patientId}/copilot`} replace />;
 }
 
 export function AppRoutes() {
@@ -81,7 +85,7 @@ export function AppRoutes() {
         }
       />
       <Route
-        path="/patients/:patientId"
+        path="/patients/:patientId/:tab?"
         element={
           <ProtectedRoute allowedRoles={['professional', 'clinic_admin', 'master']}>
             <WithLayout><PatientRecordContainer /></WithLayout>
@@ -108,7 +112,7 @@ export function AppRoutes() {
         path="/reports"
         element={
           <ProtectedRoute allowedRoles={['professional']}>
-            <WithLayout><ReportsCentral /></WithLayout>
+            <Navigate to="/patients" replace />
           </ProtectedRoute>
         }
       />
@@ -116,7 +120,7 @@ export function AppRoutes() {
         path="/copilot"
         element={
           <ProtectedRoute allowedRoles={['professional']}>
-            <WithLayout><IACopilot /></WithLayout>
+            <Navigate to="/patients" replace />
           </ProtectedRoute>
         }
       />
@@ -132,7 +136,7 @@ export function AppRoutes() {
         path="/copilot/:patientId"
         element={
           <ProtectedRoute allowedRoles={['professional']}>
-            <WithLayout><IACopilot /></WithLayout>
+            <CopilotLegacyRedirect />
           </ProtectedRoute>
         }
       />
@@ -150,6 +154,14 @@ export function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['family']}>
             <WithFamilyLayout><RoutineDiary /></WithFamilyLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/family/calendar"
+        element={
+          <ProtectedRoute allowedRoles={['family']}>
+            <WithFamilyLayout><FamilyCalendar /></WithFamilyLayout>
           </ProtectedRoute>
         }
       />

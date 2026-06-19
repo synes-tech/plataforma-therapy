@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Spinner } from '@containers/loading';
 import { WEEKDAYS, buildMonthGrid } from './calendar-month.utils';
 
 interface CalendarMonthViewProps {
@@ -79,7 +80,10 @@ export function CalendarMonthView({
       </div>
 
       {isLoading && (
-        <p className="mt-4 text-center text-xs text-charcoal-muted">Carregando agenda...</p>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <Spinner size="sm" />
+          <p className="text-center text-xs text-charcoal-muted">Carregando agenda...</p>
+        </div>
       )}
     </>
   );

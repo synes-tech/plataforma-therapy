@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { PlanHeroCard } from './PlanHeroCard';
 import { BackupAddonCard } from './BackupAddonCard';
@@ -27,12 +28,7 @@ export default function PlanControlContainer() {
   });
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />
-        <div className="h-56 animate-pulse rounded-2xl bg-slate-100" />
-      </div>
-    );
+    return <ListPageSkeleton rows={2} rowClassName="h-40 rounded-2xl" className="space-y-4" />;
   }
 
   if (error || !data) {

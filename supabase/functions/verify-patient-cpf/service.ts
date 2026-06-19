@@ -1,8 +1,11 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { isValidCpfFormat, maskPatientName, normalizeCpf } from '../_shared/cpf.ts';
+import { matchFieldForPatient } from '../_shared/patient-search.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { VerifyPatientCpfPayload, VerifyPatientCpfResponse } from './types.ts';
+
+const MAX_MATCHES = 20;
 
 export async function verifyPatientCpf(
   payload: VerifyPatientCpfPayload,
@@ -28,28 +31,19 @@ export async function verifyPatientCpf(
       throw new AppError({ code: 'NOT_A_PROFESSIONAL', message: 'Profissional não encontrado', statusCode: 403 });
     }
 
-    const { data: patient, error } = await supabase
+    const { data: patients, error } = await supabase
       .from('patients')
-      .select('id, name, birth_date, status_vinculo, data_desvinculacao')
+      .select('id, name, birth_date, status_vinculo, data_desvinculacao, cpf_paciente, cpf_responsavel')
       .eq('professional_id', professional.id)
-      .eq('cpf', cpf)
+      .or(`cpf_paciente.eq.${cpf},cpf_responsavel.eq.${cpf}`)
       .is('deleted_at', null)
-      .maybeSingle();
+      .limit(MAX_MATCHES);
 
     if (error) {
       throw new AppError({ code: 'CPF_LOOKUP_FAILED', message: error.message, statusCode: 500 });
     }
 
-    if (!patient) return { exists: false };
-
-    return {
-      exists: true,
-      patient_id: patient.id,
-      name_masked: maskPatientName(patient.name as string),
-      birth_date: patient.birth_date as string,
-      status_vinculo: patient.status_vinculo as 'ativo' | 'desvinculado',
-      data_desvinculacao: (patient.data_desvinculacao as string | null) ?? null,
-    };
+    return mapMatches(patients ?? [], cpf);
   }
 
   if (caller.role === 'clinic_admin') {
@@ -57,29 +51,42 @@ export async function verifyPatientCpf(
       throw new AppError({ code: 'NO_CLINIC', message: 'Clínica não associada', statusCode: 403 });
     }
 
-    const { data: patient, error } = await supabase
+    const { data: patients, error } = await supabase
       .from('patients')
-      .select('id, name, birth_date, status_vinculo, data_desvinculacao')
+      .select('id, name, birth_date, status_vinculo, data_desvinculacao, cpf_paciente, cpf_responsavel')
       .eq('clinic_id', caller.clinic_id)
-      .eq('cpf', cpf)
+      .or(`cpf_paciente.eq.${cpf},cpf_responsavel.eq.${cpf}`)
       .is('deleted_at', null)
-      .maybeSingle();
+      .limit(MAX_MATCHES);
 
     if (error) {
       throw new AppError({ code: 'CPF_LOOKUP_FAILED', message: error.message, statusCode: 500 });
     }
 
-    if (!patient) return { exists: false };
+    return mapMatches(patients ?? [], cpf);
+  }
 
-    return {
-      exists: true,
-      patient_id: patient.id,
+  throw new AppError({ code: 'FORBIDDEN', message: 'Perfil sem permissão para verificar CPF', statusCode: 403 });
+}
+
+function mapMatches(
+  rows: Array<Record<string, unknown>>,
+  cpf: string,
+): VerifyPatientCpfResponse {
+  if (rows.length === 0) return { exists: false, matches: [] };
+
+  return {
+    exists: true,
+    matches: rows.map((patient) => ({
+      patient_id: patient.id as string,
       name_masked: maskPatientName(patient.name as string),
       birth_date: patient.birth_date as string,
       status_vinculo: patient.status_vinculo as 'ativo' | 'desvinculado',
       data_desvinculacao: (patient.data_desvinculacao as string | null) ?? null,
-    };
-  }
-
-  throw new AppError({ code: 'FORBIDDEN', message: 'Perfil sem permissão para verificar CPF', statusCode: 403 });
+      match_field: matchFieldForPatient(cpf, {
+        cpf_paciente: patient.cpf_paciente as string | null,
+        cpf_responsavel: patient.cpf_responsavel as string | null,
+      }),
+    })),
+  };
 }

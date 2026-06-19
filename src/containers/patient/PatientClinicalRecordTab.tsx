@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { LoadingButton } from '@containers/loading';
 import {
   ACOMPANHAMENTO_OPTIONS,
   type PatientAnamnesisForm,
@@ -403,14 +404,16 @@ export function PatientClinicalRecordTab({
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               type="button"
               onClick={handleSave}
-              disabled={isSaving || !validation.valid || !isDirty}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-6 text-sm font-medium text-white shadow-sm hover:bg-primary-dark disabled:opacity-50 sm:w-auto"
+              loading={isSaving}
+              disabled={!validation.valid || !isDirty}
+              fullWidth
+              className="min-h-12 sm:w-auto"
             >
-              {isSaving ? 'Salvando...' : 'Salvar alterações'}
-            </button>
+              Salvar alterações
+            </LoadingButton>
           </div>
         </div>
       )}

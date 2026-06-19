@@ -117,7 +117,7 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
           <span className="min-w-0">
             {session.patient ? (
               <button
-                onClick={() => navigate(`/patients/${session.patient!.id}`)}
+                onClick={() => navigate(`/patients/${session.patient!.id}/copilot`)}
                 className="block truncate text-sm font-medium text-charcoal transition-colors hover:text-primary"
               >
                 {name}

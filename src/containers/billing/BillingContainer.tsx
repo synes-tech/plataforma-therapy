@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import {
   formatCurrency,
@@ -99,11 +100,7 @@ export default function BillingContainer() {
         </h2>
 
         {isLoading ? (
-          <div className="space-y-3">
-            <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-            <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-            <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-          </div>
+          <ListPageSkeleton rows={3} rowClassName="h-16" />
         ) : invoices.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center">
             <p className="text-sm text-charcoal-muted">Nenhuma fatura emitida ainda.</p>

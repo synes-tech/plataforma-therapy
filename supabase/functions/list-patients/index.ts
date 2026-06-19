@@ -3,7 +3,12 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { AppError } from '../_shared/errors.ts';
+import { buildPatientSearchOrFilter, normalizePatientSearchTerm } from '../_shared/patient-search.ts';
+import { AppError, ValidationError } from '../_shared/errors.ts';
+import { ListPatientsSchema } from './schema.ts';
+
+const PATIENT_SELECT =
+  'id, name, birth_date, diagnoses, status, status_vinculo, created_at, foto_url, cpf_paciente, cpf_responsavel, nome_responsavel';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
@@ -13,9 +18,18 @@ serve(async (req: Request) => {
     const user = await authenticateRequest(req);
     requireRole(user, ['professional', 'clinic_admin', 'master']);
 
+    let searchQuery: string | undefined;
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      const parsed = ListPatientsSchema.safeParse(body);
+      if (!parsed.success) {
+        return errorResponse(new ValidationError(parsed.error.flatten().fieldErrors), req);
+      }
+      searchQuery = parsed.data.q?.trim() || undefined;
+    }
+
     const supabase = createServiceClient();
 
-    // Get professional record to find their patients
     const { data: professional } = await supabase
       .from('professionals')
       .select('id, clinic_id')
@@ -24,7 +38,6 @@ serve(async (req: Request) => {
       .single();
 
     if (!professional) {
-      // Maybe it's a clinic_admin — list all patients of the clinic
       const { data: adminRecord } = await supabase
         .from('clinic_admins')
         .select('clinic_id')
@@ -36,26 +49,38 @@ serve(async (req: Request) => {
         throw new AppError({ code: 'NO_ACCESS', message: 'Sem acesso a pacientes', statusCode: 403 });
       }
 
-      const { data: patients, error } = await supabase
+      let query = supabase
         .from('patients')
-        .select('id, name, birth_date, diagnoses, status, status_vinculo, created_at, foto_url')
+        .select(PATIENT_SELECT)
         .eq('clinic_id', adminRecord.clinic_id)
         .eq('status_vinculo', 'ativo')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
+      if (searchQuery) {
+        const { term, isCpf, cpfDigits } = normalizePatientSearchTerm(searchQuery);
+        query = query.or(buildPatientSearchOrFilter(term, isCpf, cpfDigits));
+      }
+
+      const { data: patients, error } = await query;
       if (error) throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });
       return successResponse(patients ?? [], req, 200);
     }
 
-    // Professional: list only their patients
-    const { data: patients, error } = await supabase
+    let query = supabase
       .from('patients')
-      .select('id, name, birth_date, diagnoses, status, status_vinculo, created_at, foto_url')
+      .select(PATIENT_SELECT)
       .eq('professional_id', professional.id)
       .eq('status_vinculo', 'ativo')
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
+
+    if (searchQuery) {
+      const { term, isCpf, cpfDigits } = normalizePatientSearchTerm(searchQuery);
+      query = query.or(buildPatientSearchOrFilter(term, isCpf, cpfDigits));
+    }
+
+    const { data: patients, error } = await query;
 
     if (error) {
       throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });

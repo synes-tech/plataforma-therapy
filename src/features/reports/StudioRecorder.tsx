@@ -71,6 +71,41 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
   useEffect(() => {
     if (state !== 'processing') return;
 
+    // Helper to fetch completed job result
+    async function handleJobCompleted(sessionNoteId: string) {
+      const { data } = await supabase
+        .from('session_notes')
+        .select('id, content')
+        .eq('id', sessionNoteId)
+        .single();
+      if (data) {
+        setNoteId(data.id);
+        setSoap(data.content as SoapContent);
+        setState(enableReview ? 'review' : 'idle');
+        if (!enableReview) onSaved?.();
+      }
+    }
+
+    // Poll immediately in case the job completed before Realtime connected (race condition)
+    async function checkJobStatus() {
+      if (!jobIdRef.current) return;
+      const { data } = await supabase
+        .from('ai_jobs')
+        .select('id, status, output_data')
+        .eq('id', jobIdRef.current)
+        .single();
+
+      if (data?.status === 'completed' && data.output_data?.session_note_id) {
+        await handleJobCompleted(data.output_data.session_note_id);
+      } else if (data?.status === 'failed') {
+        setError('A IA não conseguiu processar o áudio. Tente novamente.');
+        setState('error');
+      }
+    }
+
+    const pollTimer = setTimeout(checkJobStatus, 3000);
+    const fallbackTimer = setTimeout(checkJobStatus, 12000);
+
     const channel = supabase
       .channel(`reports-job-${patientId}`)
       .on(
@@ -85,23 +120,15 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
             return;
           }
           if (job.status === 'completed' && job.output_data?.session_note_id) {
-            const { data } = await supabase
-              .from('session_notes')
-              .select('id, content')
-              .eq('id', job.output_data.session_note_id)
-              .single();
-            if (data) {
-              setNoteId(data.id);
-              setSoap(data.content as SoapContent);
-              setState(enableReview ? 'review' : 'idle');
-              if (!enableReview) onSaved?.();
-            }
+            await handleJobCompleted(job.output_data.session_note_id);
           }
         },
       )
       .subscribe();
 
     return () => {
+      clearTimeout(pollTimer);
+      clearTimeout(fallbackTimer);
       supabase.removeChannel(channel);
     };
   }, [state, patientId, enableReview, onSaved]);
@@ -144,6 +171,14 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
         body: wavBlob,
       });
       if (!uploadResponse.ok) throw new Error('Falha ao enviar o áudio.');
+
+      // Fire-and-forget: trigger processing pipeline (Realtime will notify when done)
+      callFunction('process-audio', {
+        audio_recording_id: response.audio_recording_id,
+        patient_id: patientId,
+        job_id: response.job_id,
+      }).catch((err) => console.error('process-audio trigger failed:', err));
+
       return response;
     },
     onSuccess: (data) => {

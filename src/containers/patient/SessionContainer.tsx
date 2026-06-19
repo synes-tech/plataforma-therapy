@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { AudioRecorder } from '@features/audio-recorder/AudioRecorder';
 import { SessionNoteReview } from '@features/audio-recorder/SessionNoteReview';
@@ -35,7 +36,7 @@ export default function SessionContainer() {
     };
   }, [patientId]);
 
-  const { data: patient } = useQuery({
+  const { data: patient, isLoading } = useQuery({
     queryKey: ['patient-detail', patientId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,6 +57,10 @@ export default function SessionContainer() {
         <p className="text-text-muted">Paciente não encontrado</p>
       </div>
     );
+  }
+
+  if (isLoading) {
+    return <PageLoader label="Carregando sessão..." />;
   }
 
   const patientName = patient?.name ?? 'Paciente';

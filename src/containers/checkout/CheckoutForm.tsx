@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { LoadingButton } from '@containers/loading';
 import { formatCurrency } from '@features/billing/format';
 import type { PaywallPlanCard } from '@containers/paywall/paywall.types';
 import {
@@ -178,20 +179,15 @@ export function CheckoutForm({ plan, isSubmitting, error, onSubmit, onBack }: Ch
       </div>
 
       <div className="border-t border-white/10 px-6 py-5 md:px-8">
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isSubmitting}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
+          loading={isSubmitting}
+          loadingLabel="Processando..."
+          fullWidth
+          className="h-12 shadow-lg shadow-primary/25"
         >
-          {isSubmitting ? (
-            <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Processando...
-            </>
-          ) : (
-            'Confirmar assinatura'
-          )}
-        </button>
+          Confirmar assinatura
+        </LoadingButton>
       </div>
     </form>
   );

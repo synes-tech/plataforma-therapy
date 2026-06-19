@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingButton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { usePaywall } from '@containers/paywall';
 import { UpgradePlanModal } from '@containers/billing/UpgradePlanModal';
@@ -54,18 +55,18 @@ export function PatientArchiveReactivateFlow({
     <>
       <PatientReactivationCooldownBadge status={cooldown} />
 
-      <button
+      <LoadingButton
         type="button"
         onClick={handleReactivate}
-        disabled={!cooldown.canReactivate || mutation.isPending}
-        className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-colors ${
-          cooldown.canReactivate
-            ? 'bg-primary text-white hover:bg-primary-dark'
-            : 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50'
-        } disabled:opacity-50`}
+        loading={mutation.isPending}
+        disabled={!cooldown.canReactivate}
+        fullWidth
+        className={`min-h-12 ${
+          cooldown.canReactivate ? '' : 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50'
+        }`}
       >
-        {mutation.isPending ? 'Reativando...' : 'Reativar'}
-      </button>
+        Reativar
+      </LoadingButton>
 
       {actionError && (
         <p role="alert" className="text-xs text-error">

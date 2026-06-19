@@ -131,25 +131,41 @@ serve(async (req: Request) => {
       };
     });
 
-    // 4. Alertas da família — diary_entries das últimas 24h dos pacientes vinculados
+    // 4. Alertas da família — diary_entries dos últimos 7 dias (não dispensados)
     let alerts: Array<Record<string, unknown>> = [];
     if (patientIds.length > 0) {
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const { data: diaryData, error: diaryError } = await supabase
-        .from('diary_entries')
-        .select('id, patient_id, entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, notes, created_at')
-        .in('patient_id', patientIds)
-        .is('deleted_at', null)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const [{ data: diaryData, error: diaryError }, { data: dismissedData, error: dismissedError }] =
+        await Promise.all([
+          supabase
+            .from('diary_entries')
+            .select('id, patient_id, entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, notes, created_at')
+            .in('patient_id', patientIds)
+            .is('deleted_at', null)
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase
+            .from('professional_dashboard_dismissals')
+            .select('diary_entry_id')
+            .eq('professional_id', professional.id),
+        ]);
 
       if (diaryError) {
         throw new AppError({ code: 'DIARY_FETCH_FAILED', message: diaryError.message, statusCode: 500 });
       }
 
-      alerts = (diaryData ?? []).map((d) => {
+      if (dismissedError) {
+        throw new AppError({ code: 'DISMISSALS_FETCH_FAILED', message: dismissedError.message, statusCode: 500 });
+      }
+
+      const dismissedIds = new Set((dismissedData ?? []).map((d) => d.diary_entry_id as string));
+
+      alerts = (diaryData ?? [])
+        .filter((d) => !dismissedIds.has(d.id as string))
+        .slice(0, 20)
+        .map((d) => {
         const patient = patientMap.get(d.patient_id) ?? null;
         const hoursAgo = Math.max(
           0,

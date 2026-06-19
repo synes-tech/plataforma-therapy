@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ListPageSkeleton } from '@containers/loading';
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import type { ScheduleItem } from './dashboard.types';
 import { formatScheduleTime, getPatientAge } from './dashboard.utils';
@@ -50,7 +51,7 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
       <div className="flex shrink-0 items-center gap-2 pl-14 sm:pl-0">
         {item.patient && (
           <Link
-            to={`/copilot/${item.patient.id}`}
+            to={`/patients/${item.patient.id}/copilot`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
           >
             <SparkIcon />
@@ -109,11 +110,7 @@ export function DashboardAgendaCard({ schedule, loading }: DashboardAgendaCardPr
 
       <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
-          <div className="space-y-px">
-            <div className="h-20 animate-pulse bg-slate-50" />
-            <div className="h-20 animate-pulse bg-slate-50" />
-            <div className="h-20 animate-pulse bg-slate-50" />
-          </div>
+          <ListPageSkeleton rows={3} rowClassName="h-20" className="space-y-px" />
         ) : schedule.length === 0 ? (
           <AgendaEmptyState />
         ) : (

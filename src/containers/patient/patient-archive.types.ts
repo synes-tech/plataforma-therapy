@@ -1,12 +1,17 @@
+export type PatientListTab = 'active' | 'archive';
+
 export interface ArchivedPatient {
   id: string;
   name: string;
   birth_date: string;
   diagnoses: string[];
-  cpf: string | null;
+  cpf_paciente: string | null;
+  cpf_responsavel: string | null;
+  nome_responsavel: string | null;
   foto_url?: string | null;
+  status_vinculo: string;
   created_at: string;
-  data_desvinculacao?: string | null;
+  data_desvinculacao: string | null;
 }
 
 export interface ArchivedPatientsPayload {
@@ -14,5 +19,3 @@ export interface ArchivedPatientsPayload {
   quantidade_backup_pacientes: number;
   archived_count: number;
 }
-
-export type PatientListTab = 'active' | 'archive';

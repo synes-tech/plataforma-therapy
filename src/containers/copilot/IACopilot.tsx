@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
-import { ChatArea, type PlanItemInput } from '@features/copilot/ChatArea';
+import { ChatArea } from '@features/copilot/ChatArea';
 import { PatientSelector, type CopilotPatient } from '@features/copilot/PatientSelector';
 import { PlanSidebar, type PlanItem } from '@features/copilot/PlanSidebar';
 import { usePaywall } from '@containers/paywall';
@@ -34,14 +34,6 @@ export default function IACopilot() {
 
   function handleSelect(patient: CopilotPatient) {
     navigate(`/copilot/${patient.id}`);
-  }
-
-  function handleSaveToPlan(item: PlanItemInput) {
-    if (!patientId) return;
-    setPlansByPatient((prev) => {
-      const current = prev[patientId] ?? [];
-      return { ...prev, [patientId]: [...current, { id: crypto.randomUUID(), ...item }] };
-    });
   }
 
   function handleRemoveFromPlan(id: string) {
@@ -129,7 +121,6 @@ export default function IACopilot() {
               key={selected.id}
               patientId={selected.id}
               patientName={selected.name}
-              onSaveToPlan={handleSaveToPlan}
               onBeforeSend={() => {
                 let allowed = false;
                 interceptAiFeature(() => {

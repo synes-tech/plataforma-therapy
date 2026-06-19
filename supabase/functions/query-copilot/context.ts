@@ -9,7 +9,14 @@ import type {
 } from './types.ts';
 import { validateInput, anonymizeForLLM } from './guardrails.ts';
 import { vertexEmbedSingle, type ChatMessage } from '../_shared/vertex.ts';
-import { ANAMNESIS_AI_INSTRUCTIONS, formatAnamnesisBlock } from '../_shared/patient-ai-context.ts';
+import {
+  buildCopilotSystemInstruction,
+  DIARY_CONTEXT_LIMIT,
+  SESSION_CONTEXT_LIMIT,
+  type DiaryEntryRow,
+  type PatientBaseRow,
+  type SessionNoteRow,
+} from './patient-context.ts';
 
 export interface CopilotPreparedContext {
   startTime: number;
@@ -23,6 +30,12 @@ export interface CopilotPreparedContext {
 export type CopilotPrepareResult =
   | { kind: 'early'; response: QueryCopilotResponse }
   | { kind: 'ready'; context: CopilotPreparedContext };
+
+const PATIENT_SELECT = `
+  id, name, birth_date, professional_id, diagnoses, clinical_observations,
+  nome_social, nome_responsavel, escolaridade_ocupacao, queixa_principal, medicamentos, acompanhamento_multi,
+  composicao_familiar, responsaveis, objetivos_terapeuticos, hiperfocos_interesses, informacoes_adicionais
+`;
 
 export async function prepareCopilotContext(
   payload: QueryCopilotPayload,
@@ -45,26 +58,24 @@ export async function prepareCopilotContext(
     };
   }
 
-  const { data: patient } = await supabase
+  const { data: patient, error: patientError } = await supabase
     .from('patients')
-    .select(`
-      id, name, professional_id, diagnoses, clinical_observations,
-      nome_social, escolaridade_ocupacao, queixa_principal, medicamentos, acompanhamento_multi,
-      composicao_familiar, responsaveis, objetivos_terapeuticos, hiperfocos_interesses, informacoes_adicionais
-    `)
+    .select(PATIENT_SELECT)
     .eq('id', payload.patient_id)
     .is('deleted_at', null)
     .single();
 
-  if (!patient) {
+  if (patientError || !patient) {
     throw new AppError({ code: 'PATIENT_NOT_FOUND', message: 'Patient not found', statusCode: 404 });
   }
+
+  const typedPatient = patient as PatientBaseRow;
 
   const { data: professional } = await supabase
     .from('professionals')
     .select('id')
     .eq('user_id', caller.id)
-    .eq('id', patient.professional_id)
+    .eq('id', typedPatient.professional_id)
     .is('deleted_at', null)
     .single();
 
@@ -72,7 +83,23 @@ export async function prepareCopilotContext(
     throw new ForbiddenError('You do not have access to this patient');
   }
 
-  const queryEmbedding = await vertexEmbedSingle(payload.message, 'RETRIEVAL_QUERY');
+  const [queryEmbedding, recentDiariesResult, recentSessionsResult] = await Promise.all([
+    vertexEmbedSingle(payload.message, 'RETRIEVAL_QUERY'),
+    supabase
+      .from('diary_entries')
+      .select('entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes')
+      .eq('patient_id', payload.patient_id)
+      .is('deleted_at', null)
+      .order('entry_date', { ascending: false })
+      .limit(DIARY_CONTEXT_LIMIT),
+    supabase
+      .from('session_notes')
+      .select('created_at, status, content')
+      .eq('patient_id', payload.patient_id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(SESSION_CONTEXT_LIMIT),
+  ]);
 
   const { data: semanticResults } = await supabase.rpc('search_patient_embeddings', {
     p_patient_id: payload.patient_id,
@@ -100,59 +127,29 @@ export async function prepareCopilotContext(
     .sort((a, b) => b.finalScore - a.finalScore)
     .slice(0, 5);
 
-  const { data: recentDiaries } = await supabase
-    .from('diary_entries')
-    .select('entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes')
-    .eq('patient_id', payload.patient_id)
-    .is('deleted_at', null)
-    .order('entry_date', { ascending: false })
-    .limit(7);
-
   const ragContext = reranked
-    .map((chunk, i) => `[Fonte ${i + 1} | ${chunk.document_type} | ${chunk.created_at.split('T')[0]}]\n${anonymizeForLLM(chunk.content)}`)
+    .map((chunk, i) =>
+      `[Fonte ${i + 1} | ${chunk.document_type} | ${chunk.created_at.split('T')[0]}]\n${anonymizeForLLM(chunk.content)}`
+    )
     .join('\n\n---\n\n');
 
-  const diaryContext = recentDiaries && recentDiaries.length > 0
-    ? recentDiaries.map((d) =>
-        `Data: ${d.entry_date} | Humor: ${d.mood_score}/5 | Sono: ${d.sleep_quality}/5${d.crisis_occurred ? ` | CRISE nível ${d.crisis_level}` : ''}${d.notes ? ` | Nota: ${d.notes}` : ''}`
-      ).join('\n')
-    : 'Sem registros de diário na última semana.';
+  const diaryEntries = (recentDiariesResult.data ?? []) as DiaryEntryRow[];
+  const sessionNotes = (recentSessionsResult.data ?? []) as SessionNoteRow[];
 
-  const systemPrompt = `Você é um copiloto clínico especializado em terapia infantil (TEA e TDAH).
-Seu papel é auxiliar o terapeuta com sugestões de atividades, análise comportamental e resumos de contexto.
-
-REGRAS INVIOLÁVEIS:
-- Nunca sugira medicações, alterações de dosagem ou diagnósticos novos.
-- Sempre cite a fonte dos dados que embasam sua análise (ex: "Conforme relatado no diário de 04/06...").
-- Se não houver dados suficientes no histórico deste paciente, diga EXPLICITAMENTE: "Não tenho informações suficientes no histórico deste paciente para responder."
-- Responda em português brasileiro, tom profissional mas acessível.
-- Se o terapeuta perguntar algo fora do escopo clínico, redirecione educadamente.
-- NÃO invente dados. NÃO extrapole além do que está documentado.
-
-${ANAMNESIS_AI_INSTRUCTIONS}
-
-FORMATO DE RESPOSTA:
-1. Resumo do contexto relevante (2-3 linhas)
-2. Sua análise ou sugestão (detalhada)
-3. Fontes utilizadas (liste quais documentos embasam)`;
-
-  const anamnesisBlock = formatAnamnesisBlock(patient);
-
-  const systemInstruction = `${systemPrompt}
-
-=== ANAMNESE DO PACIENTE ===
-${anamnesisBlock}
-
-=== CONTEXTO DO PACIENTE (Histórico RAG) ===
-${ragContext || 'Nenhum histórico disponível para este paciente.'}
-
-=== DIÁRIO DA FAMÍLIA (Última semana) ===
-${diaryContext}`;
+  const systemInstruction = buildCopilotSystemInstruction({
+    patient: typedPatient,
+    diaryEntries,
+    sessionNotes,
+    ragContext,
+  });
 
   const chatMessages: ChatMessage[] = [];
   if (payload.conversation_history) {
     for (const msg of payload.conversation_history.slice(-6)) {
-      chatMessages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: msg.content });
+      chatMessages.push({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content,
+      });
     }
   }
   chatMessages.push({ role: 'user', content: anonymizeForLLM(payload.message) });

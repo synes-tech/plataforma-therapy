@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ListPageSkeleton, LoadingButton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { getInitials } from '@shared/lib/greeting';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -129,14 +130,15 @@ export default function ProfessionalsContainer() {
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               type="submit"
               form="create-professional-form"
-              disabled={createMutation.isPending}
-              className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] disabled:opacity-50 md:w-auto"
+              loading={createMutation.isPending}
+              fullWidth
+              className="md:w-auto"
             >
-              {createMutation.isPending ? 'Salvando...' : 'Cadastrar'}
-            </button>
+              Cadastrar
+            </LoadingButton>
           </>
         }
       >
@@ -156,9 +158,7 @@ export default function ProfessionalsContainer() {
 
       {/* Loading */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-[4.5rem] animate-pulse rounded-2xl bg-slate-100" />)}
-        </div>
+        <ListPageSkeleton rows={3} rowClassName="h-[4.5rem]" />
       ) : list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
           <p className="text-sm text-charcoal-muted">Nenhum profissional cadastrado.</p>
@@ -306,9 +306,9 @@ function EditForm({
         <FormInput label="CRP" value={editForm.crp} onChange={(v) => setEditForm(f => ({ ...f, crp: v }))} />
       </div>
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="inline-flex h-10 items-center justify-center rounded-xl bg-charcoal px-4 text-xs font-medium text-white transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:opacity-50">
-          {pending ? 'Salvando...' : 'Salvar'}
-        </button>
+        <LoadingButton type="submit" variant="dark" loading={pending} className="h-10 px-4 text-xs">
+          Salvar
+        </LoadingButton>
         <button type="button" onClick={onCancel} className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-xs font-medium text-charcoal-muted transition-colors hover:bg-slate-50">
           Cancelar
         </button>

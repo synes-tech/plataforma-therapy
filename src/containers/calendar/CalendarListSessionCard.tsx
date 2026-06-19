@@ -43,7 +43,7 @@ export function CalendarListSessionCard({ session }: CalendarListSessionCardProp
 
       {patientId ? (
         <Link
-          to={`/patients/${patientId}`}
+          to={`/patients/${patientId}/copilot`}
           aria-label={`Abrir prontuário de ${name}`}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-charcoal-muted transition-colors hover:bg-slate-50 hover:text-primary"
         >

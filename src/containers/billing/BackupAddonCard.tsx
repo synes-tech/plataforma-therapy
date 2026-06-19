@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingButton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { Toast } from '@containers/patient/Toast';
 import { AddonQuantityStepper } from './AddonQuantityStepper';
@@ -120,14 +121,16 @@ export function BackupAddonCard({
           </div>
         )}
 
-        <button
+        <LoadingButton
           type="button"
+          variant="dark"
+          fullWidth
+          loading={mutation.isPending}
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
-          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-charcoal px-6 text-sm font-semibold text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 h-12 font-semibold"
         >
-          {mutation.isPending ? 'Processando...' : 'Adicionar Espaço'}
-        </button>
+          Adicionar Espaço
+        </LoadingButton>
       </article>
 
       <Toast

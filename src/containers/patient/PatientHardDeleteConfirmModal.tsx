@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LoadingButton } from '@containers/loading';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { namesMatchForDelete } from './patient-link-manage.utils';
 
@@ -21,7 +22,7 @@ export function PatientHardDeleteConfirmModal({
 }: PatientHardDeleteConfirmModalProps) {
   const [typedName, setTypedName] = useState('');
 
-  const canConfirm = namesMatchForDelete(typedName, patientName) && !isDeleting;
+  const canConfirm = namesMatchForDelete(typedName, patientName);
 
   function handleClose() {
     if (isDeleting) return;
@@ -45,14 +46,16 @@ export function PatientHardDeleteConfirmModal({
           >
             Voltar
           </button>
-          <button
+          <LoadingButton
             type="button"
             onClick={() => onConfirm(typedName.trim())}
+            loading={isDeleting}
             disabled={!canConfirm}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-error px-5 text-sm font-semibold text-white hover:bg-error/90 disabled:opacity-50 md:w-auto"
+            variant="danger"
+            className="h-11 font-semibold md:w-auto"
           >
-            {isDeleting ? 'Excluindo...' : 'Apagar para sempre'}
-          </button>
+            Apagar para sempre
+          </LoadingButton>
         </>
       }
     >

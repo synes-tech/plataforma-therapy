@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ListPageSkeleton, Spinner } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { SessionHistoryItem } from './SessionHistoryItem';
 import type { PatientSessionsResponse } from './session-history.types';
@@ -51,17 +52,14 @@ export function SessionHistoryPanel({ patientId, patientName }: SessionHistoryPa
           </p>
         </div>
         {isFetching && !isLoading && (
-          <span className="text-xs text-primary">Atualizando...</span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-primary">
+            <Spinner size="xs" />
+            Atualizando...
+          </span>
         )}
       </header>
 
-      {isLoading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100" />
-          ))}
-        </div>
-      )}
+      {isLoading && <ListPageSkeleton rows={3} rowClassName="h-20" />}
 
       {error && (
         <div className="rounded-2xl border border-error/10 bg-error-light/30 px-5 py-4 text-sm text-error">

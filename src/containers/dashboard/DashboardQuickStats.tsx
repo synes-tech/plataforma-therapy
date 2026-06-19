@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SkeletonBlock } from '@containers/loading';
 import type { BriefingSummary } from './dashboard.types';
 
 interface StatCardProps {
@@ -25,7 +26,7 @@ function StatCard({ label, value, icon, accent = 'default', loading }: StatCardP
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wider text-charcoal-muted">{label}</p>
         {loading ? (
-          <div className="mt-1.5 h-6 w-10 animate-pulse rounded-md bg-slate-100" />
+          <SkeletonBlock className="mt-1.5 h-6 w-10 rounded-md" />
         ) : (
           <p className={`mt-0.5 font-display text-xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
         )}

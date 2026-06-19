@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { AuthSessionError, clearAuthSession, resolveAccessToken } from './auth-session';
 import type { ApiResponse } from '@shared/types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -117,17 +117,21 @@ export async function callFunction<T>(
   payload: Record<string, unknown>,
   method: 'POST' | 'GET' = 'POST',
 ): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error('Sessão expirada. Faça login novamente.');
+  let accessToken: string;
+  try {
+    accessToken = await resolveAccessToken();
+  } catch (err) {
+    if (err instanceof AuthSessionError) {
+      await clearAuthSession();
+    }
+    throw err;
   }
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: method !== 'GET' ? JSON.stringify(payload) : undefined,
   }).catch(() => {
@@ -140,6 +144,10 @@ export async function callFunction<T>(
   try {
     data = await response.json();
   } catch {
+    if (response.status === 401) {
+      await clearAuthSession();
+      throw new AuthSessionError();
+    }
     throw new Error(
       response.ok
         ? `Resposta inválida do serviço "${functionName}".`
@@ -148,12 +156,21 @@ export async function callFunction<T>(
   }
 
   if (!response.ok && data.success !== false) {
+    if (response.status === 401) {
+      await clearAuthSession();
+      throw new AuthSessionError();
+    }
     throw new Error(`Erro ${response.status} no serviço "${functionName}".`);
   }
 
   if (!data.success) {
     const code = data.error?.code ?? 'UNKNOWN';
     const details = data.error?.details as Record<string, string[]> | undefined;
+
+    if (code === 'UNAUTHORIZED') {
+      await clearAuthSession();
+      throw new AuthSessionError();
+    }
 
     // If it's a validation error with field details, translate them
     if (code === 'VALIDATION_ERROR' && details && typeof details === 'object') {
@@ -199,13 +216,18 @@ export async function callFunctionStream(
     onChunk: (text: string) => void;
     onDone: (meta: CopilotStreamMeta) => void;
     onError: (error: Error) => void;
+    onRetry?: () => void;
   },
   signal?: AbortSignal,
 ): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    handlers.onError(new Error('Sessão expirada. Faça login novamente.'));
+  let accessToken: string;
+  try {
+    accessToken = await resolveAccessToken();
+  } catch (err) {
+    if (err instanceof AuthSessionError) {
+      await clearAuthSession();
+    }
+    handlers.onError(err instanceof Error ? err : new AuthSessionError());
     return;
   }
 
@@ -215,7 +237,7 @@ export async function callFunctionStream(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         Accept: 'application/x-ndjson',
       },
       body: JSON.stringify(payload),
@@ -231,11 +253,21 @@ export async function callFunctionStream(
     try {
       const data = await response.json() as ApiResponse<unknown>;
       const code = data.error?.code ?? 'UNKNOWN';
+      if (code === 'UNAUTHORIZED' || response.status === 401) {
+        await clearAuthSession();
+        handlers.onError(new AuthSessionError());
+        return;
+      }
       const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
       const err = new Error(message) as Error & { code?: string };
       err.code = code;
       handlers.onError(err);
     } catch {
+      if (response.status === 401) {
+        await clearAuthSession();
+        handlers.onError(new AuthSessionError());
+        return;
+      }
       handlers.onError(new Error(`Erro HTTP ${response.status}`));
     }
     return;
@@ -276,6 +308,9 @@ export async function callFunctionStream(
 
         if (event.type === 'chunk' && typeof event.text === 'string') {
           handlers.onChunk(event.text);
+        } else if (event.type === 'retry') {
+          // Backend is retrying due to guardrail — reset accumulated content
+          handlers.onRetry?.();
         } else if (event.type === 'done') {
           handlers.onDone({
             answer: String(event.answer ?? ''),

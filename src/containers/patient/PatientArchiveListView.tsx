@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { formatCpfDisplay } from '@shared/lib/cpf';
+import { ListPageSkeleton } from '@containers/loading';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { PatientAvatar } from './PatientAvatar';
 import { PatientArchiveEmptyState } from './PatientArchiveEmptyState';
@@ -58,18 +59,14 @@ export function PatientArchiveListView() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nome ou CPF..."
+          placeholder="Buscar por Nome, CPF do Paciente ou do Responsável..."
           aria-label="Buscar pacientes arquivados"
           className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-slate-300 focus:outline-none focus:ring-[3px] focus:ring-slate-100"
         />
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl border border-slate-100 bg-gray-50" />
-          ))}
-        </div>
+        <ListPageSkeleton rows={3} rowClassName="h-24 rounded-2xl border border-slate-100 bg-gray-50" />
       ) : patients.length === 0 ? (
         <PatientArchiveEmptyState />
       ) : filtered.length === 0 ? (
@@ -103,8 +100,16 @@ function PatientArchiveCard({ patient }: { patient: ArchivedPatient }) {
           <div className="min-w-0">
             <p className="truncate text-base font-semibold text-gray-600">{patient.name}</p>
             <p className="mt-0.5 text-sm text-gray-500">{age} anos</p>
-            {patient.cpf && (
-              <p className="mt-0.5 text-xs text-gray-400">CPF {formatCpfDisplay(patient.cpf)}</p>
+            {patient.cpf_paciente && (
+              <p className="mt-0.5 text-xs text-gray-400">
+                CPF {formatCpfDisplay(patient.cpf_paciente)}
+              </p>
+            )}
+            {!patient.cpf_paciente && patient.cpf_responsavel && (
+              <p className="mt-0.5 text-xs text-gray-400">
+                {patient.nome_responsavel ? `${patient.nome_responsavel} · ` : ''}
+                CPF resp. {formatCpfDisplay(patient.cpf_responsavel)}
+              </p>
             )}
           </div>
         </div>

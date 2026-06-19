@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LoadingButton } from '@containers/loading';
 import { useAuth } from '@shared/hooks/useAuth';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
@@ -266,20 +267,15 @@ export default function LoginContainer() {
             </div>
 
             {/* Submit Button — com efeito de profundidade material */}
-            <button
+            <LoadingButton
               type="submit"
-              disabled={isSubmitting}
-              className="relative mt-2 h-12 w-full overflow-hidden rounded-xl bg-charcoal font-medium text-white shadow-sm transition-all duration-200 hover:bg-charcoal-light hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              variant="dark"
+              fullWidth
+              loading={isSubmitting}
+              className="relative mt-2 h-12"
             >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <span className="text-sm">Entrando...</span>
-                </span>
-              ) : (
-                <span className="text-sm">Entrar</span>
-              )}
-            </button>
+              Entrar
+            </LoadingButton>
           </form>
 
           {/* Separador */}

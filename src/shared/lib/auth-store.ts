@@ -35,7 +35,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s max
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
       clearTimeout(timeout);
 
@@ -62,27 +65,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initialize: () => {
-    // Prevent multiple initializations (this was causing the freeze)
     if (get().initialized) return;
     set({ initialized: true });
 
-    // Get current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const user = extractUserFromSession(session);
-        set({ user, isAuthenticated: true, isLoading: false });
-      } else {
+    async function applySession(session: { user: { id: string; email?: string; app_metadata?: Record<string, unknown> } } | null) {
+      if (!session) {
         set({ user: null, isAuthenticated: false, isLoading: false });
+        return;
       }
-    }).catch(() => {
+
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed.session) {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+          return;
+        }
+        set({
+          user: extractUserFromSession(refreshed.session),
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+
+      set({
+        user: extractUserFromSession(session),
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    }
+
+    void supabase.auth.getSession().then(({ data: { session } }) => applySession(session)).catch(() => {
       set({ user: null, isAuthenticated: false, isLoading: false });
     });
 
-    // Listen for auth state changes (registered ONCE)
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        const user = extractUserFromSession(session);
-        set({ user, isAuthenticated: true, isLoading: false });
+        set({
+          user: extractUserFromSession(session),
+          isAuthenticated: true,
+          isLoading: false,
+        });
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
       }

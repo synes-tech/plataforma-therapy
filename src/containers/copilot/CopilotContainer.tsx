@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { CopilotChat } from '@features/ai-chat/CopilotChat';
 import { EvolutionChart } from '@features/dashboard/EvolutionChart';
@@ -22,12 +23,12 @@ export default function CopilotContainer() {
     enabled: !!patientId,
   });
 
-  if (!patientId || isLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-surface">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-ai border-t-transparent" />
-      </div>
-    );
+  if (!patientId) {
+    return <PageLoader label="Paciente não encontrado" />;
+  }
+
+  if (isLoading) {
+    return <PageLoader label="Carregando copiloto..." />;
   }
 
   if (!patient) {

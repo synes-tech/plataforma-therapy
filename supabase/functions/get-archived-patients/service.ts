@@ -8,7 +8,7 @@ import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { ArchivedPatientRow, GetArchivedPatientsResponse } from './types.ts';
 
 const PATIENT_SELECT =
-  'id, name, birth_date, diagnoses, cpf, foto_url, status_vinculo, created_at, data_desvinculacao';
+  'id, name, birth_date, diagnoses, cpf_paciente, cpf_responsavel, nome_responsavel, foto_url, status_vinculo, created_at, data_desvinculacao';
 
 async function countDesvinculadoForClinic(clinicId: string): Promise<number> {
   const supabase = createServiceClient();
