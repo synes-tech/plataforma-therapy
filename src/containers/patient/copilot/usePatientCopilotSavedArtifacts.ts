@@ -63,7 +63,14 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
       const fingerprint = await artifactFingerprint(content);
       const key = artifactSaveKey(fingerprint, tipo);
 
-      await callFunction('save-ai-artifact', {
+      const result = await callFunction<{
+        id: string;
+        criado_em: string;
+        artifact_fingerprint: string;
+        tipo_artefato: AiArtifactType;
+        already_saved: boolean;
+        message: string;
+      }>('save-ai-artifact', {
         patient_id: patientId,
         conteudo_texto: content,
         tipo_artefato: tipo,
@@ -79,7 +86,7 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
       void queryClient.invalidateQueries({ queryKey: ['ai-artifact-status', patientId] });
       void queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
 
-      return { key, tipo, fingerprint };
+      return { key, tipo, fingerprint, artifactId: result.id };
     },
     [patientId, queryClient],
   );

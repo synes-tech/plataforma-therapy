@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { PageHeader } from '@containers/layout';
 import { usePaywall } from '@containers/paywall';
 import { PatientListTabs } from './PatientListTabs';
 import { PatientActiveListView } from './PatientActiveListView';
@@ -20,21 +21,15 @@ export default function PatientListContainer() {
   }
 
   return (
-    <div className="bg-[#F8FAF9] px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
-      <header className="mb-3">
-        <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-          Pacientes
-        </h1>
-        <p className="mt-0.5 text-sm text-charcoal-muted">
-          {isArchive
+    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Pacientes"
+        subtitle={
+          isArchive
             ? 'Histórico clínico arquivado — pacientes desvinculados da agenda ativa.'
-            : 'Gerencie seus pacientes ativos e gere convites para familiares.'}
-        </p>
-      </header>
-
-      <PatientListTabs
-        active={activeTab}
-        action={
+            : 'Gerencie seus pacientes ativos e gere convites para familiares.'
+        }
+        actions={
           !isArchive ? (
             <button
               type="button"
@@ -48,13 +43,16 @@ export default function PatientListContainer() {
             </button>
           ) : undefined
         }
+        tabs={<PatientListTabs active={activeTab} />}
       />
 
-      {isArchive ? (
-        <PatientArchiveListView />
-      ) : (
-        <PatientActiveListView onOpenCreate={openCreateModal} />
-      )}
+      <div className="mt-6 pb-6 lg:mt-8 lg:pb-8">
+        {isArchive ? (
+          <PatientArchiveListView />
+        ) : (
+          <PatientActiveListView onOpenCreate={openCreateModal} />
+        )}
+      </div>
 
       <PatientCreateModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
     </div>

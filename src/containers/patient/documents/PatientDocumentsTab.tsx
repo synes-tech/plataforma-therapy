@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LoadingButton, LoadingOverlay } from '@containers/loading';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
@@ -21,6 +22,7 @@ interface PatientDocumentsTabProps {
 
 export function PatientDocumentsTab({ patientId, patientName }: PatientDocumentsTabProps) {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState<ArtifactFilterValue>('todos');
   const [search, setSearch] = useState('');
   const [readingArtifact, setReadingArtifact] = useState<PatientArtifact | null>(null);
@@ -35,6 +37,24 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
     () => filterPatientArtifacts(allItems, filter, search),
     [allItems, filter, search],
   );
+
+  const artifactDeepLink = searchParams.get('artifact');
+
+  useEffect(() => {
+    if (!artifactDeepLink || allItems.length === 0) return;
+    const found = allItems.find((item) => item.id === artifactDeepLink);
+    if (!found) return;
+
+    setReadingArtifact(found);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('artifact');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [artifactDeepLink, allItems, setSearchParams]);
 
   const hasActiveFilters = filter !== 'todos' || search.trim().length > 0;
 

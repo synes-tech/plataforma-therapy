@@ -3,21 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RecordPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { PatientRecordTabs } from './PatientRecordTabs';
 import { PatientSessionHistoryTab } from './sessions/PatientSessionHistoryTab';
-import { FamilyDiaryAlertButton } from './family-diary/FamilyDiaryAlertButton';
 import { FamilyDiaryModal } from './family-diary/FamilyDiaryModal';
 import { PatientClinicalRecordTab } from './PatientClinicalRecordTab';
 import { PatientCopilotTab } from './PatientCopilotTab';
 import { PatientDocumentsTab } from './documents/PatientDocumentsTab';
 import { PatientCrisisControlTab } from './PatientCrisisControlTab';
-import { PatientAvatar } from './PatientAvatar';
-import {
-  PatientFamilyInviteButton,
-  PatientFamilyInviteModal,
-  usePatientFamilyInvite,
-} from './PatientFamilyInvite';
-import { PatientLinkManageFlow } from './PatientLinkManageFlow';
+import { PatientFamilyInviteModal, usePatientFamilyInvite } from './PatientFamilyInvite';
+import { PatientRecordPageHeader } from './PatientRecordPageHeader';
 import {
   normalizePatientInfo,
   type PatientInfo,
@@ -171,70 +164,27 @@ export default function PatientRecordContainer() {
   }
 
   const age = getAge(patient.birth_date);
+  const isCopilotTab = activeTab === 'copilot';
 
   return (
-    <div className="bg-[#F8FAF9] px-4 py-6 pb-8 sm:px-6 lg:px-8 lg:py-8">
-      <header className="mb-4">
-        <button
-          onClick={() => navigate('/patients')}
-          className="mb-3 inline-flex items-center gap-1 text-xs text-charcoal-muted transition-colors hover:text-primary"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Voltar para pacientes
-        </button>
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="lg" />
-            <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-                {patient.name}
-              </h1>
-              <FamilyDiaryAlertButton
-                count={data.recent_diary.length}
-                onClick={() => setFamilyDiaryOpen(true)}
-              />
-            </div>
-            {patient.nome_social && (
-              <p className="mt-0.5 text-sm text-charcoal-muted">Nome social: {patient.nome_social}</p>
-            )}
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-charcoal-muted">{age} anos</span>
-              <span className="text-charcoal-muted/30">•</span>
-              {patient.diagnoses.map((d, i) => (
-                <span
-                  key={i}
-                  className="inline-flex rounded-full bg-primary-50 px-2.5 py-0.5 text-[11px] font-medium text-primary-700"
-                >
-                  {d}
-                </span>
-              ))}
-            </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <PatientFamilyInviteButton onClick={() => familyInvite.setOpen(true)} />
-            <PatientLinkManageFlow
-              patientId={patientId}
-              patientName={patient.name}
-              statusVinculo={patient.status_vinculo}
-            />
-            <button
-              onClick={() => navigate(`/session/${patientId}`)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-xs font-medium text-charcoal transition-colors hover:border-charcoal/30"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-              Gravar sessão
-            </button>
-          </div>
-        </div>
-      </header>
+    <div
+      className={
+        isCopilotTab
+          ? 'flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white'
+          : 'bg-[#F8FAF9] px-4 pb-8 sm:px-6 lg:px-8'
+      }
+    >
+      <PatientRecordPageHeader
+        patient={patient}
+        age={age}
+        diaryCount={data.recent_diary.length}
+        onDiaryOpen={() => setFamilyDiaryOpen(true)}
+        onFamilyInvite={() => familyInvite.setOpen(true)}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        clinicalDirty={isDirty}
+        bleed={!isCopilotTab}
+      />
 
       <PatientFamilyInviteModal
         isOpen={familyInvite.open}
@@ -250,56 +200,54 @@ export default function PatientRecordContainer() {
         entries={data.recent_diary}
       />
 
-      <PatientRecordTabs
-        active={activeTab}
-        onChange={handleTabChange}
-        clinicalDirty={isDirty}
-      />
-
-      {isDirty && activeTab === 'overview' && (
-        <div
-          role="status"
-          className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-          A Ficha Clínica tem alterações não salvas. Abra a aba &quot;Ficha Clínica&quot; para concluir a edição.
+      {isCopilotTab ? (
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+          <PatientCopilotTab patientId={patientId} patientName={patient.name} />
         </div>
-      )}
+      ) : (
+        <div className="mt-6 lg:mt-8">
+          {isDirty && activeTab === 'overview' && (
+            <div
+              role="status"
+              className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              A Ficha Clínica tem alterações não salvas. Abra a aba &quot;Ficha Clínica&quot; para concluir a edição.
+            </div>
+          )}
 
-      {activeTab === 'copilot' && (
-        <PatientCopilotTab patientId={patientId} patientName={patient.name} />
-      )}
+          {activeTab === 'overview' && (
+            <PatientSessionHistoryTab patientId={patientId} patientName={patient.name} />
+          )}
 
-      {activeTab === 'overview' && (
-        <PatientSessionHistoryTab patientId={patientId} patientName={patient.name} />
-      )}
+          {activeTab === 'checkins' && <PatientCrisisControlTab patientId={patientId} />}
 
-      {activeTab === 'checkins' && <PatientCrisisControlTab patientId={patientId} />}
+          {activeTab === 'clinical' && (
+            <PatientClinicalRecordTab
+              patientId={patientId}
+              patientName={patient.name}
+              fotoUrl={patient.foto_url}
+              onFotoUpdated={(fotoUrl) => {
+                setPatient((p) => (p ? { ...p, foto_url: fotoUrl } : p));
+                queryClient.setQueryData<PatientRecordData>(['patient-record', patientId], (old) =>
+                  old ? { ...old, patient: { ...old.patient, foto_url: fotoUrl } } : old,
+                );
+                queryClient.invalidateQueries({ queryKey: ['patient-avatar-url', fotoUrl] });
+                queryClient.invalidateQueries({ queryKey: ['patients'] });
+              }}
+              form={clinicalForm}
+              onChange={setClinicalForm}
+              onSave={() => updateMutation.mutate()}
+              onCancelEdit={handleCancelEdit}
+              isSaving={updateMutation.isPending}
+              saveError={saveError}
+              isDirty={isDirty}
+            />
+          )}
 
-      {activeTab === 'clinical' && (
-        <PatientClinicalRecordTab
-          patientId={patientId}
-          patientName={patient.name}
-          fotoUrl={patient.foto_url}
-          onFotoUpdated={(fotoUrl) => {
-            setPatient((p) => (p ? { ...p, foto_url: fotoUrl } : p));
-            queryClient.setQueryData<PatientRecordData>(['patient-record', patientId], (old) =>
-              old ? { ...old, patient: { ...old.patient, foto_url: fotoUrl } } : old,
-            );
-            queryClient.invalidateQueries({ queryKey: ['patient-avatar-url', fotoUrl] });
-            queryClient.invalidateQueries({ queryKey: ['patients'] });
-          }}
-          form={clinicalForm}
-          onChange={setClinicalForm}
-          onSave={() => updateMutation.mutate()}
-          onCancelEdit={handleCancelEdit}
-          isSaving={updateMutation.isPending}
-          saveError={saveError}
-          isDirty={isDirty}
-        />
-      )}
-
-      {activeTab === 'documents' && (
-        <PatientDocumentsTab patientId={patientId} patientName={patient.name} />
+          {activeTab === 'documents' && (
+            <PatientDocumentsTab patientId={patientId} patientName={patient.name} />
+          )}
+        </div>
       )}
     </div>
   );

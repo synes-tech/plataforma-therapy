@@ -21,7 +21,7 @@ interface PlanControlState {
   };
 }
 
-export default function PlanControlContainer() {
+export default function PlanControlContainer({ onBrowsePlans }: { onBrowsePlans?: () => void }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['plan-control-state'],
     queryFn: () => callFunction<PlanControlState>('get-plan-control-state', {}),
@@ -46,6 +46,7 @@ export default function PlanControlContainer() {
         isSolo={data.clinic.is_solo_professional}
         subscriptionStatus={data.clinic.subscription_status}
         trialEndsAt={data.clinic.trial_ends_at}
+        onBrowsePlans={onBrowsePlans}
       />
 
       <section aria-labelledby="extensions-title">

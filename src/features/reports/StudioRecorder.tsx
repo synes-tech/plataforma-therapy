@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { supabase } from '@shared/lib/supabase';
 import { blobToWav, pickRecorderMime } from '@shared/lib/audio-wav';
+import { fetchSessionNoteContent, useAudioJobWatcher } from '@features/audio-recorder/useAudioJobWatcher';
 
 type RecorderState = 'idle' | 'recording' | 'uploading' | 'processing' | 'review' | 'error';
 
@@ -48,6 +49,7 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
   const timerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const jobIdRef = useRef<string | null>(null);
+  const [processingJobId, setProcessingJobId] = useState<string | null>(null);
 
   // Reset ao trocar de paciente
   useEffect(() => {
@@ -57,6 +59,7 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
     setSoap(null);
     setNoteId(null);
     jobIdRef.current = null;
+    setProcessingJobId(null);
   }, [patientId]);
 
   // Cleanup
@@ -67,71 +70,34 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
     };
   }, []);
 
-  // Realtime: aguarda a IA concluir o job e busca o rascunho SOAP
-  useEffect(() => {
-    if (state !== 'processing') return;
-
-    // Helper to fetch completed job result
-    async function handleJobCompleted(sessionNoteId: string) {
-      const { data } = await supabase
-        .from('session_notes')
-        .select('id, content')
-        .eq('id', sessionNoteId)
-        .single();
-      if (data) {
-        setNoteId(data.id);
-        setSoap(data.content as SoapContent);
-        setState(enableReview ? 'review' : 'idle');
-        if (!enableReview) onSaved?.();
+  const handleJobCompleted = useCallback(
+    async (sessionNoteId: string) => {
+      const content = await fetchSessionNoteContent(sessionNoteId);
+      if (content) {
+        setNoteId(sessionNoteId);
+        setSoap(content as unknown as SoapContent);
       }
-    }
+      setState(enableReview ? 'review' : 'idle');
+      if (!enableReview) onSaved?.();
+    },
+    [enableReview, onSaved],
+  );
 
-    // Poll immediately in case the job completed before Realtime connected (race condition)
-    async function checkJobStatus() {
-      if (!jobIdRef.current) return;
-      const { data } = await supabase
-        .from('ai_jobs')
-        .select('id, status, output_data')
-        .eq('id', jobIdRef.current)
-        .single();
+  const handleJobFailed = useCallback((reason?: 'failed' | 'timeout') => {
+    setError(
+      reason === 'timeout'
+        ? 'O processamento está demorando mais que o esperado. Verifique os relatórios pendentes ou tente novamente.'
+        : 'A IA não conseguiu processar o áudio. Tente novamente.',
+    );
+    setState('error');
+  }, []);
 
-      if (data?.status === 'completed' && data.output_data?.session_note_id) {
-        await handleJobCompleted(data.output_data.session_note_id);
-      } else if (data?.status === 'failed') {
-        setError('A IA não conseguiu processar o áudio. Tente novamente.');
-        setState('error');
-      }
-    }
-
-    const pollTimer = setTimeout(checkJobStatus, 3000);
-    const fallbackTimer = setTimeout(checkJobStatus, 12000);
-
-    const channel = supabase
-      .channel(`reports-job-${patientId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `patient_id=eq.${patientId}` },
-        async (payload) => {
-          const job = payload.new as { id: string; status: string; output_data?: { session_note_id?: string } };
-          if (jobIdRef.current && job.id !== jobIdRef.current) return;
-          if (job.status === 'failed') {
-            setError('A IA não conseguiu processar o áudio. Tente novamente.');
-            setState('error');
-            return;
-          }
-          if (job.status === 'completed' && job.output_data?.session_note_id) {
-            await handleJobCompleted(job.output_data.session_note_id);
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      clearTimeout(pollTimer);
-      clearTimeout(fallbackTimer);
-      supabase.removeChannel(channel);
-    };
-  }, [state, patientId, enableReview, onSaved]);
+  useAudioJobWatcher({
+    active: state === 'processing',
+    jobId: processingJobId,
+    onCompleted: handleJobCompleted,
+    onFailed: handleJobFailed,
+  });
 
   const startRecording = useCallback(async () => {
     try {
@@ -183,6 +149,7 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
     },
     onSuccess: (data) => {
       jobIdRef.current = data.job_id;
+      setProcessingJobId(data.job_id);
       setState('processing');
     },
     onError: (err: Error) => {

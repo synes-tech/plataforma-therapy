@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@containers/loading';
 import { RecordEmptyState } from '../RecordEmptyState';
+import { RecordSessionButton } from '../RecordSessionButton';
 import type { PatientSessionRecord } from '../session/session-history.types';
 import { PatientSessionReadModal } from './PatientSessionReadModal';
 import { PatientSessionsTable } from './PatientSessionsTable';
@@ -50,13 +51,10 @@ export function PatientSessionHistoryTab({ patientId, patientName }: PatientSess
           <RecordEmptyState
             variant="sessions"
             action={
-              <button
-                type="button"
+              <RecordSessionButton
+                variant="empty"
                 onClick={() => navigate(`/session/${patientId}`)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark"
-              >
-                Gravar sessão
-              </button>
+              />
             }
           />
         </div>

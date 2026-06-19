@@ -50,3 +50,6 @@ enabled = true
 
 [functions]
 # verify_jwt defaults are handled per-function via CLI flags
+
+[functions.transcribe-copilot-audio]
+verify_jwt = false

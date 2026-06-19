@@ -6,21 +6,40 @@ interface StatCardProps {
   label: string;
   value: number | string;
   icon: ReactNode;
-  accent?: 'default' | 'alert';
+  tone?: 'primary' | 'mint' | 'alert';
   loading?: boolean;
 }
 
-function StatCard({ label, value, icon, accent = 'default', loading }: StatCardProps) {
-  const valueClass =
-    accent === 'alert' && Number(value) > 0 ? 'text-error' : 'text-charcoal';
+const TONE_STYLES = {
+  primary: {
+    card: 'dashboard-stat-surface',
+    icon: 'bg-primary/10 text-primary',
+    value: 'text-charcoal',
+  },
+  mint: {
+    card: 'dashboard-stat-surface',
+    icon: 'bg-mint/10 text-mint-dark',
+    value: 'text-charcoal',
+  },
+  alert: {
+    card: 'dashboard-stat-surface',
+    icon: 'bg-alert/15 text-alert',
+    value: 'text-charcoal',
+  },
+  alertActive: {
+    card: 'dashboard-stat-surface',
+    icon: 'bg-error/10 text-error',
+    value: 'text-error',
+  },
+} as const;
+
+function StatCard({ label, value, icon, tone = 'primary', loading }: StatCardProps) {
+  const hasAlerts = tone === 'alert' && Number(value) > 0;
+  const styles = hasAlerts ? TONE_STYLES.alertActive : TONE_STYLES[tone];
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-          accent === 'alert' && Number(value) > 0 ? 'bg-error-light/80 text-error' : 'bg-primary-50 text-primary'
-        }`}
-      >
+    <div className={`flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-4 ${styles.card}`}>
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.icon}`}>
         {icon}
       </div>
       <div className="min-w-0">
@@ -28,7 +47,7 @@ function StatCard({ label, value, icon, accent = 'default', loading }: StatCardP
         {loading ? (
           <SkeletonBlock className="mt-1.5 h-6 w-10 rounded-md" />
         ) : (
-          <p className={`mt-0.5 font-display text-xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
+          <p className={`mt-0.5 font-display text-xl font-semibold tabular-nums ${styles.value}`}>{value}</p>
         )}
       </div>
     </div>
@@ -72,19 +91,21 @@ export function DashboardQuickStats({ summary, loading }: DashboardQuickStatsPro
           label="Pacientes ativos"
           value={summary?.active_patients_count ?? 0}
           icon={<UsersIcon />}
+          tone="primary"
           loading={loading}
         />
         <StatCard
           label="Sessões na semana"
           value={summary?.sessions_this_week ?? 0}
           icon={<CalendarIcon />}
+          tone="mint"
           loading={loading}
         />
         <StatCard
           label="Alertas pendentes"
           value={summary?.alerts_count ?? 0}
           icon={<BellIcon />}
-          accent="alert"
+          tone="alert"
           loading={loading}
         />
       </div>

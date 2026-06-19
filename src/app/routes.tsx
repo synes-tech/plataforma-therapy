@@ -18,10 +18,10 @@ const LinkInvite = lazy(() => import('@containers/family/LinkInvite'));
 const RoutineDiary = lazy(() => import('@containers/family/RoutineDiary'));
 const FamilyCalendar = lazy(() => import('@containers/family/FamilyCalendar'));
 const Agreements = lazy(() => import('@containers/family/Agreements'));
-const BillingHubContainer = lazy(() => import('@containers/billing/BillingHubContainer'));
-const PlanControlContainer = lazy(() => import('@containers/billing/PlanControlContainer'));
-const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
+const SettingsHubContainer = lazy(() => import('@containers/settings/SettingsHubContainer'));
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
+const SettingsPlanTab = lazy(() => import('@containers/settings/SettingsPlanTab'));
+const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
 
 /**
@@ -177,23 +177,24 @@ export function AppRoutes() {
       <Route path="/diary" element={<Navigate to="/family/diary" replace />} />
       <Route
         path="/billing"
-        element={
-          <ProtectedRoute ownerOnly>
-            <WithLayout><BillingHubContainer /></WithLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<PlanControlContainer />} />
-        <Route path="invoices" element={<BillingContainer />} />
-      </Route>
+        element={<Navigate to="/settings/plan" replace />}
+      />
+      <Route
+        path="/billing/invoices"
+        element={<Navigate to="/settings/invoices" replace />}
+      />
       <Route
         path="/settings"
         element={
           <ProtectedRoute ownerOnly>
-            <WithLayout><SettingsContainer /></WithLayout>
+            <WithLayout><SettingsHubContainer /></WithLayout>
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<SettingsContainer />} />
+        <Route path="plan" element={<SettingsPlanTab />} />
+        <Route path="invoices" element={<BillingContainer />} />
+      </Route>
       <Route
         path="/invite"
         element={

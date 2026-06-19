@@ -104,7 +104,7 @@ export default function FullCalendar() {
   }
 
   return (
-    <div className="bg-[#F8FAF9] px-4 py-6 lg:px-8 lg:py-8">
+    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
       <CalendarHeaderBar
         currentView={currentView}
         onViewChange={handleViewChange}
@@ -117,29 +117,31 @@ export default function FullCalendar() {
         onNewSchedule={() => openNewSchedule(todayISO)}
       />
 
-      {currentView === 'month' && (
-        <CalendarMonthView
-          year={cursor.year}
-          month0={cursor.month0}
-          todayISO={todayISO}
-          countByDate={countByDate}
-          showSkeleton={showMonthSkeleton}
-          showRefetchOverlay={showMonthRefetch}
-          onDayClick={handleMonthDayClick}
-        />
-      )}
+      <div className="mt-6 lg:mt-8">
+        {currentView === 'month' && (
+          <CalendarMonthView
+            year={cursor.year}
+            month0={cursor.month0}
+            todayISO={todayISO}
+            countByDate={countByDate}
+            showSkeleton={showMonthSkeleton}
+            showRefetchOverlay={showMonthRefetch}
+            onDayClick={handleMonthDayClick}
+          />
+        )}
 
-      {currentView === 'week' && (
-        <CalendarWeekView
-          weekSundayISO={weekSundayISO}
-          todayISO={todayISO}
-          onDayClick={openDayDrawer}
-        />
-      )}
+        {currentView === 'week' && (
+          <CalendarWeekView
+            weekSundayISO={weekSundayISO}
+            todayISO={todayISO}
+            onDayClick={openDayDrawer}
+          />
+        )}
 
-      {currentView === 'list' && (
-        <CalendarListView todayISO={todayISO} onNewSchedule={() => openNewSchedule(todayISO)} />
-      )}
+        {currentView === 'list' && (
+          <CalendarListView todayISO={todayISO} onNewSchedule={() => openNewSchedule(todayISO)} />
+        )}
+      </div>
 
       <CalendarDayActionPopover
         menu={dayActionMenu}

@@ -1,4 +1,6 @@
-export { PaywallProvider, usePaywall } from './PaywallProvider';
+export { PaywallProvider } from './PaywallProvider';
+export { usePaywall } from './paywall-context';
+export type { PaywallContextValue } from './paywall-context';
 export { PaywallModal } from './PaywallModal';
 export type { PaywallTrigger, PaywallPlanCard, PaywallBillingState } from './paywall.types';
 export {

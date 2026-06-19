@@ -28,7 +28,7 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
   const age = getPatientAge(item.patient?.birth_date);
 
   return (
-    <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-[#EDE4DC]/35 px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
         <div className="shrink-0 text-right">
           <p className="font-mono text-sm font-medium text-charcoal">{formatScheduleTime(item.scheduled_at)}</p>
@@ -74,7 +74,7 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
 function AgendaEmptyState() {
   return (
     <div className="flex flex-col items-center px-5 py-12 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50">
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/50">
         <CoffeeCalendarIllustration />
       </div>
       <p className="text-sm font-medium text-charcoal">Agenda livre hoje</p>
@@ -108,7 +108,7 @@ export function DashboardAgendaCard({ schedule, loading }: DashboardAgendaCardPr
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+      <div className="dashboard-card-surface overflow-hidden rounded-3xl">
         {loading ? (
           <ListPageSkeleton rows={3} rowClassName="h-20" className="space-y-px" />
         ) : schedule.length === 0 ? (

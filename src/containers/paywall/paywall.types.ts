@@ -1,7 +1,7 @@
 /** Limite freemium — espelha backend paywall.ts */
 export const FREEMIUM_PATIENT_LIMIT = 1;
 
-export type PaywallTrigger = 'patient_limit' | 'ai_feature';
+export type PaywallTrigger = 'patient_limit' | 'ai_feature' | 'plan_catalog';
 
 export interface PaywallBillingState {
   requires_paywall: boolean;

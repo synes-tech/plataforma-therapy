@@ -19,7 +19,7 @@ export function UpgradePlanModal({
   onClose,
   title = 'Limite do plano atingido',
   message,
-  ctaHref = '/billing',
+  ctaHref = '/settings/plan?plans=1',
   ctaLabel = 'Ver planos e fazer upgrade',
   helperText = 'Seu plano atual atingiu a cota de uso. Faça upgrade para continuar.',
 }: UpgradePlanModalProps) {

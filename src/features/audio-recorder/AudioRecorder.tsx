@@ -1,7 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Spinner, LoadingButton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
+import { supabase } from '@shared/lib/supabase';
 import { blobToWav, pickRecorderMime } from '@shared/lib/audio-wav';
+import { fetchSessionNoteContent, useAudioJobWatcher } from './useAudioJobWatcher';
 
 interface AudioRecorderProps {
   patientId: string;
@@ -11,17 +14,89 @@ interface AudioRecorderProps {
 
 type RecordingState = 'idle' | 'recording' | 'uploading' | 'processing' | 'done' | 'error';
 
+interface SessionNoteContent {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+  summary_markdown?: string;
+  transcription?: string;
+}
+
+const STEPS = [
+  { id: 'record', label: 'Gravar' },
+  { id: 'upload', label: 'Enviar' },
+  { id: 'process', label: 'Processar' },
+  { id: 'review', label: 'Revisar' },
+] as const;
+
+function MicIcon({ className = 'h-7 w-7' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 10-6 0v8.25a3 3 0 003 3z"
+      />
+    </svg>
+  );
+}
+
+function WaveformBars({ active }: { active: boolean }) {
+  const heights = [14, 22, 18, 26, 16, 24, 20];
+
+  return (
+    <div className="flex h-10 items-end justify-center gap-1.5" aria-hidden>
+      {heights.map((height, i) => (
+        <div
+          key={i}
+          className={`w-1.5 rounded-full bg-primary transition-all ${
+            active ? 'animate-pulse' : 'opacity-30'
+          }`}
+          style={{
+            height: `${height}px`,
+            animationDelay: `${i * 0.12}s`,
+            animationDuration: '0.9s',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function stepIndex(state: RecordingState): number {
+  if (state === 'idle' || state === 'error') return 0;
+  if (state === 'recording') return 0;
+  if (state === 'uploading') return 1;
+  if (state === 'processing') return 2;
+  return 3;
+}
+
 export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRecorderProps) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [sessionNote, setSessionNote] = useState<SessionNoteContent | null>(null);
+  const [sessionNoteId, setSessionNoteId] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const jobIdRef = useRef<string | null>(null);
+  const [processingJobId, setProcessingJobId] = useState<string | null>(null);
 
-  // Cleanup on unmount
+  useEffect(() => {
+    setState('idle');
+    setDuration(0);
+    setError(null);
+    setSessionNote(null);
+    setSessionNoteId(null);
+    jobIdRef.current = null;
+    setProcessingJobId(null);
+  }, [patientId]);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -31,9 +106,46 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
     };
   }, []);
 
+  const handleJobCompleted = useCallback(
+    async (noteId: string) => {
+      setSessionNoteId(noteId);
+      const content = await fetchSessionNoteContent(noteId);
+
+      if (content) {
+        setSessionNote(content as unknown as SessionNoteContent);
+      }
+
+      setState('done');
+      onComplete?.(jobIdRef.current ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
+      void queryClient.invalidateQueries({ queryKey: ['patient-sessions', patientId] });
+      window.dispatchEvent(new CustomEvent('ai-job-complete', { detail: { patient_id: patientId } }));
+    },
+    [onComplete, patientId, queryClient],
+  );
+
+  const handleJobFailed = useCallback((reason?: 'failed' | 'timeout') => {
+    setError(
+      reason === 'timeout'
+        ? 'O processamento está demorando mais que o esperado. Confira "Pendentes de revisão" abaixo ou tente gravar novamente.'
+        : 'A IA não conseguiu processar o áudio. Tente novamente.',
+    );
+    setState('error');
+    void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
+  }, [patientId, queryClient]);
+
+  useAudioJobWatcher({
+    active: state === 'processing',
+    jobId: processingJobId,
+    onCompleted: handleJobCompleted,
+    onFailed: handleJobFailed,
+  });
+
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      setSessionNote(null);
+      setSessionNoteId(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -46,7 +158,7 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(1000);
       setState('recording');
       setDuration(0);
 
@@ -59,24 +171,43 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
     }
   }, []);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && state === 'recording') {
-      mediaRecorderRef.current.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      setState('uploading');
+  const resetRecorder = useCallback(() => {
+    setState('idle');
+    setDuration(0);
+    setError(null);
+    setSessionNote(null);
+    setSessionNoteId(null);
+    jobIdRef.current = null;
+    setProcessingJobId(null);
+  }, []);
 
-      // Process after a short delay to ensure all chunks are collected
-      setTimeout(() => uploadAudio(), 200);
-    }
-  }, [state]);
+  const approveMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionNoteId) throw new Error('Relatório não encontrado.');
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const { error } = await supabase
+        .from('session_notes')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          approved_by: userId,
+        })
+        .eq('id', sessionNoteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
+      void queryClient.invalidateQueries({ queryKey: ['patient-sessions', patientId] });
+      resetRecorder();
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Não foi possível aprovar o relatório. Tente novamente.');
+      setState('error');
+    },
+  });
 
-  // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (audioBlob: Blob) => {
-      // 1. Get signed upload URL
       const response = await callFunction<{
         audio_recording_id: string;
         upload_url: string;
@@ -87,7 +218,6 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
         duration_seconds: duration,
       });
 
-      // 2. Convert to WAV (Gemini-compatible) and upload directly to Storage
       const wavBlob = await blobToWav(audioBlob);
       const uploadResponse = await fetch(response.upload_url, {
         method: 'PUT',
@@ -96,14 +226,21 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload audio file');
+        throw new Error('Falha ao enviar o áudio. Tente novamente.');
       }
+
+      callFunction('process-audio', {
+        audio_recording_id: response.audio_recording_id,
+        patient_id: patientId,
+        job_id: response.job_id,
+      }).catch((err) => console.error('process-audio trigger failed:', err));
 
       return response;
     },
     onSuccess: (data) => {
+      jobIdRef.current = data.job_id;
+      setProcessingJobId(data.job_id);
       setState('processing');
-      onComplete?.(data.job_id);
     },
     onError: (err: Error) => {
       setError(err.message);
@@ -111,11 +248,21 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
     },
   });
 
-  function uploadAudio() {
-    const recordedType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-    const blob = new Blob(chunksRef.current, { type: recordedType });
-    uploadMutation.mutate(blob);
-  }
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && state === 'recording') {
+      mediaRecorderRef.current.stop();
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      setState('uploading');
+      const recordedType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+      setTimeout(() => {
+        const blob = new Blob(chunksRef.current, { type: recordedType });
+        uploadMutation.mutate(blob);
+      }, 200);
+    }
+  }, [state, uploadMutation]);
 
   function formatTime(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -123,96 +270,211 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
+  const previewText =
+    sessionNote?.transcription?.trim() ||
+    sessionNote?.subjective?.trim() ||
+    sessionNote?.summary_markdown?.trim() ||
+    null;
+
+  const currentStep = stepIndex(state);
+  const isRecording = state === 'recording';
+  const isBusy = state === 'uploading' || state === 'processing';
+
   return (
-    <div className="glass-card p-6">
-      <h3 className="mb-4 text-sm font-medium text-text">
-        {recordingType === 'post_session' ? 'Ditado de Pós-Consulta' : 'Gravação de Áudio'}
-      </h3>
-
-      {/* Error */}
-      {error && (
-        <div role="alert" className="mb-4 rounded-lg border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">
-          {error}
-          <button onClick={() => { setError(null); setState('idle'); }} className="ml-2 underline">
-            Tentar novamente
-          </button>
+    <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <header className="border-b border-slate-100 px-5 py-4 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="session-recorder-title" className="font-display text-base font-semibold text-charcoal">
+              Ditado pós-consulta
+            </h2>
+            <p className="mt-0.5 text-sm text-charcoal-muted">
+              Fale naturalmente — a IA organiza em relatório SOAP.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+            Áudio com IA
+          </span>
         </div>
-      )}
+      </header>
 
-      {/* Recording UI */}
-      <div className="flex flex-col items-center gap-4">
-        {/* Waveform indicator */}
-        {state === 'recording' && (
-          <div className="flex items-center gap-1" aria-label="Gravando áudio">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="w-1 animate-pulse rounded-full bg-error"
-                style={{
-                  height: `${12 + Math.random() * 20}px`,
-                  animationDelay: `${i * 0.15}s`,
-                  animationDuration: '0.8s',
-                }}
-              />
-            ))}
+      <div className="px-5 py-5 sm:px-6 sm:py-6">
+        <ol className="mb-6 grid grid-cols-4 gap-1 sm:gap-2" aria-label="Etapas da gravação">
+          {STEPS.map((step, index) => {
+            const done = index < currentStep;
+            const active = index === currentStep;
+            return (
+              <li key={step.id} className="flex flex-col items-center gap-1.5 text-center">
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                    done
+                      ? 'bg-mint text-white'
+                      : active
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-slate-100 text-charcoal-muted'
+                  }`}
+                >
+                  {done ? '✓' : index + 1}
+                </span>
+                <span
+                  className={`text-[10px] font-medium uppercase tracking-wide sm:text-[11px] ${
+                    active ? 'text-charcoal' : 'text-charcoal-muted'
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 rounded-xl border border-error/15 bg-error-light/60 px-4 py-3 text-sm text-error"
+          >
+            {error}
+            <button
+              type="button"
+              onClick={resetRecorder}
+              className="ml-2 font-medium underline underline-offset-2"
+            >
+              Tentar novamente
+            </button>
           </div>
         )}
 
-        {/* Timer */}
-        {(state === 'recording' || state === 'uploading') && (
-          <p className="font-mono text-2xl text-text" aria-live="polite">
-            {formatTime(duration)}
-          </p>
-        )}
+        <div className="rounded-2xl border border-slate-100 bg-[#F8FAF9] px-4 py-8 sm:px-8 sm:py-10">
+          <div className="flex flex-col items-center gap-5">
+            {(isRecording || isBusy) && <WaveformBars active={isRecording} />}
 
-        {/* Status messages */}
-        {state === 'uploading' && (
-          <p className="text-sm text-text-muted">Enviando áudio...</p>
-        )}
-        {state === 'processing' && (
-          <div className="text-center">
-            <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-ai border-t-transparent" />
-            <p className="text-sm text-ai-light">IA processando transcrição...</p>
-            <p className="mt-1 text-xs text-text-muted">Você será notificado quando estiver pronto</p>
-          </div>
-        )}
-        {state === 'done' && (
-          <div className="text-center">
-            <p className="text-sm text-success">✓ Relatório gerado e aguardando revisão</p>
-          </div>
-        )}
+            {isRecording && (
+              <p className="font-mono text-4xl font-medium tabular-nums tracking-tight text-charcoal" aria-live="polite">
+                {formatTime(duration)}
+              </p>
+            )}
 
-        {/* Main action button */}
+            {state === 'uploading' && (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <Spinner size="md" />
+                <p className="text-sm font-medium text-charcoal">Enviando áudio...</p>
+                <p className="text-xs text-charcoal-muted">Mantendo a conexão segura com o servidor.</p>
+              </div>
+            )}
+
+            {state === 'processing' && (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ai-50 text-ai">
+                  <Spinner size="md" />
+                </div>
+                <p className="text-sm font-medium text-charcoal">IA transcrevendo e estruturando o relatório</p>
+                <p className="max-w-xs text-xs leading-relaxed text-charcoal-muted">
+                  Isso pode levar alguns segundos. Aguarde nesta tela.
+                </p>
+              </div>
+            )}
+
+            {state === 'done' && (
+              <div className="w-full animate-fade-in text-left">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-mint-50">
+                    <svg className="h-3.5 w-3.5 text-mint-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-mint-dark">Relatório pronto para revisão</span>
+                </div>
+
+                {previewText ? (
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-white p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">Resumo</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-charcoal">{previewText}</p>
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-mint-100 bg-mint-50/50 px-4 py-3 text-sm text-charcoal">
+                    A transcrição foi concluída. Role até &quot;Pendentes de revisão&quot; para aprovar o relatório SOAP.
+                  </p>
+                )}
+
+                <p className="mt-3 text-xs text-charcoal-muted">
+                  O relatório completo está em &quot;Pendentes de revisão&quot; abaixo.
+                </p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {sessionNoteId && (
+                    <LoadingButton
+                      type="button"
+                      variant="primary"
+                      loading={approveMutation.isPending}
+                      loadingLabel="Aprovando..."
+                      onClick={() => approveMutation.mutate()}
+                      className="h-9 px-4 text-xs font-semibold"
+                    >
+                      Aprovar relatório
+                    </LoadingButton>
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetRecorder}
+                    disabled={approveMutation.isPending}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-charcoal transition-colors hover:border-primary/30 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Gravar nova sessão
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {state === 'idle' && (
+              <>
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  className="group relative flex h-24 w-24 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] hover:bg-primary-dark active:scale-[0.97]"
+                  aria-label="Iniciar gravação"
+                >
+                  <span className="absolute inset-0 rounded-full bg-primary/20 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <MicIcon className="relative h-8 w-8" />
+                </button>
+                <p className="text-center text-sm font-medium text-charcoal">Toque para iniciar a gravação</p>
+              </>
+            )}
+
+            {isRecording && (
+              <>
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-md ring-4 ring-error/30 transition-transform hover:scale-[1.02] active:scale-[0.97]"
+                  aria-label="Parar gravação"
+                >
+                  <span className="absolute inset-0 animate-ping rounded-full bg-error/10" aria-hidden />
+                  <div className="relative h-6 w-6 rounded-md bg-error" />
+                </button>
+                <p className="text-center text-sm font-medium text-charcoal">Gravando — toque para finalizar</p>
+              </>
+            )}
+          </div>
+        </div>
+
         {state === 'idle' && (
-          <button
-            onClick={startRecording}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-error/90 text-white shadow-lg transition-transform hover:scale-105 hover:bg-error active:scale-95"
-            aria-label="Iniciar gravação"
-          >
-            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-            </svg>
-          </button>
-        )}
-
-        {state === 'recording' && (
-          <button
-            onClick={stopRecording}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-light ring-4 ring-error/50 transition-transform hover:scale-105 active:scale-95"
-            aria-label="Parar gravação"
-          >
-            <div className="h-5 w-5 rounded-sm bg-error" />
-          </button>
+          <ul className="mt-5 space-y-2 text-sm text-charcoal-muted">
+            <li className="flex items-start gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+              Descreva o que aconteceu na sessão, comportamentos observados e combinados com a família.
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+              Não precisa ser perfeito — a IA estrutura subjetivo, objetivo, avaliação e plano.
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+              Revise o relatório antes de aprovar e salvar no prontuário.
+            </li>
+          </ul>
         )}
       </div>
-
-      {/* Instructions */}
-      {state === 'idle' && (
-        <p className="mt-4 text-center text-xs text-text-muted">
-          Pressione para gravar suas observações da sessão. A IA gerará o relatório estruturado automaticamente.
-        </p>
-      )}
-    </div>
+    </article>
   );
 }

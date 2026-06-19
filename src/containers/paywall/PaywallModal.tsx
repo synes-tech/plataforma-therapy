@@ -59,6 +59,18 @@ export function PaywallModal({
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-ai/15 blur-3xl" />
 
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={checkoutSubmitting}
+          aria-label="Sair"
+          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-sm transition-colors hover:border-white/25 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50 md:right-5 md:top-5"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         {step === 'checkout' && selectedPlan ? (
           <CheckoutForm
             plan={selectedPlan}
@@ -70,16 +82,22 @@ export function PaywallModal({
         ) : (
           <>
             <div className="relative border-b border-white/10 px-6 py-8 text-center md:px-10">
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary-300/90">
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/80">
                 Unithery · Acesso completo
               </p>
               <h2 id="paywall-title" className="mt-3 font-serif text-2xl font-medium tracking-tight text-white md:text-3xl">
-                Desbloqueie o poder total da Unithery
+                {trigger === 'plan_catalog'
+                  ? 'Escolha o plano ideal para você'
+                  : 'Desbloqueie o poder total da Unithery'}
               </h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-400">
-                Inicie seus 14 dias grátis agora. Cancele quando quiser.
+                {trigger === 'plan_catalog'
+                  ? 'Compare os planos disponíveis e altere sua assinatura quando quiser.'
+                  : 'Inicie seus 14 dias grátis agora. Cancele quando quiser.'}
               </p>
-              <p className="mt-2 text-xs text-slate-500">{trialHint}</p>
+              {trigger !== 'plan_catalog' && (
+                <p className="mt-2 text-xs text-slate-500">{trialHint}</p>
+              )}
               {trigger === 'patient_limit' && (
                 <p className="mt-3 text-xs text-amber-400/90">
                   Você já cadastrou seu paciente de degustação. Assine para adicionar mais.
@@ -119,7 +137,7 @@ export function PaywallModal({
                   </p>
 
                   {plan.destaque && (
-                    <p className="mt-2 text-xs text-primary-300">{plan.destaque}</p>
+                    <p className="mt-2 text-xs font-medium text-white">{plan.destaque}</p>
                   )}
 
                   <ul className="mt-5 flex-1 space-y-2">
@@ -140,7 +158,7 @@ export function PaywallModal({
                         : 'border border-white/20 bg-white/10 text-white hover:bg-white/15'
                     }`}
                   >
-                    Iniciar 14 dias grátis
+                    {trigger === 'plan_catalog' ? 'Selecionar plano' : 'Iniciar 14 dias grátis'}
                   </button>
                 </article>
               ))}
@@ -152,7 +170,7 @@ export function PaywallModal({
                 onClick={onClose}
                 className="text-xs text-slate-500 transition-colors hover:text-slate-300"
               >
-                Continuar explorando depois
+                {trigger === 'plan_catalog' ? 'Fechar' : 'Continuar explorando depois'}
               </button>
             </div>
           </>

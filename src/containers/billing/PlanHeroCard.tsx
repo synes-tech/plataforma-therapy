@@ -5,6 +5,7 @@ interface PlanHeroCardProps {
   isSolo: boolean;
   subscriptionStatus: string;
   trialEndsAt: string | null;
+  onBrowsePlans?: () => void;
 }
 
 function statusLabel(status: string): string {
@@ -13,7 +14,13 @@ function statusLabel(status: string): string {
   return 'Em avaliação';
 }
 
-export function PlanHeroCard({ planId, isSolo, subscriptionStatus, trialEndsAt }: PlanHeroCardProps) {
+export function PlanHeroCard({
+  planId,
+  isSolo,
+  subscriptionStatus,
+  trialEndsAt,
+  onBrowsePlans,
+}: PlanHeroCardProps) {
   const label = planLabel(planId, isSolo);
 
   return (
@@ -38,6 +45,15 @@ export function PlanHeroCard({ planId, isSolo, subscriptionStatus, trialEndsAt }
           Seu plano cobre pacientes ativos, IA clínica e recursos do consultório. Extensões de backup são
           contratadas separadamente abaixo.
         </p>
+        {onBrowsePlans && (
+          <button
+            type="button"
+            onClick={onBrowsePlans}
+            className="mt-5 inline-flex h-10 items-center justify-center rounded-xl border border-primary/25 bg-primary-50 px-4 text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary-100"
+          >
+            Ver todos os planos
+          </button>
+        )}
       </div>
     </section>
   );

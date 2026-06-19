@@ -20,6 +20,7 @@ FUNCTIONS=(
   "upload-audio"
   "process-audio"
   "query-copilot"
+  "transcribe-copilot-audio"
   "get-clinic-dashboard"
   "get-clinic-settings"
   "update-clinic-settings"
@@ -66,6 +67,7 @@ FUNCTIONS=(
   "update-patient"
   "get-patient-sessions"
   "upload-patient-avatar"
+  "upload-professional-avatar"
 )
 
 echo "Deploying ${#FUNCTIONS[@]} Edge Functions..."

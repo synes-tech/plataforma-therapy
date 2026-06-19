@@ -16,6 +16,7 @@ export interface CopilotMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  inputSource?: 'text' | 'audio';
   sources?: CopilotSourceRef[];
   guardrail_triggered?: boolean;
   answer_incomplete?: boolean;

@@ -1,104 +1,92 @@
-import { useParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { PageHeader } from '@containers/layout';
 import { PageLoader } from '@containers/loading';
+import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import { supabase } from '@shared/lib/supabase';
+import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { AudioRecorder } from '@features/audio-recorder/AudioRecorder';
 import { SessionNoteReview } from '@features/audio-recorder/SessionNoteReview';
-import { SessionHistoryPanel } from './session/SessionHistoryPanel';
 
 export default function SessionContainer() {
   const { patientId } = useParams<{ patientId: string }>();
-
-  useEffect(() => {
-    if (!patientId) return;
-
-    const channel = supabase
-      .channel(`ai-jobs-${patientId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ai_jobs',
-          filter: `patient_id=eq.${patientId}`,
-        },
-        (payload) => {
-          if (payload.new.status === 'completed') {
-            window.dispatchEvent(new CustomEvent('ai-job-complete', { detail: payload.new }));
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [patientId]);
+  const navigate = useNavigate();
+  const reviewSectionRef = useRef<HTMLElement>(null);
 
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient-detail', patientId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('patients')
-        .select('id, name, diagnoses')
+        .select('id, name, diagnoses, foto_url')
         .eq('id', patientId!)
         .is('deleted_at', null)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; diagnoses: string[] };
+      return data as { id: string; name: string; diagnoses: string[]; foto_url: string | null };
     },
     enabled: !!patientId,
   });
 
   if (!patientId) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-surface">
-        <p className="text-text-muted">Paciente não encontrado</p>
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#F8FAF9] px-4">
+        <p className="text-sm text-charcoal-muted">Paciente não encontrado.</p>
       </div>
     );
   }
 
   if (isLoading) {
-    return <PageLoader label="Carregando sessão..." />;
+    return <PageLoader label="Carregando sessão..." className="min-h-[50vh]" />;
   }
 
   const patientName = patient?.name ?? 'Paciente';
 
   return (
-    <div className="min-h-dvh bg-surface p-6 lg:p-8">
-      <header className="mb-6">
-        <h1 className="font-display text-xl font-semibold text-charcoal">
-          Central de Sessão — {patientName}
-        </h1>
-        {patient?.diagnoses && patient.diagnoses.length > 0 && (
-          <p className="mt-1 text-xs text-charcoal-muted">
-            {patient.diagnoses.join(' • ')}
-          </p>
-        )}
-        <p className="mt-2 max-w-2xl text-sm text-charcoal-muted">
-          Grave o ditado pós-consulta, revise relatórios pendentes e consulte o histórico completo.
-        </p>
-      </header>
+    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+      <PageHeader
+        backButton={{
+          onClick: () => navigate(`/patients/${patientId}`),
+          label: `Voltar para ${patientName}`,
+        }}
+        title={
+          <div className="flex items-center gap-3 sm:gap-4">
+            <PatientAvatar name={patientName} fotoUrl={patient?.foto_url} size="md" />
+            <div className="min-w-0">
+              <h1 className="font-serif text-xl font-medium tracking-tight text-charcoal sm:text-2xl md:text-3xl">
+                Gravar sessão
+              </h1>
+              <p className="mt-0.5 truncate text-sm text-charcoal-muted">{patientName}</p>
+            </div>
+          </div>
+        }
+        subtitle={
+          <div className="space-y-2">
+            <p className="max-w-2xl text-sm leading-relaxed text-charcoal-muted">
+              Dite suas observações pós-consulta. A IA transcreve e gera o relatório estruturado para sua revisão.
+            </p>
+            {patient?.diagnoses && patient.diagnoses.length > 0 && (
+              <DiagnosisChips diagnoses={patient.diagnoses} max={4} />
+            )}
+          </div>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section>
+      <div className="mt-6 space-y-8 pb-8 lg:mt-8 lg:pb-10">
+        <section aria-labelledby="session-recorder-title">
           <AudioRecorder
             patientId={patientId}
             recordingType="post_session"
             onComplete={() => {
-              /* realtime + SessionHistoryPanel refetch */
+              reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
           />
         </section>
 
-        <section>
+        <section ref={reviewSectionRef} aria-labelledby="session-review-title">
           <SessionNoteReview patientId={patientId} />
         </section>
-      </div>
-
-      <div className="mt-8 border-t border-slate-200/80 pt-8">
-        <SessionHistoryPanel patientId={patientId} patientName={patientName} />
       </div>
     </div>
   );

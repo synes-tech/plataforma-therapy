@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useRef,
   useState,
@@ -14,6 +12,7 @@ import type { CheckoutFormData } from '@containers/checkout';
 import { digitsOnly } from '@containers/checkout';
 import { PaywallModal, type PaywallStep } from './PaywallModal';
 import { CheckoutWelcomeToast } from './CheckoutWelcomeToast';
+import { PaywallContext, type PaywallContextValue } from './paywall-context';
 import {
   plansForAccountType,
   shouldBlockAiFeature,
@@ -34,21 +33,6 @@ interface CheckoutBypassResult {
   payment_method_on_file: true;
   trial_ends_at: string;
 }
-
-interface PaywallContextValue {
-  isLoading: boolean;
-  canAddPatient: () => boolean;
-  canUseAiFeature: () => boolean;
-  interceptNewPatient: (onAllowed: () => void) => void;
-  interceptAiFeature: (onAllowed: () => void) => void;
-  openPaywall: (trigger?: PaywallTrigger) => void;
-  closePaywall: () => void;
-  handlePaymentRequired: () => void;
-  refreshState: () => void;
-  visiblePlans: PaywallPlanCard[];
-}
-
-const PaywallContext = createContext<PaywallContextValue | null>(null);
 
 const DEFAULT_STATE: PaywallStatePayload = {
   requires_paywall: false,
@@ -162,6 +146,10 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
     [selectedPlan, completeCheckoutSuccess],
   );
 
+  const openPlansCatalog = useCallback(() => {
+    openPaywall('plan_catalog');
+  }, [openPaywall]);
+
   const blockWithPaywall = useCallback(
     (nextTrigger: PaywallTrigger, onAllowed: () => void) => {
       pendingActionRef.current = onAllowed;
@@ -221,6 +209,7 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
       interceptNewPatient,
       interceptAiFeature,
       openPaywall,
+      openPlansCatalog,
       closePaywall,
       handlePaymentRequired,
       refreshState,
@@ -233,6 +222,7 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
       interceptNewPatient,
       interceptAiFeature,
       openPaywall,
+      openPlansCatalog,
       closePaywall,
       handlePaymentRequired,
       refreshState,
@@ -270,12 +260,4 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
       />
     </PaywallContext.Provider>
   );
-}
-
-export function usePaywall(): PaywallContextValue {
-  const ctx = useContext(PaywallContext);
-  if (!ctx) {
-    throw new Error('usePaywall deve ser usado dentro de PaywallProvider');
-  }
-  return ctx;
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingButton } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 
 interface SessionNote {
@@ -20,8 +21,8 @@ interface SessionNoteReviewProps {
 }
 
 export function SessionNoteReview({ patientId }: SessionNoteReviewProps) {
+  const queryClient = useQueryClient();
 
-  // Fetch latest draft notes for this patient
   const { data: notes, isLoading } = useQuery({
     queryKey: ['session-notes-draft', patientId],
     queryFn: async () => {
@@ -39,27 +40,36 @@ export function SessionNoteReview({ patientId }: SessionNoteReviewProps) {
     },
   });
 
+  useEffect(() => {
+    function handleJobComplete(event: Event) {
+      const detail = (event as CustomEvent<{ patient_id?: string }>).detail;
+      if (detail?.patient_id && detail.patient_id !== patientId) return;
+      void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
+    }
+
+    window.addEventListener('ai-job-complete', handleJobComplete);
+    return () => window.removeEventListener('ai-job-complete', handleJobComplete);
+  }, [patientId, queryClient]);
+
   if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <div className="shimmer h-32 rounded-lg" />
-      </div>
-    );
+    return null;
   }
 
   if (!notes || notes.length === 0) {
-    return (
-      <div className="glass-card p-6 text-center">
-        <p className="text-sm text-text-muted">Nenhum relatório pendente de revisão</p>
-      </div>
-    );
+    return null;
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-ai-light">
-        Relatórios pendentes de aprovação ({notes.length})
-      </h3>
+      <header>
+        <h2 id="session-review-title" className="font-display text-base font-semibold text-charcoal">
+          Pendentes de revisão
+        </h2>
+        <p className="mt-0.5 text-sm text-charcoal-muted">
+          {notes.length} relatório{notes.length === 1 ? '' : 's'} aguardando sua aprovação
+        </p>
+      </header>
+
       {notes.map((note) => (
         <NoteCard key={note.id} note={note} patientId={patientId} />
       ))}
@@ -89,71 +99,73 @@ function NoteCard({ note, patientId }: { note: SessionNote; patientId: string })
   });
 
   return (
-    <div className="glass-card overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
+    <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {note.ai_generated && (
-            <span className="rounded-full bg-ai/20 px-2 py-0.5 text-[10px] font-medium text-ai-light">
+            <span className="inline-flex rounded-full bg-ai-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ai">
               IA
             </span>
           )}
-          <span className="text-xs text-text-muted">
+          <time className="text-xs text-charcoal-muted" dateTime={note.created_at}>
             {new Date(note.created_at).toLocaleDateString('pt-BR', {
               day: '2-digit',
               month: '2-digit',
               hour: '2-digit',
               minute: '2-digit',
             })}
-          </span>
+          </time>
         </div>
         <button
+          type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs text-primary hover:text-primary-light"
+          className="shrink-0 text-xs font-medium text-primary transition-colors hover:text-primary-dark"
         >
-          {isExpanded ? 'Recolher' : 'Expandir'}
+          {isExpanded ? 'Recolher' : 'Ver completo'}
         </button>
       </div>
 
-      {/* Preview (always visible) */}
-      <div className="border-t border-surface-border px-4 py-3">
-        <p className="text-xs text-text-muted">Subjetivo:</p>
-        <p className="mt-1 text-sm text-text line-clamp-2">
-          {note.content.subjective}
-        </p>
+      <div className="px-4 py-4 sm:px-5">
+        <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">Subjetivo</p>
+        <p className="mt-1 text-sm leading-relaxed text-charcoal line-clamp-3">{note.content.subjective}</p>
       </div>
 
-      {/* Expanded content */}
       {isExpanded && (
-        <div className="space-y-3 border-t border-surface-border px-4 py-3">
+        <div className="space-y-4 border-t border-slate-100 px-4 py-4 sm:px-5">
           <SOAPSection label="Objetivo" content={note.content.objective} />
           <SOAPSection label="Avaliação" content={note.content.assessment} />
           <SOAPSection label="Plano" content={note.content.plan} />
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-2 border-t border-surface-border px-4 py-3">
-        <button
+      <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3 sm:flex-row sm:px-5">
+        <LoadingButton
+          type="button"
+          variant="primary"
+          fullWidth
+          loading={approveMutation.isPending}
+          loadingLabel="Aprovando..."
           onClick={() => approveMutation.mutate()}
-          disabled={approveMutation.isPending}
-          className="flex-1 rounded-lg bg-success/20 py-2 text-xs font-medium text-success hover:bg-success/30 disabled:opacity-50"
+          className="h-10 text-sm font-semibold"
         >
-          {approveMutation.isPending ? 'Aprovando...' : '✓ Aprovar Relatório'}
-        </button>
-        <button className="rounded-lg bg-surface-card px-4 py-2 text-xs text-text-muted hover:bg-surface-light">
+          Aprovar relatório
+        </LoadingButton>
+        <button
+          type="button"
+          className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal-muted transition-colors hover:border-charcoal/20 hover:text-charcoal"
+        >
           Editar
         </button>
       </div>
-    </div>
+    </article>
   );
 }
 
 function SOAPSection({ label, content }: { label: string; content: string }) {
   return (
     <div>
-      <p className="text-xs font-medium text-primary-light">{label}:</p>
-      <p className="mt-1 text-sm text-text">{content}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
+      <p className="mt-1 text-sm leading-relaxed text-charcoal">{content}</p>
     </div>
   );
 }

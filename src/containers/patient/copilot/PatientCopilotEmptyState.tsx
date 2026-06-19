@@ -28,10 +28,7 @@ export function PatientCopilotEmptyState({
   const firstName = patientFirstName(patientName);
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-2 py-8 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary">
-        <SparkIcon className="h-6 w-6" />
-      </div>
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 py-6 text-center lg:px-6">
       <h2 className="font-serif text-xl font-medium text-charcoal md:text-2xl">
         Como vamos planejar a sessão de {firstName} hoje?
       </h2>

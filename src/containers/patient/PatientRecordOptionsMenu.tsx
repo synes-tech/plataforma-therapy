@@ -51,7 +51,7 @@ export function PatientRecordOptionsMenu({ onManageLink, disabled }: PatientReco
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-slate-100 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-slate-100 bg-white py-1 shadow-lg"
         >
           <button
             type="button"

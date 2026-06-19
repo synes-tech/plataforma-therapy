@@ -117,18 +117,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Plano e Faturas',
-    href: '/billing',
-    roles: ['master', 'clinic_admin', 'professional'],
-    ownerOnly: true,
-    icon: (
-      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Configurações',
+    label: 'Controle Geral',
     href: '/settings',
     roles: ['master', 'clinic_admin', 'professional'],
     ownerOnly: true,
@@ -186,6 +175,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const canOpenProfile = isClinicOwner(user);
+
+  const { data: clinicSettings } = useQuery({
+    queryKey: ['clinic-settings'],
+    queryFn: () =>
+      callFunction<{
+        admin_name: string;
+        owner_profile?: { foto_url: string | null; name: string };
+      }>('get-clinic-settings', {}),
+    enabled: canOpenProfile,
+    staleTime: 60_000,
+  });
 
   const { data: dashboardData } = useQuery({
     queryKey: ['clinic-dashboard'],
@@ -200,18 +201,30 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   function isActive(path: string) {
+    if (path === '/settings') {
+      return location.pathname === '/settings' || location.pathname.startsWith('/settings/');
+    }
     return location.pathname === path;
   }
 
   const displayName =
+    clinicSettings?.owner_profile?.name ??
+    clinicSettings?.admin_name ??
     dashboardData?.admin_name ??
     user?.email?.split('@')[0] ??
     'Usuário';
 
   const displayRole = user ? roleLabels[user.role] ?? user.role : '';
+  const profileFotoUrl = clinicSettings?.owner_profile?.foto_url ?? null;
+
+  function openProfileSettings() {
+    navigate('/settings');
+  }
+
+  const isPatientCopilotTab = /^\/patients\/[^/]+\/copilot\/?$/.test(location.pathname);
 
   return (
-    <div className="flex min-h-dvh bg-[#F8FAF9]">
+    <div className="flex h-dvh min-h-dvh overflow-hidden bg-[#F8FAF9]">
       {/* Desktop Sidebar — altura fixa; fundo pastel do Login; só a navegação rola */}
       <aside className="relative sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-[#EDE4DC]/80 lg:flex">
         <SidebarWarmBackground />
@@ -232,7 +245,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           <UserProfile
             name={displayName}
             role={displayRole}
+            fotoUrl={profileFotoUrl}
             onLogout={handleLogout}
+            onOpenProfile={canOpenProfile ? openProfileSettings : undefined}
           />
         </div>
       </aside>
@@ -241,7 +256,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {mobileMenuOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-charcoal/30 lg:hidden"
+          className="fixed inset-0 z-[55] bg-charcoal/30 lg:hidden"
           aria-label="Fechar menu"
           onClick={() => setMobileMenuOpen(false)}
         />
@@ -249,7 +264,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile drawer — mesma estrutura e fundo pastel do Login */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col overflow-hidden border-r border-[#EDE4DC]/80 transition-transform duration-200 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-[60] flex h-dvh w-72 flex-col overflow-hidden border-r border-[#EDE4DC]/80 transition-transform duration-200 lg:hidden ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -283,9 +298,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       </aside>
 
       {/* Main */}
-      <main className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Mobile top bar — fixo acima do conteúdo (PageHeader usa z-40) */}
+        <header className="fixed inset-x-0 top-0 z-50 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md lg:hidden">
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
@@ -296,16 +311,24 @@ export function AppLayout({ children }: AppLayoutProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-[2.625rem] w-auto object-contain" />
+          <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-9 w-auto object-contain" />
           <UserProfile
             name={displayName}
             role={displayRole}
+            fotoUrl={profileFotoUrl}
             onLogout={handleLogout}
+            onOpenProfile={canOpenProfile ? openProfileSettings : undefined}
             compact
           />
-        </div>
+        </header>
 
-        <div className="relative flex-1 overflow-y-auto">
+        <div
+          className={
+            isPatientCopilotTab
+              ? 'relative flex h-full min-h-0 flex-1 flex-col overflow-hidden pt-14 lg:pt-0'
+              : 'relative min-h-0 flex-1 overflow-y-auto pt-14 lg:pt-0'
+          }
+        >
           {children}
         </div>
       </main>

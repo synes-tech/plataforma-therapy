@@ -2,6 +2,13 @@ import { AuthSessionError, clearAuthSession, resolveAccessToken } from './auth-s
 import type { ApiResponse } from '@shared/types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+function edgeFunctionUrl(functionName: string, options?: { stream?: boolean }): string {
+  const useDevProxy = import.meta.env.DEV && !options?.stream;
+  const base = useDevProxy ? '/api/functions' : `${SUPABASE_URL}/functions/v1`;
+  return `${base}/${functionName}`;
+}
 
 /**
  * Error translations — maps backend error codes/details to user-friendly PT-BR messages.
@@ -127,11 +134,12 @@ export async function callFunction<T>(
     throw err;
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+  const response = await fetch(edgeFunctionUrl(functionName), {
     method,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
+      apikey: SUPABASE_ANON_KEY,
     },
     body: method !== 'GET' ? JSON.stringify(payload) : undefined,
   }).catch(() => {
@@ -205,6 +213,60 @@ export interface CopilotStreamMeta {
   latency_ms: number;
 }
 
+function parseNdjsonEvents(
+  line: string,
+  handlers: {
+    onChunk: (text: string) => void;
+    onDone: (meta: CopilotStreamMeta) => void;
+    onError: (error: Error) => void;
+    onRetry?: () => void;
+  },
+): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  let event: Record<string, unknown>;
+  try {
+    event = JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return false;
+  }
+
+  if (event.type === 'chunk' && typeof event.text === 'string') {
+    handlers.onChunk(event.text);
+    return false;
+  }
+
+  if (event.type === 'retry') {
+    handlers.onRetry?.();
+    return false;
+  }
+
+  if (event.type === 'done') {
+    handlers.onDone({
+      answer: String(event.answer ?? ''),
+      sources: (event.sources as CopilotStreamMeta['sources']) ?? [],
+      guardrail_triggered: Boolean(event.guardrail_triggered),
+      answer_incomplete: event.answer_incomplete as boolean | undefined,
+      tokens_used: Number(event.tokens_used ?? 0),
+      latency_ms: Number(event.latency_ms ?? 0),
+    });
+    return true;
+  }
+
+  if (event.type === 'error') {
+    const code = String(event.code ?? 'LLM_ERROR');
+    const err = new Error(ERROR_TRANSLATIONS[code] ?? String(event.message ?? 'Erro no stream.')) as Error & {
+      code?: string;
+    };
+    err.code = code;
+    handlers.onError(err);
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Chama Edge Function com resposta NDJSON em stream (copiloto).
  * AbortSignal cancela o fetch e interrompe a leitura do stream.
@@ -233,11 +295,12 @@ export async function callFunctionStream(
 
   let response: Response;
   try {
-    response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    response = await fetch(edgeFunctionUrl(functionName, { stream: true }), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
         Accept: 'application/x-ndjson',
       },
       body: JSON.stringify(payload),
@@ -281,6 +344,7 @@ export async function callFunctionStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamFinished = false;
 
   try {
     while (true) {
@@ -296,37 +360,23 @@ export async function callFunctionStream(
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        let event: Record<string, unknown>;
-        try {
-          event = JSON.parse(trimmed) as Record<string, unknown>;
-        } catch {
-          continue;
-        }
-
-        if (event.type === 'chunk' && typeof event.text === 'string') {
-          handlers.onChunk(event.text);
-        } else if (event.type === 'retry') {
-          // Backend is retrying due to guardrail — reset accumulated content
-          handlers.onRetry?.();
-        } else if (event.type === 'done') {
-          handlers.onDone({
-            answer: String(event.answer ?? ''),
-            sources: (event.sources as CopilotStreamMeta['sources']) ?? [],
-            guardrail_triggered: Boolean(event.guardrail_triggered),
-            answer_incomplete: event.answer_incomplete as boolean | undefined,
-            tokens_used: Number(event.tokens_used ?? 0),
-            latency_ms: Number(event.latency_ms ?? 0),
-          });
-        } else if (event.type === 'error') {
-          const code = String(event.code ?? 'LLM_ERROR');
-          const err = new Error(ERROR_TRANSLATIONS[code] ?? String(event.message ?? 'Erro no stream.')) as Error & { code?: string };
-          err.code = code;
-          handlers.onError(err);
+        if (parseNdjsonEvents(line, handlers)) {
+          streamFinished = true;
         }
       }
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      for (const line of buffer.split('\n')) {
+        if (parseNdjsonEvents(line, handlers)) {
+          streamFinished = true;
+        }
+      }
+    }
+
+    if (!streamFinished && !signal?.aborted) {
+      handlers.onError(new Error('A resposta do copiloto foi interrompida. Tente novamente.'));
     }
   } catch (err) {
     if (!signal?.aborted) {

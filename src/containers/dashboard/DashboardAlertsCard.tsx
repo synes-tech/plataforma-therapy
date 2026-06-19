@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { InlineLoadingButton, ListPageSkeleton } from '@containers/loading';
 import type { AlertItem } from './dashboard.types';
+import {
+  getAlertCheckinPath,
+  getAlertEmoji,
+  getAlertSummary,
+} from './dashboard-alert-summary.utils';
 import { useClearDashboardAlerts } from './useClearDashboardAlerts';
 
 function CheckCircleIcon() {
@@ -20,25 +26,39 @@ function MutedBellIllustration() {
   );
 }
 
-function AlertCard({ alert }: { alert: AlertItem }) {
+function AlertRow({ alert }: { alert: AlertItem }) {
   const isCrisis = alert.type === 'crisis';
-  const accent = isCrisis ? 'border-l-alert' : 'border-l-mint';
-  const tag = isCrisis ? 'Atenção' : 'Avanço';
-  const tagClass = isCrisis ? 'bg-alert-bg text-alert' : 'bg-mint-50 text-mint-dark';
+  const checkinPath = getAlertCheckinPath(alert);
 
   return (
-    <div className={`rounded-xl border border-slate-100 border-l-4 bg-slate-50 p-4 ${accent}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-sm font-medium text-charcoal">{alert.patient?.name ?? 'Paciente'}</p>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${tagClass}`}>{tag}</span>
+    <div
+      className={`flex items-center gap-2.5 rounded-xl border border-[#EDE4DC]/45 border-l-[3px] bg-white/45 px-3 py-2.5 ${isCrisis ? 'border-l-alert' : 'border-l-mint'}`}
+    >
+      <span className="shrink-0 text-base leading-none" aria-hidden>
+        {getAlertEmoji(alert.type)}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium leading-tight text-charcoal">
+          {alert.patient?.name ?? 'Paciente'}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] leading-snug text-charcoal-muted">
+          {getAlertSummary(alert)}
+        </p>
       </div>
-      {alert.notes && (
-        <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-charcoal-muted">{alert.notes}</p>
+
+      {checkinPath ? (
+        <Link
+          to={checkinPath}
+          className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-white px-3 text-xs font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary-50"
+        >
+          Ver
+        </Link>
+      ) : (
+        <span className="inline-flex h-8 shrink-0 items-center rounded-lg px-3 text-xs text-charcoal-muted/50">
+          —
+        </span>
       )}
-      <p className="mt-2 text-[11px] text-charcoal-muted/60">
-        {alert.hours_ago === 0 ? 'agora há pouco' : `há ${alert.hours_ago}h`}
-        {isCrisis && alert.crisis_level ? ` · nível ${alert.crisis_level}` : ''}
-      </p>
     </div>
   );
 }
@@ -46,7 +66,7 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 function AlertsEmptyState({ cleared = false }: { cleared?: boolean }) {
   if (cleared) {
     return (
-      <div className="flex flex-col items-center rounded-3xl border border-dashed border-mint/30 bg-white px-5 py-12 text-center shadow-sm animate-fade-in">
+      <div className="flex flex-col items-center rounded-3xl border border-dashed border-mint/30 dashboard-card-surface px-5 py-12 text-center animate-fade-in">
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-mint-50">
           <CheckCircleIcon />
         </div>
@@ -59,7 +79,7 @@ function AlertsEmptyState({ cleared = false }: { cleared?: boolean }) {
   }
 
   return (
-    <div className="flex flex-col items-center rounded-3xl border border-dashed border-gray-200 bg-white px-5 py-12 text-center shadow-sm">
+    <div className="flex flex-col items-center rounded-3xl border border-dashed border-[#EDE4DC] dashboard-card-surface px-5 py-12 text-center">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
         <MutedBellIllustration />
       </div>
@@ -106,47 +126,45 @@ export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProp
 
   return (
     <section className="lg:col-span-4" aria-labelledby="alerts-title">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 id="alerts-title" className="font-display text-base font-semibold text-charcoal">
-            Alertas nos Últimos 7 Dias
-          </h2>
-          {alerts.length > 0 && (
-            <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
-              {alerts.length}
-            </span>
-          )}
-        </div>
-
+      <div className="mb-4 flex min-w-0 items-center gap-2">
+        <h2 id="alerts-title" className="font-display text-base font-semibold text-charcoal">
+          Alertas nos Últimos 7 Dias
+        </h2>
         {alerts.length > 0 && (
-          <InlineLoadingButton
-            type="button"
-            onClick={() => void handleClearAll()}
-            loading={clearMutation.isPending}
-            disabled={fadingOut}
-            className="shrink-0 text-sm text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Marcar como lidos
-          </InlineLoadingButton>
+          <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
+            {alerts.length}
+          </span>
         )}
       </div>
 
       {loading ? (
-        <ListPageSkeleton rows={2} rowClassName="h-24" />
+        <ListPageSkeleton rows={3} rowClassName="h-12" />
       ) : showClearedEmpty ? (
         <AlertsEmptyState cleared />
       ) : showDefaultEmpty ? (
         <AlertsEmptyState />
       ) : (
         <div
-          className={`max-h-96 overflow-y-auto rounded-3xl border border-gray-100 bg-white p-4 shadow-sm scrollbar-thin transition-opacity duration-300 ${
+          className={`dashboard-card-surface max-h-96 overflow-hidden rounded-3xl transition-opacity duration-300 ${
             fadingOut ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="space-y-3">
+          <div className="max-h-80 space-y-2 overflow-y-auto p-3 scrollbar-thin">
             {alerts.map((alert) => (
-              <AlertCard key={alert.id} alert={alert} />
+              <AlertRow key={alert.id} alert={alert} />
             ))}
+          </div>
+
+          <div className="flex justify-end border-t border-[#EDE4DC]/40 px-3 py-2.5">
+            <InlineLoadingButton
+              type="button"
+              onClick={() => void handleClearAll()}
+              loading={clearMutation.isPending}
+              disabled={fadingOut}
+              className="text-xs text-charcoal-muted transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Marcar como lidos
+            </InlineLoadingButton>
           </div>
         </div>
       )}

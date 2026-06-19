@@ -12,11 +12,16 @@ interface PatientRecordTabsProps {
   active: PatientRecordTab;
   onChange: (tab: PatientRecordTab) => void;
   clinicalDirty?: boolean;
+  /** Quando true, remove margem inferior (uso dentro do PageHeader). */
+  embedded?: boolean;
 }
 
-export function PatientRecordTabs({ active, onChange, clinicalDirty }: PatientRecordTabsProps) {
+export function PatientRecordTabs({ active, onChange, clinicalDirty, embedded }: PatientRecordTabsProps) {
   return (
-    <nav className="mb-6 -mx-1 overflow-x-auto px-1 scrollbar-hide" aria-label="Seções do prontuário">
+    <nav
+      className={`-mx-1 overflow-x-auto px-1 scrollbar-hide ${embedded ? '' : 'mb-6'}`.trim()}
+      aria-label="Seções do prontuário"
+    >
       <div
         className="inline-flex min-w-max gap-1 rounded-xl bg-slate-100 p-1 sm:min-w-0 sm:w-full"
         role="tablist"

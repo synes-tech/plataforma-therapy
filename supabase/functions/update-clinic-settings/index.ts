@@ -22,9 +22,9 @@ serve(async (req: Request) => {
       throw new ValidationError(parsed.error.flatten().fieldErrors);
     }
 
-    const { clinic: clinicPatch, preferences: prefsPatch } = parsed.data;
+    const { clinic: clinicPatch, preferences: prefsPatch, owner_profile: ownerPatch } = parsed.data;
 
-    if (!clinicPatch && !prefsPatch) {
+    if (!clinicPatch && !prefsPatch && !ownerPatch) {
       throw new AppError({ code: 'NO_CHANGES', message: 'Nenhuma alteração enviada', statusCode: 400 });
     }
 
@@ -54,7 +54,46 @@ serve(async (req: Request) => {
       }
     }
 
-    // 2. Update notification preferences (upsert)
+    // 2. Update owner profile (admin ou profissional solo)
+    if (ownerPatch && Object.keys(ownerPatch).length > 0) {
+      const updates: Record<string, unknown> = {};
+      if (ownerPatch.name !== undefined) updates.name = ownerPatch.name;
+      if (ownerPatch.specialty !== undefined) updates.specialty = ownerPatch.specialty || null;
+      if (ownerPatch.crp !== undefined) updates.crp = ownerPatch.crp || null;
+
+      if (Object.keys(updates).length > 0) {
+        const { data: adminRow } = await supabase
+          .from('clinic_admins')
+          .select('id')
+          .eq('user_id', user.id)
+          .is('deleted_at', null)
+          .maybeSingle();
+
+        const table = adminRow ? 'clinic_admins' : 'professionals';
+        const tableUpdates: Record<string, unknown> = { ...updates };
+        if (table === 'clinic_admins') {
+          delete tableUpdates.specialty;
+          delete tableUpdates.crp;
+        }
+
+        if (Object.keys(tableUpdates).length === 0) {
+          // apenas specialty/crp para admin — ignorar silenciosamente
+        } else {
+        const { error } = await supabase
+          .from(table)
+          .update(tableUpdates)
+          .eq('user_id', user.id)
+          .is('deleted_at', null);
+
+        if (error) {
+          throw new AppError({ code: 'UPDATE_FAILED', message: error.message, statusCode: 500 });
+        }
+        changed.owner_profile = Object.keys(tableUpdates);
+        }
+      }
+    }
+
+    // 3. Update notification preferences (upsert)
     if (prefsPatch && Object.keys(prefsPatch).length > 0) {
       const { error } = await supabase
         .from('clinic_preferences')

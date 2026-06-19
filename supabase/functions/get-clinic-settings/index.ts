@@ -52,11 +52,100 @@ serve(async (req: Request) => {
 
     const ownerName = await resolveOwnerName(supabase, user);
 
+    const { data: adminProfile } = await supabase
+      .from('clinic_admins')
+      .select('name, email, foto_url')
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    let ownerProfile: Record<string, unknown>;
+
+    if (adminProfile) {
+      ownerProfile = {
+        kind: 'clinic_admin',
+        name: adminProfile.name,
+        email: adminProfile.email,
+        foto_url: adminProfile.foto_url ?? null,
+        specialty: null,
+        crp: null,
+      };
+    } else {
+      const { data: profProfile } = await supabase
+        .from('professionals')
+        .select('name, email, specialty, crp, foto_url')
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      ownerProfile = {
+        kind: 'professional',
+        name: profProfile?.name ?? ownerName,
+        email: profProfile?.email ?? user.email,
+        specialty: profProfile?.specialty ?? null,
+        crp: profProfile?.crp ?? null,
+        foto_url: profProfile?.foto_url ?? null,
+      };
+    }
+
     // IA metering — uso do mês vs cota
     const usage = await getMonthlyAiUsage(supabase, clinicId);
 
+    const [
+      { count: professionalsCount },
+      { count: clinicActivePatients },
+      { data: ownerProfessional },
+      { data: clinicBackup },
+      { count: archivedPatients },
+    ] = await Promise.all([
+      supabase
+        .from('professionals')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .is('deleted_at', null),
+      supabase
+        .from('patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('status', 'active')
+        .eq('status_vinculo', 'ativo')
+        .is('deleted_at', null),
+      supabase
+        .from('professionals')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .maybeSingle(),
+      supabase
+        .from('clinics')
+        .select('quantidade_backup_pacientes')
+        .eq('id', clinicId)
+        .is('deleted_at', null)
+        .single(),
+      supabase
+        .from('patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('status_vinculo', 'desvinculado')
+        .is('deleted_at', null),
+    ]);
+
+    let ownerActivePatients = 0;
+    if (ownerProfessional?.id) {
+      const { count } = await supabase
+        .from('patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('professional_id', ownerProfessional.id)
+        .eq('status', 'active')
+        .eq('status_vinculo', 'ativo')
+        .is('deleted_at', null);
+      ownerActivePatients = count ?? 0;
+    }
+
     return successResponse({
       admin_name: ownerName,
+      owner_profile: ownerProfile,
       clinic: {
         id: clinic.id,
         name: clinic.name,
@@ -78,6 +167,14 @@ serve(async (req: Request) => {
       ai_usage: {
         ai_reports_this_month: usage.ai_reports,
         audio_minutes_this_month: usage.audio_minutes,
+      },
+      resource_usage: {
+        professionals_count: professionalsCount ?? 0,
+        active_patients_clinic_total: clinicActivePatients ?? 0,
+        active_patients_owner_count: ownerActivePatients,
+        owner_is_professional: Boolean(ownerProfessional?.id),
+        backup_licenses: Number(clinicBackup?.quantidade_backup_pacientes ?? 0),
+        backup_archived_count: archivedPatients ?? 0,
       },
       preferences: preferences ?? {
         crisis_alerts_email: true,

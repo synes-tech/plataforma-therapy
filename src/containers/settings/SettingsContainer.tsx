@@ -2,10 +2,21 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoadingButton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { planLabel } from '@features/billing/format';
+import { OwnerProfilePhotoUpload } from './OwnerProfilePhotoUpload';
+import { uploadOwnerAvatarFile } from './owner-avatar.upload';
+
+interface OwnerProfile {
+  kind: 'professional' | 'clinic_admin';
+  name: string;
+  email: string;
+  specialty: string | null;
+  crp: string | null;
+  foto_url: string | null;
+}
 
 interface ClinicSettings {
   admin_name: string;
+  owner_profile?: OwnerProfile;
   clinic: {
     id: string;
     name: string;
@@ -49,10 +60,10 @@ function Toggle({
   description: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white px-4 py-3.5 sm:px-5">
       <div className="min-w-0">
         <p className="text-sm font-medium text-charcoal">{label}</p>
-        <p className="text-xs text-charcoal-muted">{description}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-charcoal-muted">{description}</p>
       </div>
       <button
         type="button"
@@ -76,31 +87,21 @@ function Toggle({
   );
 }
 
-function UsageBar({ label, used, max, unit }: { label: string; used: number; max: number; unit: string }) {
-  const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-  const danger = pct >= 90;
+function SettingsSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm text-charcoal">{label}</p>
-        <p className="text-xs text-charcoal-muted">
-          {used} / {max} {unit}
-        </p>
-      </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={`h-full rounded-full ${danger ? 'bg-error' : 'bg-primary'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-6">
-      <h2 className="mb-4 font-display text-base font-semibold text-charcoal">{title}</h2>
+    <section className="dashboard-card-surface w-full rounded-2xl p-5 sm:p-6">
+      <header className="mb-5 border-b border-slate-100/80 pb-4">
+        <h2 className="font-display text-base font-semibold text-charcoal">{title}</h2>
+        {description && <p className="mt-1 text-sm text-charcoal-muted">{description}</p>}
+      </header>
       {children}
     </section>
   );
@@ -113,6 +114,8 @@ function Field({
   onChange,
   type = 'text',
   placeholder,
+  readOnly,
+  className = '',
 }: {
   id: string;
   label: string;
@@ -120,9 +123,11 @@ function Field({
   onChange: (v: string) => void;
   type?: string;
   placeholder?: string;
+  readOnly?: boolean;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-charcoal">
         {label}
       </label>
@@ -131,8 +136,11 @@ function Field({
         type={type}
         value={value}
         placeholder={placeholder}
+        readOnly={readOnly}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-charcoal transition-all placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
+        className={`h-11 w-full rounded-xl border border-slate-200 px-4 text-sm text-charcoal transition-all placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10 ${
+          readOnly ? 'cursor-default bg-slate-50 text-charcoal-muted' : 'bg-white'
+        }`}
       />
     </div>
   );
@@ -146,6 +154,17 @@ export default function SettingsContainer() {
   });
 
   const [profile, setProfile] = useState({ name: '', email: '', phone: '', document: '' });
+  const [ownerProfile, setOwnerProfile] = useState({
+    name: '',
+    email: '',
+    specialty: '',
+    crp: '',
+    foto_url: null as string | null,
+    kind: 'professional' as OwnerProfile['kind'],
+  });
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [prefs, setPrefs] = useState({
     crisis_alerts_email: true,
     weekly_digest_email: true,
@@ -162,6 +181,16 @@ export default function SettingsContainer() {
         document: data.clinic.document ?? '',
       });
       setPrefs(data.preferences);
+      if (data.owner_profile) {
+        setOwnerProfile({
+          name: data.owner_profile.name ?? '',
+          email: data.owner_profile.email ?? '',
+          specialty: data.owner_profile.specialty ?? '',
+          crp: data.owner_profile.crp ?? '',
+          foto_url: data.owner_profile.foto_url ?? null,
+          kind: data.owner_profile.kind,
+        });
+      }
     }
   }, [data]);
 
@@ -174,158 +203,217 @@ export default function SettingsContainer() {
           phone: profile.phone,
           document: profile.document,
         },
+        owner_profile: {
+          name: ownerProfile.name,
+          specialty: ownerProfile.specialty,
+          crp: ownerProfile.crp,
+        },
         preferences: prefs,
       }),
     onSuccess: () => {
       setSaved(true);
       queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
       queryClient.invalidateQueries({ queryKey: ['clinic-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['professional-avatar-url'] });
       setTimeout(() => setSaved(false), 2500);
     },
   });
+
+  async function handlePhotoSelected(file: File) {
+    setPhotoError(null);
+    setPhotoUploading(true);
+    const preview = URL.createObjectURL(file);
+    setPhotoPreview(preview);
+
+    try {
+      const fotoUrl = await uploadOwnerAvatarFile(file);
+      setOwnerProfile((prev) => ({ ...prev, foto_url: fotoUrl }));
+      setPhotoPreview(null);
+      queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['professional-avatar-url'] });
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Falha ao enviar a foto.');
+      setPhotoPreview(null);
+    } finally {
+      URL.revokeObjectURL(preview);
+      setPhotoUploading(false);
+    }
+  }
 
   function updatePref(key: PreferenceKey, value: boolean) {
     setPrefs((prev) => ({ ...prev, [key]: value }));
   }
 
   if (isLoading) {
-    return (
-      <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
-        <PageLoader label="Carregando configurações..." className="min-h-[40vh]" />
-      </div>
-    );
+    return <PageLoader label="Carregando configurações..." className="min-h-[40vh]" />;
   }
 
-  const quotas = data?.quotas;
-  const usage = data?.ai_usage;
   const isSolo = data?.clinic.is_solo_professional ?? false;
 
   return (
-    <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
-      <header className="mb-6 md:mb-8">
-        <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-          Configurações
-        </h1>
-        <p className="mt-1 text-sm text-charcoal-muted">
-          Gerencie os dados da clínica, plano e notificações.
-        </p>
-      </header>
-
+    <div className="flex w-full flex-col gap-6">
       {error && (
-        <div role="alert" className="mb-6 rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error">
+        <div role="alert" className="rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error">
           Não foi possível carregar as configurações. Tente novamente.
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Dados da clínica */}
-        <Card title={isSolo ? 'Dados do consultório' : 'Dados da clínica'}>
-          <div className="space-y-4">
-            <Field id="name" label="Nome" value={profile.name} onChange={(v) => setProfile((p) => ({ ...p, name: v }))} />
-            <Field id="email" label="E-mail de contato" type="email" value={profile.email} onChange={(v) => setProfile((p) => ({ ...p, email: v }))} />
-            <Field id="phone" label="Telefone" value={profile.phone} onChange={(v) => setProfile((p) => ({ ...p, phone: v }))} placeholder="(11) 99999-0000" />
-            {!isSolo && (
-              <Field id="document" label="CNPJ" value={profile.document} onChange={(v) => setProfile((p) => ({ ...p, document: v }))} placeholder="00.000.000/0001-00" />
-            )}
-          </div>
-        </Card>
+      <SettingsSection
+        title="Meu perfil"
+        description="Sua foto e dados pessoais exibidos no menu e nas comunicações da plataforma."
+      >
+        <div className="flex flex-col items-center gap-6 border-b border-slate-100/80 pb-6">
+          <OwnerProfilePhotoUpload
+            name={ownerProfile.name || data?.admin_name || 'Usuário'}
+            fotoUrl={ownerProfile.foto_url}
+            previewUrl={photoPreview}
+            uploading={photoUploading}
+            onFileSelected={(file) => void handlePhotoSelected(file)}
+            onValidationError={setPhotoError}
+          />
+          {photoError && (
+            <p className="text-sm text-error" role="alert">
+              {photoError}
+            </p>
+          )}
+        </div>
 
-        {/* Plano e uso */}
-        <Card title="Plano e uso">
-          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-            <div>
-              <p className="text-xs text-charcoal-muted">Plano atual</p>
-              <p className="text-sm font-semibold text-charcoal">
-                {planLabel(data?.clinic.subscription_plan ?? '', isSolo)}
-              </p>
-            </div>
-            <a href="/billing/invoices" className="text-xs font-medium text-primary hover:text-primary-dark">
-              Ver faturas →
-            </a>
-          </div>
+        <div className="mt-6 grid w-full gap-4 sm:grid-cols-2">
+          <Field
+            id="owner-name"
+            label="Nome"
+            value={ownerProfile.name}
+            onChange={(v) => setOwnerProfile((p) => ({ ...p, name: v }))}
+          />
+          <Field
+            id="owner-email"
+            label="E-mail"
+            type="email"
+            value={ownerProfile.email}
+            onChange={() => {}}
+            readOnly
+          />
+          {ownerProfile.kind === 'professional' && (
+            <>
+              <Field
+                id="owner-specialty"
+                label="Especialidade"
+                value={ownerProfile.specialty}
+                onChange={(v) => setOwnerProfile((p) => ({ ...p, specialty: v }))}
+                placeholder="Psicólogo, Fonoaudiólogo..."
+              />
+              <Field
+                id="owner-crp"
+                label="Registro profissional"
+                value={ownerProfile.crp}
+                onChange={(v) => setOwnerProfile((p) => ({ ...p, crp: v }))}
+                placeholder="CRP, CRFa..."
+              />
+            </>
+          )}
+        </div>
+      </SettingsSection>
 
-          <div className="mt-5 space-y-4">
-            <UsageBar
-              label="Relatórios de IA (mês)"
-              used={usage?.ai_reports_this_month ?? 0}
-              max={quotas?.max_ai_queries_per_month ?? 0}
-              unit=""
+      <SettingsSection
+        title={isSolo ? 'Dados do consultório' : 'Dados da clínica'}
+        description={
+          isSolo
+            ? 'Informações de contato do seu consultório autônomo.'
+            : 'Dados institucionais da clínica visíveis em documentos e faturas.'
+        }
+      >
+        <div className="grid w-full gap-4 sm:grid-cols-2">
+          <Field
+            id="name"
+            label="Nome"
+            value={profile.name}
+            onChange={(v) => setProfile((p) => ({ ...p, name: v }))}
+            className={isSolo ? 'sm:col-span-2' : ''}
+          />
+          <Field
+            id="email"
+            label="E-mail de contato"
+            type="email"
+            value={profile.email}
+            onChange={(v) => setProfile((p) => ({ ...p, email: v }))}
+          />
+          <Field
+            id="phone"
+            label="Telefone"
+            value={profile.phone}
+            onChange={(v) => setProfile((p) => ({ ...p, phone: v }))}
+            placeholder="(11) 99999-0000"
+          />
+          {!isSolo && (
+            <Field
+              id="document"
+              label="CNPJ"
+              value={profile.document}
+              onChange={(v) => setProfile((p) => ({ ...p, document: v }))}
+              placeholder="00.000.000/0001-00"
             />
-            <UsageBar
-              label="Minutos de áudio (mês)"
-              used={usage?.audio_minutes_this_month ?? 0}
-              max={quotas?.max_audio_minutes_per_month ?? 0}
-              unit="min"
-            />
-          </div>
+          )}
+        </div>
+      </SettingsSection>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <p className="text-xs text-charcoal-muted">Profissionais</p>
-              <p className="font-medium text-charcoal">até {quotas?.max_professionals ?? 0}</p>
-            </div>
-            <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <p className="text-xs text-charcoal-muted">Pacientes / prof.</p>
-              <p className="font-medium text-charcoal">até {quotas?.max_patients_per_professional ?? 0}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-[11px] text-charcoal-muted/70">
-            Limites do plano são definidos pela administração. Para alterar, fale com o suporte.
-          </p>
-        </Card>
+      <SettingsSection
+        title="Notificações"
+        description="Escolha quais avisos você deseja receber por e-mail."
+      >
+        <div className="flex w-full flex-col gap-2.5">
+          <Toggle
+            label="Alertas de crise por e-mail"
+            description="Receba um e-mail quando uma família registrar uma crise."
+            checked={prefs.crisis_alerts_email}
+            onChange={(v) => updatePref('crisis_alerts_email', v)}
+          />
+          <Toggle
+            label="Resumo semanal"
+            description="Um panorama da clínica enviado toda semana."
+            checked={prefs.weekly_digest_email}
+            onChange={(v) => updatePref('weekly_digest_email', v)}
+          />
+          <Toggle
+            label="Alertas de uso de IA"
+            description="Avisar quando o uso de IA se aproximar do limite do plano."
+            checked={prefs.ai_usage_alerts}
+            onChange={(v) => updatePref('ai_usage_alerts', v)}
+          />
+        </div>
+      </SettingsSection>
 
-        {/* Notificações */}
-        <Card title="Notificações">
-          <div className="divide-y divide-slate-100">
-            <Toggle
-              label="Alertas de crise por e-mail"
-              description="Receba um e-mail quando uma família registrar uma crise."
-              checked={prefs.crisis_alerts_email}
-              onChange={(v) => updatePref('crisis_alerts_email', v)}
-            />
-            <Toggle
-              label="Resumo semanal"
-              description="Um panorama da clínica enviado toda semana."
-              checked={prefs.weekly_digest_email}
-              onChange={(v) => updatePref('weekly_digest_email', v)}
-            />
-            <Toggle
-              label="Alertas de uso de IA"
-              description="Avisar quando o uso de IA se aproximar do limite do plano."
-              checked={prefs.ai_usage_alerts}
-              onChange={(v) => updatePref('ai_usage_alerts', v)}
-            />
+      <SettingsSection title="Conta" description="Credenciais e responsável legal pela conta.">
+        <div className="flex w-full flex-col gap-4">
+          <div className="min-w-0">
+            <p className="text-sm text-charcoal">
+              Responsável: <span className="font-semibold">{data?.admin_name}</span>
+            </p>
+            <p className="mt-1 text-sm text-charcoal-muted">{profile.email}</p>
           </div>
-        </Card>
-
-        {/* Conta */}
-        <Card title="Conta">
-          <p className="text-sm text-charcoal">
-            Responsável: <span className="font-medium">{data?.admin_name}</span>
-          </p>
-          <p className="mt-1 text-sm text-charcoal-muted">{profile.email}</p>
           <a
             href="/login"
-            className="mt-4 inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50"
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50 sm:w-auto sm:self-start"
           >
             Alterar senha
           </a>
-        </Card>
-      </div>
+        </div>
+      </SettingsSection>
 
-      {/* Save bar */}
-      <div className="mt-6 flex items-center justify-end gap-3">
-        {saved && <span className="text-sm text-mint-dark">Alterações salvas.</span>}
-        {mutation.isError && (
-          <span className="text-sm text-error">
-            {(mutation.error as Error)?.message ?? 'Erro ao salvar.'}
-          </span>
-        )}
+      <div className="flex w-full flex-col-reverse items-stretch gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex min-h-[1.25rem] items-center justify-center sm:justify-end">
+          {saved && <span className="text-sm font-medium text-mint-dark">Alterações salvas.</span>}
+          {mutation.isError && (
+            <span className="text-sm text-error">
+              {(mutation.error as Error)?.message ?? 'Erro ao salvar.'}
+            </span>
+          )}
+        </div>
         <LoadingButton
           type="button"
           variant="dark"
           loading={mutation.isPending}
           onClick={() => mutation.mutate()}
+          className="h-11 px-6 sm:min-w-[11rem]"
         >
           Salvar alterações
         </LoadingButton>

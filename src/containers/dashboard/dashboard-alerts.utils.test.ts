@@ -2,6 +2,12 @@
  * @vitest-environment node
  */
 import { describe, it, expect } from 'vitest';
+import type { AlertItem } from './dashboard.types';
+import {
+  getAlertCheckinPath,
+  getAlertEmoji,
+  getAlertSummary,
+} from './dashboard-alert-summary.utils';
 
 const ALERT_LIST_MAX_HEIGHT_CLASS = 'max-h-96';
 
@@ -34,5 +40,36 @@ describe('filterUndismissedAlerts', () => {
   it('respeita limite máximo', () => {
     const entries = Array.from({ length: 25 }, (_, i) => ({ id: `e${i}` }));
     expect(filterUndismissedAlerts(entries, new Set(), 20)).toHaveLength(20);
+  });
+});
+
+function sampleAlert(overrides: Partial<AlertItem> = {}): AlertItem {
+  return {
+    id: 'alert-1',
+    type: 'crisis',
+    patient: { id: 'patient-1', name: 'Ana Silva' },
+    entry_date: '2026-06-08',
+    notes: null,
+    crisis_level: 4,
+    hours_ago: 2,
+    ...overrides,
+  };
+}
+
+describe('dashboard alert summary utils', () => {
+  it('retorna emoji por tipo', () => {
+    expect(getAlertEmoji('crisis')).toBe('🚨');
+    expect(getAlertEmoji('positive')).toBe('✨');
+  });
+
+  it('resume notas quando existem', () => {
+    const summary = getAlertSummary(
+      sampleAlert({ notes: 'Dificuldade para dormir e irritabilidade à tarde.' }),
+    );
+    expect(summary).toContain('Dificuldade para dormir');
+  });
+
+  it('monta rota de check-in com data do alerta', () => {
+    expect(getAlertCheckinPath(sampleAlert())).toBe('/patients/patient-1/checkins?date=2026-06-08');
   });
 });

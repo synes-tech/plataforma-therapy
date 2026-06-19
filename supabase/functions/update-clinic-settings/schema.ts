@@ -16,6 +16,13 @@ export const UpdateClinicSettingsSchema = z.object({
       ai_usage_alerts: z.boolean().optional(),
     })
     .optional(),
+  owner_profile: z
+    .object({
+      name: z.string().trim().min(2).max(120).optional(),
+      specialty: z.string().trim().max(80).optional().or(z.literal('')),
+      crp: z.string().trim().max(40).optional().or(z.literal('')),
+    })
+    .optional(),
 });
 
 export type UpdateClinicSettingsPayload = z.infer<typeof UpdateClinicSettingsSchema>;
