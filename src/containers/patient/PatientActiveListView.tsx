@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ListPageSkeleton } from '@containers/loading';
+import { LoadingOverlay, PatientListTableSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { useAuthStore } from '@shared/lib/auth-store';
 import { PatientActiveTable } from './PatientActiveTable';
@@ -24,6 +24,7 @@ interface PatientActiveListViewProps {
 
 export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.isLoading || !s.initialized);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState<PatientListFilters>(DEFAULT_PATIENT_FILTERS);
@@ -38,7 +39,7 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
     setPage(1);
   }, [debouncedSearch, filters]);
 
-  const { data: patients, isLoading, error, refetch, isFetching } = useQuery({
+  const { data: patients, isPending, isFetching, error, refetch } = useQuery({
     queryKey: ['patients', debouncedSearch],
     queryFn: () =>
       callFunction<PatientListItem[]>('list-patients', {
@@ -68,14 +69,17 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
     filters.sort !== DEFAULT_PATIENT_FILTERS.sort ||
     debouncedSearch.length > 0;
 
+  const showTableSkeleton = authLoading || (!patients && (isPending || isFetching));
+  const showRefetchOverlay = !!patients && isFetching;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PatientListFiltersBar
         search={search}
         onSearchChange={setSearch}
         filters={filters}
         onFiltersChange={setFilters}
-        isFetching={isFetching && !isLoading}
+        isFetching={showRefetchOverlay}
       />
 
       {error && (
@@ -95,8 +99,8 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
         </div>
       )}
 
-      {isLoading ? (
-        <ListPageSkeleton rows={5} rowClassName="h-14" />
+      {showTableSkeleton ? (
+        <PatientListTableSkeleton />
       ) : error ? null : processed.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
           <p className="text-sm text-charcoal-muted">
@@ -115,8 +119,10 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-3 sm:px-5">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <LoadingOverlay show={showRefetchOverlay} label="Carregando pacientes..." />
+
+          <div className="border-b border-slate-100 px-4 py-2.5 sm:px-5">
             <p className="text-xs text-charcoal-muted">
               <span className="font-medium text-charcoal">{processed.length}</span>{' '}
               {processed.length === 1 ? 'paciente ativo' : 'pacientes ativos'}

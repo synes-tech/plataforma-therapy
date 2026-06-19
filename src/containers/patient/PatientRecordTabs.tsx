@@ -2,7 +2,7 @@ import type { PatientRecordTab } from './patient-record.types';
 
 const TABS: { id: PatientRecordTab; label: string }[] = [
   { id: 'copilot', label: 'Copiloto de IA' },
-  { id: 'overview', label: 'Visão Geral' },
+  { id: 'overview', label: 'Histórico de Sessões' },
   { id: 'checkins', label: 'Check-ins' },
   { id: 'clinical', label: 'Ficha Clínica' },
   { id: 'documents', label: 'Documentos Salvos' },

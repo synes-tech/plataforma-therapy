@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RecordPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { ExportPdfButton } from '@features/pdf/ExportPdfButton';
 import { PatientRecordTabs } from './PatientRecordTabs';
-import { PatientOverviewTab } from './PatientOverviewTab';
+import { PatientSessionHistoryTab } from './sessions/PatientSessionHistoryTab';
+import { FamilyDiaryAlertButton } from './family-diary/FamilyDiaryAlertButton';
+import { FamilyDiaryModal } from './family-diary/FamilyDiaryModal';
 import { PatientClinicalRecordTab } from './PatientClinicalRecordTab';
 import { PatientCopilotTab } from './PatientCopilotTab';
 import { PatientDocumentsTab } from './documents/PatientDocumentsTab';
@@ -53,13 +54,21 @@ export default function PatientRecordContainer() {
   const [clinicalForm, setClinicalForm] = useState<PatientAnamnesisForm | null>(null);
   const [savedForm, setSavedForm] = useState<PatientAnamnesisForm | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [familyDiaryOpen, setFamilyDiaryOpen] = useState(false);
   const familyInvite = usePatientFamilyInvite(patientId ?? '');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: ['patient-record', patientId],
     queryFn: () => callFunction<PatientRecordData>('get-patient-record', { patient_id: patientId }),
     enabled: !!patientId,
   });
+
+  useEffect(() => {
+    setPatient(null);
+    setClinicalForm(null);
+    setSavedForm(null);
+    setSaveError(null);
+  }, [patientId]);
 
   useEffect(() => {
     if (!patientId) return;
@@ -115,6 +124,9 @@ export default function PatientRecordContainer() {
     setSaveError(null);
   }
 
+  const showPageLoading = !data && (isPending || isFetching);
+  const showStateSyncLoading = !!data && (!patient || !clinicalForm || !savedForm);
+
   if (!patientId) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -123,26 +135,39 @@ export default function PatientRecordContainer() {
     );
   }
 
-  if (isLoading) {
+  if (showPageLoading || showStateSyncLoading) {
     return <RecordPageSkeleton />;
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
-        <p className="text-sm text-charcoal-muted">Erro ao carregar prontuário</p>
-        <button
-          onClick={() => navigate('/patients')}
-          className="text-sm font-medium text-primary hover:text-primary-dark"
-        >
-          Voltar para pacientes
-        </button>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-[#F8FAF9] px-4">
+        <p className="text-sm text-charcoal-muted">
+          {error instanceof Error ? error.message : 'Erro ao carregar prontuário'}
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="text-sm font-medium text-primary hover:text-primary-dark disabled:opacity-50"
+          >
+            Tentar novamente
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/patients')}
+            className="text-sm font-medium text-charcoal-muted hover:text-charcoal"
+          >
+            Voltar para pacientes
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!patient || !clinicalForm || !savedForm) {
-    return null;
+    return <RecordPageSkeleton />;
   }
 
   const age = getAge(patient.birth_date);
@@ -164,9 +189,15 @@ export default function PatientRecordContainer() {
           <div className="flex items-start gap-4">
             <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="lg" />
             <div>
-            <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-              {patient.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
+                {patient.name}
+              </h1>
+              <FamilyDiaryAlertButton
+                count={data.recent_diary.length}
+                onClick={() => setFamilyDiaryOpen(true)}
+              />
+            </div>
             {patient.nome_social && (
               <p className="mt-0.5 text-sm text-charcoal-muted">Nome social: {patient.nome_social}</p>
             )}
@@ -187,7 +218,6 @@ export default function PatientRecordContainer() {
 
           <div className="flex flex-wrap gap-2">
             <PatientFamilyInviteButton onClick={() => familyInvite.setOpen(true)} />
-            <ExportPdfButton patientId={patientId} patientName={patient.name} />
             <PatientLinkManageFlow
               patientId={patientId}
               patientName={patient.name}
@@ -213,6 +243,13 @@ export default function PatientRecordContainer() {
         invite={familyInvite}
       />
 
+      <FamilyDiaryModal
+        isOpen={familyDiaryOpen}
+        onClose={() => setFamilyDiaryOpen(false)}
+        patientId={patientId}
+        entries={data.recent_diary}
+      />
+
       <PatientRecordTabs
         active={activeTab}
         onChange={handleTabChange}
@@ -233,15 +270,7 @@ export default function PatientRecordContainer() {
       )}
 
       {activeTab === 'overview' && (
-        <PatientOverviewTab
-          patientId={patientId}
-          patient={patient}
-          sessionNotes={data.session_notes}
-          recentDiary={data.recent_diary}
-          evolution={data.evolution}
-          upcomingSessions={data.upcoming_sessions}
-          totalSessions={data.total_sessions}
-        />
+        <PatientSessionHistoryTab patientId={patientId} patientName={patient.name} />
       )}
 
       {activeTab === 'checkins' && <PatientCrisisControlTab patientId={patientId} />}
@@ -270,7 +299,7 @@ export default function PatientRecordContainer() {
       )}
 
       {activeTab === 'documents' && (
-        <PatientDocumentsTab patientId={patientId} />
+        <PatientDocumentsTab patientId={patientId} patientName={patient.name} />
       )}
     </div>
   );

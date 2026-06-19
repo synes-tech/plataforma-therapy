@@ -1,26 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingOverlay, PatientListTableSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { formatCpfDisplay } from '@shared/lib/cpf';
-import { ListPageSkeleton } from '@containers/loading';
-import { DiagnosisChips } from '@features/patients/DiagnosisChips';
-import { PatientAvatar } from './PatientAvatar';
 import { PatientArchiveEmptyState } from './PatientArchiveEmptyState';
-import { PatientArchiveHardDeleteFlow } from './PatientArchiveHardDeleteFlow';
-import { PatientArchiveReactivateFlow } from './PatientArchiveReactivateFlow';
+import { PatientArchiveTable } from './PatientArchiveTable';
 import { filterArchivedPatients, formatArchiveLicenseLabel } from './patient-archive.utils';
-import type { ArchivedPatient, ArchivedPatientsPayload } from './patient-archive.types';
-
-function getAge(birthDate: string): number {
-  return Math.floor(
-    (Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
-  );
-}
+import type { ArchivedPatientsPayload } from './patient-archive.types';
 
 export function PatientArchiveListView() {
   const [search, setSearch] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: ['archived-patients'],
     queryFn: () => callFunction<ArchivedPatientsPayload>('get-archived-patients', {}),
   });
@@ -36,97 +26,83 @@ export function PatientArchiveListView() {
     data?.quantidade_backup_pacientes ?? 0,
   );
 
+  const showTableSkeleton = !data && (isPending || isFetching);
+  const showRefetchOverlay = !!data && isFetching;
+
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-slate-200 bg-gray-50 px-4 py-4 sm:px-5">
-        <p className="text-sm font-medium text-gray-600">{licenseLabel}</p>
-        <p className="mt-1 text-xs text-gray-500">
+    <div className="space-y-3">
+      <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm sm:px-5">
+        <p className="text-sm font-medium text-charcoal">{licenseLabel}</p>
+        <p className="mt-0.5 text-xs text-charcoal-muted">
           Histórico clínico preservado em armazenamento a frio. Pacientes aqui não ocupam vagas ativas.
         </p>
       </div>
 
-      <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+      <label className="block">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-charcoal-muted">
+          Buscar
         </span>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por Nome, CPF do Paciente ou do Responsável..."
-          aria-label="Buscar pacientes arquivados"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-slate-300 focus:outline-none focus:ring-[3px] focus:ring-slate-100"
-        />
-      </div>
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-charcoal-muted/60">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Nome ou CPF..."
+            aria-label="Buscar pacientes arquivados"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm text-charcoal placeholder:text-charcoal-muted/50 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
+          />
+        </div>
+      </label>
 
-      {isLoading ? (
-        <ListPageSkeleton rows={3} rowClassName="h-24 rounded-2xl border border-slate-100 bg-gray-50" />
-      ) : patients.length === 0 ? (
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error"
+        >
+          <p>{error instanceof Error ? error.message : 'Não foi possível carregar o arquivo clínico.'}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="mt-3 rounded-lg border border-error/20 bg-white px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-light/30 disabled:opacity-50"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
+      {showTableSkeleton ? (
+        <PatientListTableSkeleton label="Carregando arquivo clínico..." />
+      ) : error ? null : patients.length === 0 ? (
         <PatientArchiveEmptyState />
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-gray-50 px-6 py-12 text-center">
-          <p className="text-sm text-gray-600">Nenhum paciente encontrado para &quot;{search.trim()}&quot;.</p>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+          <p className="text-sm text-charcoal-muted">
+            Nenhum paciente encontrado para &quot;{search.trim()}&quot;.
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filtered.map((patient) => (
-            <PatientArchiveCard key={patient.id} patient={patient} />
-          ))}
+        <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <LoadingOverlay show={showRefetchOverlay} label="Atualizando arquivo clínico..." />
+
+          <div className="border-b border-slate-100 px-4 py-2.5 sm:px-5">
+            <p className="text-xs text-charcoal-muted">
+              <span className="font-medium text-charcoal">{filtered.length}</span>{' '}
+              {filtered.length === 1 ? 'paciente arquivado' : 'pacientes arquivados'}
+              {search.trim() ? (
+                <span className="text-charcoal-muted/80"> · busca: &quot;{search.trim()}&quot;</span>
+              ) : null}
+            </p>
+          </div>
+
+          <PatientArchiveTable patients={filtered} />
         </div>
       )}
     </div>
-  );
-}
-
-function PatientArchiveCard({ patient }: { patient: ArchivedPatient }) {
-  const age = getAge(patient.birth_date);
-
-  return (
-    <article className="rounded-2xl border border-slate-200 bg-gray-50 p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <PatientAvatar
-            name={patient.name}
-            fotoUrl={patient.foto_url}
-            size="md"
-            muted
-          />
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-gray-600">{patient.name}</p>
-            <p className="mt-0.5 text-sm text-gray-500">{age} anos</p>
-            {patient.cpf_paciente && (
-              <p className="mt-0.5 text-xs text-gray-400">
-                CPF {formatCpfDisplay(patient.cpf_paciente)}
-              </p>
-            )}
-            {!patient.cpf_paciente && patient.cpf_responsavel && (
-              <p className="mt-0.5 text-xs text-gray-400">
-                {patient.nome_responsavel ? `${patient.nome_responsavel} · ` : ''}
-                CPF resp. {formatCpfDisplay(patient.cpf_responsavel)}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:items-end">
-          <div className="min-w-0 sm:max-w-xs">
-            <DiagnosisChips diagnoses={patient.diagnoses} max={3} className="opacity-70" />
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[11rem]">
-            <PatientArchiveReactivateFlow
-              patientId={patient.id}
-              dataDesvinculacao={patient.data_desvinculacao ?? null}
-            />
-            <PatientArchiveHardDeleteFlow patientId={patient.id} patientName={patient.name} />
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }

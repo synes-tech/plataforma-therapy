@@ -7,7 +7,6 @@ import { isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
-import { PaywallProvider } from '@containers/paywall';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -212,7 +211,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   const displayRole = user ? roleLabels[user.role] ?? user.role : '';
 
   return (
-    <PaywallProvider>
     <div className="flex min-h-dvh bg-[#F8FAF9]">
       {/* Desktop Sidebar — altura fixa; fundo pastel do Login; só a navegação rola */}
       <aside className="relative sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-[#EDE4DC]/80 lg:flex">
@@ -307,9 +305,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="relative flex-1 overflow-y-auto">
+          {children}
+        </div>
       </main>
     </div>
-    </PaywallProvider>
   );
 }

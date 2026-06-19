@@ -14,7 +14,7 @@ interface PatientListTabsProps {
 
 export function PatientListTabs({ active, action }: PatientListTabsProps) {
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <nav className="-mx-1 overflow-x-auto px-1 scrollbar-hide" aria-label="Pacientes">
         <div
           className="inline-flex min-w-max gap-1 rounded-xl bg-slate-100 p-1 sm:min-w-0 sm:w-full sm:max-w-md"

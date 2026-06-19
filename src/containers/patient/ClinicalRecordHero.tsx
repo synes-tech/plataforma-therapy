@@ -10,9 +10,19 @@ interface ClinicalRecordHeroProps {
   photoPreview: string | null;
   uploadingPhoto: boolean;
   editing: boolean;
+  generatingPdf?: boolean;
   onStartEdit: () => void;
+  onGeneratePdf: () => void;
   onPhotoSelected: (file: File) => void;
   onPhotoValidationError: (message: string) => void;
+}
+
+function PdfIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
 }
 
 function PencilIcon() {
@@ -31,7 +41,9 @@ export function ClinicalRecordHero({
   photoPreview,
   uploadingPhoto,
   editing,
+  generatingPdf = false,
   onStartEdit,
+  onGeneratePdf,
   onPhotoSelected,
   onPhotoValidationError,
 }: ClinicalRecordHeroProps) {
@@ -76,14 +88,35 @@ export function ClinicalRecordHero({
         </div>
 
         {!editing && (
-          <button
-            type="button"
-            onClick={onStartEdit}
-            className="hidden min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal shadow-sm transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98] lg:inline-flex"
-          >
-            <PencilIcon />
-            Editar Ficha
-          </button>
+          <div className="flex w-full flex-col gap-2 lg:w-auto lg:shrink-0">
+            <button
+              type="button"
+              onClick={onStartEdit}
+              className="hidden min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal shadow-sm transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98] lg:inline-flex"
+            >
+              <PencilIcon />
+              Editar Ficha
+            </button>
+            <button
+              type="button"
+              onClick={onGeneratePdf}
+              disabled={generatingPdf}
+              aria-busy={generatingPdf}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal shadow-sm transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
+            >
+              {generatingPdf ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Gerando PDF...
+                </>
+              ) : (
+                <>
+                  <PdfIcon />
+                  Gerar PDF
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </section>

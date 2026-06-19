@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { CalendarWeekSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { CalendarWeekGrid } from './CalendarWeekGrid';
 import { getWeekDays, sessionsToLayoutedEvents } from './calendar-week.utils';
@@ -16,7 +17,7 @@ export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick }: Calend
   const startDate = weekDays[0]!;
   const endDate = weekDays[6]!;
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isPending, isFetching, error } = useQuery({
     queryKey: ['range-sessions', startDate, endDate],
     queryFn: () =>
       callFunction<RangeSessionsResponse>('get-daily-sessions', {
@@ -30,6 +31,9 @@ export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick }: Calend
     [data?.sessions],
   );
 
+  const showSkeleton = !data && (isPending || isFetching);
+  const showRefetchOverlay = !!data && isFetching;
+
   if (error) {
     return (
       <div className="rounded-2xl border border-error/20 bg-error-light/40 px-4 py-8 text-center text-sm text-error">
@@ -38,12 +42,16 @@ export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick }: Calend
     );
   }
 
+  if (showSkeleton) {
+    return <CalendarWeekSkeleton weekDays={weekDays} todayISO={todayISO} />;
+  }
+
   return (
     <CalendarWeekGrid
       weekDays={weekDays}
       events={layoutedEvents}
       todayISO={todayISO}
-      isLoading={isLoading}
+      showRefetchOverlay={showRefetchOverlay}
       onEventClick={onDayClick}
     />
   );

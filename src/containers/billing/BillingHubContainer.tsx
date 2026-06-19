@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { TabPanelLoader } from '@containers/loading';
 
 const TABS = [
   { id: 'plan', label: 'Controle de Plano', to: '/billing' },
@@ -46,7 +48,9 @@ export default function BillingHubContainer() {
         </div>
       </nav>
 
-      <Outlet />
+      <Suspense fallback={<TabPanelLoader label="Carregando seção..." className="border-0 shadow-none" />}>
+        <Outlet />
+      </Suspense>
     </div>
   );
 }

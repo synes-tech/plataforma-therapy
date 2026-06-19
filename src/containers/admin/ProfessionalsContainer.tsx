@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ListPageSkeleton, LoadingButton } from '@containers/loading';
+import { ListPageSkeleton, LoadingButton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { getInitials } from '@shared/lib/greeting';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -93,6 +93,10 @@ export default function ProfessionalsContainer() {
   }
 
   const list = professionals ?? [];
+
+  if (isLoading && !professionals) {
+    return <PageLoader label="Carregando profissionais..." className="min-h-[50vh]" />;
+  }
 
   return (
     <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ListPageSkeleton } from '@containers/loading';
+import { PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { PlanHeroCard } from './PlanHeroCard';
 import { BackupAddonCard } from './BackupAddonCard';
@@ -27,8 +27,8 @@ export default function PlanControlContainer() {
     queryFn: () => callFunction<PlanControlState>('get-plan-control-state', {}),
   });
 
-  if (isLoading) {
-    return <ListPageSkeleton rows={2} rowClassName="h-40 rounded-2xl" className="space-y-4" />;
+  if (isLoading && !data) {
+    return <PageLoader label="Carregando controle de plano..." className="min-h-[40vh]" />;
   }
 
   if (error || !data) {

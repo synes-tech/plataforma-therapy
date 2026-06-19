@@ -13,11 +13,15 @@ import { PatientReactivationCooldownBadge } from './PatientReactivationCooldownB
 interface PatientArchiveReactivateFlowProps {
   patientId: string;
   dataDesvinculacao: string | null;
+  compact?: boolean;
+  className?: string;
 }
 
 export function PatientArchiveReactivateFlow({
   patientId,
   dataDesvinculacao,
+  compact = false,
+  className = '',
 }: PatientArchiveReactivateFlowProps) {
   const queryClient = useQueryClient();
   const { interceptNewPatient, refreshState } = usePaywall();
@@ -53,23 +57,26 @@ export function PatientArchiveReactivateFlow({
 
   return (
     <>
-      <PatientReactivationCooldownBadge status={cooldown} />
+      {!compact ? <PatientReactivationCooldownBadge status={cooldown} /> : null}
 
       <LoadingButton
         type="button"
         onClick={handleReactivate}
         loading={mutation.isPending}
         disabled={!cooldown.canReactivate}
-        fullWidth
-        className={`min-h-12 ${
-          cooldown.canReactivate ? '' : 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50'
-        }`}
+        fullWidth={!compact}
+        variant={cooldown.canReactivate ? 'primary' : 'secondary'}
+        className={
+          compact
+            ? `h-9 shrink-0 rounded-lg px-3 text-xs whitespace-nowrap ${!cooldown.canReactivate ? 'cursor-not-allowed opacity-50' : ''} ${className}`.trim()
+            : `min-h-12 ${!cooldown.canReactivate ? 'cursor-not-allowed bg-slate-200 text-gray-500 opacity-50' : ''} ${className}`.trim()
+        }
       >
         Reativar
       </LoadingButton>
 
       {actionError && (
-        <p role="alert" className="text-xs text-error">
+        <p role="alert" className={`text-xs text-error ${compact ? 'sr-only' : ''}`}>
           {actionError}
         </p>
       )}

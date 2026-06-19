@@ -20,12 +20,12 @@ export default function PatientListContainer() {
   }
 
   return (
-    <div className="bg-[#F8FAF9] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-      <header className="mb-4">
+    <div className="bg-[#F8FAF9] px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
+      <header className="mb-3">
         <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
           Pacientes
         </h1>
-        <p className="mt-1 text-sm text-charcoal-muted">
+        <p className="mt-0.5 text-sm text-charcoal-muted">
           {isArchive
             ? 'Histórico clínico arquivado — pacientes desvinculados da agenda ativa.'
             : 'Gerencie seus pacientes ativos e gere convites para familiares.'}

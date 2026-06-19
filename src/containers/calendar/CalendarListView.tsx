@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ListPageSkeleton } from '@containers/loading';
+import { ListPageSkeleton, LoadingOverlay, Spinner } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { CalendarListEmptyState } from './CalendarListEmptyState';
 import { CalendarListSessionCard } from './CalendarListSessionCard';
@@ -14,15 +14,24 @@ interface CalendarListViewProps {
 
 function ListSkeleton() {
   return (
-    <div className="space-y-6">
+    <div
+      className="relative space-y-6 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+      aria-busy="true"
+      role="status"
+      aria-label="Carregando agenda em lista"
+    >
       <ListPageSkeleton rows={1} rowClassName="h-10" />
       <ListPageSkeleton rows={3} rowClassName="h-16" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/60">
+        <Spinner size="md" />
+        <p className="text-xs font-medium text-charcoal-muted">Carregando agenda...</p>
+      </div>
     </div>
   );
 }
 
 export function CalendarListView({ todayISO, onNewSchedule }: CalendarListViewProps) {
-  const { data, isLoading, error } = useQuery({
+  const { data, isPending, isFetching, error } = useQuery({
     queryKey: ['list-sessions', todayISO],
     queryFn: () =>
       callFunction<ListSessionsResponse>('get-daily-sessions', {
@@ -36,7 +45,10 @@ export function CalendarListView({ todayISO, onNewSchedule }: CalendarListViewPr
     [data?.sessions],
   );
 
-  if (isLoading) {
+  const showSkeleton = !data && (isPending || isFetching);
+  const showRefetchOverlay = !!data && isFetching;
+
+  if (showSkeleton) {
     return <ListSkeleton />;
   }
 
@@ -53,7 +65,8 @@ export function CalendarListView({ todayISO, onNewSchedule }: CalendarListViewPr
   }
 
   return (
-    <div className="space-y-2">
+    <div className="relative space-y-2">
+      <LoadingOverlay show={showRefetchOverlay} label="Atualizando agenda..." />
       <p className="text-xs font-medium uppercase tracking-wider text-charcoal-muted/70">
         Próximos 30 dias · {data?.sessions.length ?? 0} atendimento
         {(data?.sessions.length ?? 0) === 1 ? '' : 's'}

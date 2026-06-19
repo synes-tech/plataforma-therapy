@@ -35,7 +35,7 @@ export default function FullCalendar() {
 
   const weekLabel = useMemo(() => formatWeekRangeLabel(weekSundayISO), [weekSundayISO]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isFetching } = useQuery({
     queryKey: ['monthly-summary', cursor.year, cursor.month0],
     queryFn: () =>
       callFunction<MonthlySummary>('get-monthly-summary', {
@@ -44,6 +44,9 @@ export default function FullCalendar() {
       }),
     enabled: currentView === 'month',
   });
+
+  const showMonthSkeleton = !data && (isPending || isFetching);
+  const showMonthRefetch = !!data && isFetching;
 
   const countByDate = useMemo(() => {
     const m = new Map<string, number>();
@@ -120,7 +123,8 @@ export default function FullCalendar() {
           month0={cursor.month0}
           todayISO={todayISO}
           countByDate={countByDate}
-          isLoading={isLoading}
+          showSkeleton={showMonthSkeleton}
+          showRefetchOverlay={showMonthRefetch}
           onDayClick={handleMonthDayClick}
         />
       )}

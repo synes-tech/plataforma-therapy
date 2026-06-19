@@ -36,7 +36,7 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
   const queryClient = useQueryClient();
   const [localKeys, setLocalKeys] = useState<Set<string>>(() => loadLocalSaved(patientId));
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['ai-artifact-status', patientId],
     queryFn: () =>
       callFunction<ArtifactStatusResponse>('list-ai-artifact-status', { patient_id: patientId }),
@@ -88,5 +88,6 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
     savedKeys,
     savedKeysSerialized,
     saveArtifact,
+    isLoadingArtifacts: isLoading,
   };
 }

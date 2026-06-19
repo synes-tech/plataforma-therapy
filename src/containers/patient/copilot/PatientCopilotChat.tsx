@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { callFunctionStream, type CopilotStreamMeta } from '@shared/lib/api';
 import { Toast } from '../Toast';
+import { LoadingOverlay, TabPanelLoader } from '@containers/loading';
 import { PatientCopilotChatInput } from './PatientCopilotChatInput';
 import { PatientCopilotEmptyState } from './PatientCopilotEmptyState';
 import { PatientCopilotMessageBubble } from './PatientCopilotMessageBubble';
@@ -45,7 +46,7 @@ export function PatientCopilotChat({
   const fingerprintCacheRef = useRef(new Map<string, string>());
   const firstName = patientFirstName(patientName);
 
-  const { savedKeys, savedKeysSerialized, saveArtifact } =
+  const { savedKeys, savedKeysSerialized, saveArtifact, isLoadingArtifacts } =
     usePatientCopilotSavedArtifacts(patientId);
 
   const assistantSyncKey = useMemo(() => buildAssistantSyncKey(messages), [messages]);
@@ -204,9 +205,13 @@ export function PatientCopilotChat({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-6">
-        {messages.length === 0 ? (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col">
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-6">
+        <LoadingOverlay show={isLoadingArtifacts} label="Preparando copiloto..." />
+
+        {isLoadingArtifacts && messages.length === 0 ? (
+          <TabPanelLoader label="Carregando copiloto..." className="min-h-[16rem] border-0 shadow-none" />
+        ) : messages.length === 0 ? (
           <PatientCopilotEmptyState
             patientName={patientName}
             onQuickPrompt={send}

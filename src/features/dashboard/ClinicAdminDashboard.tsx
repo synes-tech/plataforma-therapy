@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ListPageSkeleton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { getFirstName, getTimeGreeting } from '@shared/lib/greeting';
 
@@ -101,6 +102,10 @@ export function ClinicAdminDashboard() {
   const greeting = getTimeGreeting();
   const adminName = data?.admin_name ?? 'Admin';
   const firstName = getFirstName(adminName);
+
+  if (isLoading && !data) {
+    return <PageLoader label="Carregando painel da clínica..." className="min-h-[60vh]" />;
+  }
 
   return (
     <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
@@ -204,10 +209,7 @@ export function ClinicAdminDashboard() {
         </h2>
 
         {isLoading ? (
-          <div className="space-y-3">
-            <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-            <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
-          </div>
+          <ListPageSkeleton rows={2} rowClassName="h-16 rounded-xl" />
         ) : (data?.recent_professionals.length ?? 0) === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center">
             <p className="text-sm text-charcoal-muted">Nenhum profissional cadastrado ainda.</p>

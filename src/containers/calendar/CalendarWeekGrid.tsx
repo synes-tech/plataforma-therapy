@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Spinner } from '@containers/loading';
+import { LoadingOverlay } from '@containers/loading';
 import { CalendarWeekEventBlock } from './CalendarWeekEventBlock';
 import type { LayoutedWeekEvent } from './calendar-week.types';
 import {
@@ -14,7 +14,7 @@ interface CalendarWeekGridProps {
   weekDays: string[];
   events: LayoutedWeekEvent[];
   todayISO: string;
-  isLoading?: boolean;
+  showRefetchOverlay?: boolean;
   onEventClick?: (dayISO: string) => void;
 }
 
@@ -22,7 +22,7 @@ export function CalendarWeekGrid({
   weekDays,
   events,
   todayISO,
-  isLoading,
+  showRefetchOverlay = false,
   onEventClick,
 }: CalendarWeekGridProps) {
   const gridHeight = weekGridHeightPx();
@@ -41,7 +41,8 @@ export function CalendarWeekGrid({
   }, [events, weekDays]);
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+    <div className="relative rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <LoadingOverlay show={showRefetchOverlay} label="Atualizando agenda..." />
       {/* Cabeçalho dos dias — scroll horizontal no mobile */}
       <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide">
         <div className="flex min-w-[640px] md:min-w-0">
@@ -122,13 +123,6 @@ export function CalendarWeekGrid({
                       onClick={() => onEventClick?.(dayISO)}
                     />
                   ))}
-
-                  {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-white/60">
-                      <Spinner size="sm" />
-                      <span className="text-xs text-charcoal-muted">Carregando...</span>
-                    </div>
-                  )}
                 </div>
               );
             })}

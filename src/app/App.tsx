@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { Suspense } from 'react';
 import { RouteLoadingFallback } from '@containers/loading';
+import { PaywallProvider } from '@containers/paywall';
 import { isAuthSessionError } from '@shared/lib/auth-session';
 import { AppRoutes } from './routes';
 
@@ -38,9 +39,11 @@ export function App() {
           Pular para o conteúdo principal
         </a>
         <Suspense fallback={<RouteLoadingFallback />}>
-          <main id="main-content">
-            <AppRoutes />
-          </main>
+          <PaywallProvider>
+            <main id="main-content">
+              <AppRoutes />
+            </main>
+          </PaywallProvider>
         </Suspense>
       </BrowserRouter>
     </QueryClientProvider>

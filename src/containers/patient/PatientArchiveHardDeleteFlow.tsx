@@ -6,11 +6,15 @@ import { PatientHardDeleteConfirmModal } from './PatientHardDeleteConfirmModal';
 interface PatientArchiveHardDeleteFlowProps {
   patientId: string;
   patientName: string;
+  compact?: boolean;
+  className?: string;
 }
 
 export function PatientArchiveHardDeleteFlow({
   patientId,
   patientName,
+  compact = false,
+  className = '',
 }: PatientArchiveHardDeleteFlowProps) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,9 +55,13 @@ export function PatientArchiveHardDeleteFlow({
         type="button"
         onClick={openConfirm}
         disabled={mutation.isPending}
-        className="inline-flex h-10 items-center justify-center rounded-xl border border-error/20 bg-white px-4 text-sm font-medium text-error transition-colors hover:bg-error-light disabled:opacity-50"
+        className={
+          compact
+            ? `inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-error/20 bg-white px-3 text-xs font-medium text-error transition-colors hover:bg-error-light disabled:opacity-50 whitespace-nowrap ${className}`.trim()
+            : `inline-flex h-10 items-center justify-center rounded-xl border border-error/20 bg-white px-4 text-sm font-medium text-error transition-colors hover:bg-error-light disabled:opacity-50 ${className}`.trim()
+        }
       >
-        Excluir Definitivamente
+        Excluir definitivamente
       </button>
 
       <PatientHardDeleteConfirmModal

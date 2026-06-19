@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ListPageSkeleton } from '@containers/loading';
+import { ListPageSkeleton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import {
   formatCurrency,
@@ -64,6 +64,10 @@ export default function BillingContainer() {
 
   const invoices = data?.invoices ?? [];
   const summary = data?.summary;
+
+  if (isLoading && !data) {
+    return <PageLoader label="Carregando faturas..." className="min-h-[40vh]" />;
+  }
 
   return (
     <div>

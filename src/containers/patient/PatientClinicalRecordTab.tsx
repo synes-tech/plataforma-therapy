@@ -55,6 +55,7 @@ export function PatientClinicalRecordTab({
 }: PatientClinicalRecordTabProps) {
   const [editing, setEditing] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const validation = validateClinicalRecordForm(form);
@@ -122,6 +123,23 @@ export function PatientClinicalRecordTab({
     setEditing(false);
   }
 
+  async function handleGeneratePdf() {
+    if (generatingPdf) return;
+    setGeneratingPdf(true);
+    try {
+      const { exportClinicalRecordPdf } = await import('@features/pdf/exportClinicalRecordPdf');
+      await exportClinicalRecordPdf(patientId, form);
+      setToast({ message: 'PDF da ficha clínica gerado com sucesso', variant: 'success' });
+    } catch (err) {
+      setToast({
+        message: err instanceof Error ? err.message : 'Não foi possível gerar o PDF',
+        variant: 'error',
+      });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
   return (
     <div className="relative pb-28 lg:pb-24">
       <Toast
@@ -139,7 +157,9 @@ export function PatientClinicalRecordTab({
         photoPreview={photoPreview}
         uploadingPhoto={uploadingPhoto}
         editing={editing}
+        generatingPdf={generatingPdf}
         onStartEdit={startEdit}
+        onGeneratePdf={() => void handleGeneratePdf()}
         onPhotoSelected={(file) => void handlePhotoSelected(file)}
         onPhotoValidationError={(message) => setToast({ message, variant: 'error' })}
       />
