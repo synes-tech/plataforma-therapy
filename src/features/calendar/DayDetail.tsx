@@ -15,6 +15,9 @@ interface DailySession {
   scheduled_at: string;
   duration_minutes: number | null;
   status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  session_note_id?: string | null;
   title: string | null;
   patient: { id: string; name: string; birth_date: string | null; foto_url?: string | null } | null;
   contact: Contact | null;
@@ -27,7 +30,9 @@ interface DailyData {
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   scheduled: { label: 'Agendado', className: 'bg-blue-50 text-blue-700' },
+  in_progress: { label: 'Em andamento', className: 'bg-violet-50 text-violet-700' },
   completed: { label: 'Concluído', className: 'bg-emerald-50 text-emerald-700' },
+  not_completed: { label: 'Não concluído', className: 'bg-red-50 text-red-700' },
   canceled: { label: 'Cancelado', className: 'bg-slate-100 text-slate-500' },
   cancelled: { label: 'Cancelado', className: 'bg-slate-100 text-slate-500' },
   no_show: { label: 'Faltou', className: 'bg-amber-50 text-amber-700' },
@@ -107,6 +112,18 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
   const waLink = contact?.phone ? `https://wa.me/${contact.phone.replace(/\D/g, '')}` : null;
   const mailLink = contact?.email ? `mailto:${contact.email}` : null;
   const contactLink = waLink ?? mailLink;
+  const canStartSession =
+    !!session.patient &&
+    !['completed', 'cancelled', 'canceled', 'no_show'].includes(session.status);
+
+  const startSessionMutation = useMutation({
+    mutationFn: async () => {
+      await callFunction('start-schedule-session', { schedule_id: session.id });
+    },
+    onSuccess: () => {
+      navigate(`/session/${session.patient!.id}?scheduleId=${session.id}`);
+    },
+  });
 
   return (
     <li className="py-4">
@@ -133,6 +150,20 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
 
       {/* Ações rápidas */}
       <div className="mt-3 flex flex-wrap items-center gap-1 pl-[3.25rem]">
+        {canStartSession && (
+          <button
+            type="button"
+            onClick={() => startSessionMutation.mutate()}
+            disabled={startSessionMutation.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+            </svg>
+            {startSessionMutation.isPending ? 'Abrindo...' : 'Iniciar atendimento'}
+          </button>
+        )}
+
         <button
           onClick={() => setRescheduling((v) => !v)}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-charcoal-muted transition-colors hover:bg-slate-50 hover:text-blue-600"
@@ -175,6 +206,12 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
           {reminderSent ? 'Lembrete enviado' : 'Enviar lembrete'}
         </button>
       </div>
+
+      {startSessionMutation.isError && (
+        <p className="mt-2 pl-[3.25rem] text-xs text-error">
+          {(startSessionMutation.error as Error)?.message ?? 'Não foi possível iniciar o atendimento.'}
+        </p>
+      )}
 
       {/* Remarcar inline */}
       {rescheduling && (

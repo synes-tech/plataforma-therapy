@@ -1,18 +1,28 @@
-import { useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRef, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@containers/layout';
 import { PageLoader } from '@containers/loading';
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import { supabase } from '@shared/lib/supabase';
+import { callFunction } from '@shared/lib/api';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { AudioRecorder } from '@features/audio-recorder/AudioRecorder';
 import { SessionNoteReview } from '@features/audio-recorder/SessionNoteReview';
 
 export default function SessionContainer() {
   const { patientId } = useParams<{ patientId: string }>();
+  const [searchParams] = useSearchParams();
+  const scheduleId = searchParams.get('scheduleId');
   const navigate = useNavigate();
   const reviewSectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!scheduleId) return;
+    void callFunction('start-schedule-session', { schedule_id: scheduleId }).catch((err) => {
+      console.error('start-schedule-session failed:', err);
+    });
+  }, [scheduleId]);
 
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient-detail', patientId],
@@ -47,8 +57,8 @@ export default function SessionContainer() {
     <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
       <PageHeader
         backButton={{
-          onClick: () => navigate(`/patients/${patientId}`),
-          label: `Voltar para ${patientName}`,
+          onClick: () => (scheduleId ? navigate('/calendar') : navigate(`/patients/${patientId}`)),
+          label: scheduleId ? 'Voltar para agenda' : `Voltar para ${patientName}`,
         }}
         title={
           <div className="flex items-center gap-3 sm:gap-4">
@@ -77,6 +87,7 @@ export default function SessionContainer() {
         <section aria-labelledby="session-recorder-title">
           <AudioRecorder
             patientId={patientId}
+            scheduleId={scheduleId ?? undefined}
             recordingType="post_session"
             onComplete={() => {
               reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });

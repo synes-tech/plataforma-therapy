@@ -1,6 +1,7 @@
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExportPdfButton } from '@features/pdf/ExportPdfButton';
 import { PageHeader } from '@containers/layout';
+import { MobileActionsMenu } from '@shared/ui/MobileActionsMenu';
 import { PatientAvatar } from './PatientAvatar';
 import { FamilyDiaryAlertButton } from './family-diary/FamilyDiaryAlertButton';
 import { PatientFamilyInviteButton } from './PatientFamilyInvite';
@@ -32,9 +33,6 @@ function SparkIcon({ className = 'h-4 w-4' }: { className?: string }) {
 const btnPrimary =
   'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:px-4';
 
-const btnIcon =
-  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-charcoal transition-colors hover:border-charcoal/30 sm:hidden';
-
 export function PatientRecordPageHeader({
   patient,
   age,
@@ -47,6 +45,7 @@ export function PatientRecordPageHeader({
   bleed = true,
 }: PatientRecordPageHeaderProps) {
   const navigate = useNavigate();
+  const openLinkManageRef = useRef<(() => void) | null>(null);
 
   function goCopilot() {
     if (activeTab !== 'copilot') onTabChange('copilot');
@@ -55,6 +54,35 @@ export function PatientRecordPageHeader({
   function goRecordSession() {
     navigate(`/session/${patient.id}`);
   }
+
+  const mobileActions = [
+    {
+      id: 'family',
+      label: 'Gerar acesso família',
+      onClick: onFamilyInvite,
+    },
+    ...(patient.status_vinculo === 'ativo'
+      ? [
+          {
+            id: 'link',
+            label: 'Gerenciar o vínculo',
+            onClick: () => openLinkManageRef.current?.(),
+          },
+        ]
+      : []),
+    {
+      id: 'record',
+      label: 'Gravar sessão',
+      onClick: goRecordSession,
+    },
+    {
+      id: 'copilot',
+      label: 'Copiloto IA',
+      onClick: goCopilot,
+      variant: 'primary' as const,
+      icon: <SparkIcon className="h-4 w-4" />,
+    },
+  ];
 
   return (
     <PageHeader
@@ -103,11 +131,14 @@ export function PatientRecordPageHeader({
         <div className="flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-auto sm:gap-2">
           <div className="hidden items-center gap-2 sm:flex">
             <PatientFamilyInviteButton onClick={onFamilyInvite} />
-            <ExportPdfButton patientId={patient.id} patientName={patient.name} />
             <PatientLinkManageFlow
               patientId={patient.id}
               patientName={patient.name}
               statusVinculo={patient.status_vinculo}
+              triggerVisibility="desktop"
+              onReady={(handlers) => {
+                openLinkManageRef.current = handlers.openManage;
+              }}
             />
             <RecordSessionButton onClick={goRecordSession} />
             <button type="button" onClick={goCopilot} className={btnPrimary}>
@@ -116,30 +147,7 @@ export function PatientRecordPageHeader({
             </button>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-1.5 sm:hidden">
-            <button
-              type="button"
-              onClick={onFamilyInvite}
-              className={btnIcon}
-              aria-label="Gerar acesso família"
-              title="Gerar acesso família"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h10m4-7v6m3-3h-6" />
-              </svg>
-            </button>
-            <ExportPdfButton patientId={patient.id} patientName={patient.name} variant="icon" />
-            <RecordSessionButton onClick={goRecordSession} variant="headerMobile" />
-            <PatientLinkManageFlow
-              patientId={patient.id}
-              patientName={patient.name}
-              statusVinculo={patient.status_vinculo}
-            />
-            <button type="button" onClick={goCopilot} className={`${btnPrimary} min-w-[7.5rem] flex-1`}>
-              <SparkIcon className="h-3.5 w-3.5" />
-              Copiloto IA
-            </button>
-          </div>
+          <MobileActionsMenu items={mobileActions} className="w-full sm:w-auto" />
         </div>
       }
       tabs={

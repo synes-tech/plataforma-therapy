@@ -41,6 +41,49 @@ export async function initiateAudioUpload(
     throw new ForbiddenError('Patient not found or not assigned to you');
   }
 
+  let scheduleId: string | undefined;
+  if (payload.schedule_id) {
+    const { data: schedule } = await serviceClient
+      .from('therapist_schedule')
+      .select('id, patient_id, status, started_at')
+      .eq('id', payload.schedule_id)
+      .eq('professional_id', professional.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (!schedule || schedule.patient_id !== payload.patient_id) {
+      throw new ForbiddenError('Agendamento inválido para este paciente.');
+    }
+
+    if (schedule.status === 'cancelled' || schedule.status === 'no_show') {
+      throw new AppError({
+        code: 'INVALID_SCHEDULE',
+        message: 'Não é possível gravar áudio para um agendamento cancelado.',
+        statusCode: 400,
+      });
+    }
+
+    if (schedule.status === 'completed') {
+      throw new AppError({
+        code: 'SCHEDULE_COMPLETED',
+        message: 'Este agendamento já foi concluído.',
+        statusCode: 409,
+      });
+    }
+
+    scheduleId = schedule.id;
+
+    if (schedule.status === 'scheduled' || schedule.status === 'not_completed') {
+      await serviceClient
+        .from('therapist_schedule')
+        .update({
+          status: 'in_progress',
+          ...(schedule.started_at ? {} : { started_at: new Date().toISOString() }),
+        })
+        .eq('id', schedule.id);
+    }
+  }
+
   // 3. Generate storage path (WAV — formato aceito pela Files API do Gemini)
   const timestamp = Date.now();
   const storagePath = `${clinicId}/${payload.patient_id}/${timestamp}.wav`;
@@ -57,6 +100,7 @@ export async function initiateAudioUpload(
       mime_type: 'audio/wav',
       recording_type: payload.recording_type,
       status: 'uploading',
+      schedule_id: scheduleId ?? null,
     })
     .select('id')
     .single();
@@ -88,6 +132,7 @@ export async function initiateAudioUpload(
         patient_id: payload.patient_id,
         storage_path: storagePath,
         recording_type: payload.recording_type,
+        schedule_id: scheduleId ?? null,
       },
     })
     .select('id')
@@ -100,7 +145,7 @@ export async function initiateAudioUpload(
     action: 'audio.upload_initiated',
     resource_type: 'audio_recording',
     resource_id: recording.id,
-    metadata: { recording_type: payload.recording_type, patient_id: payload.patient_id },
+    metadata: { recording_type: payload.recording_type, patient_id: payload.patient_id, schedule_id: scheduleId ?? null },
   });
 
   return {

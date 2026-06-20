@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { callFunction } from '@shared/lib/api';
@@ -12,6 +12,9 @@ interface PatientLinkManageFlowProps {
   patientId: string;
   patientName: string;
   statusVinculo?: 'ativo' | 'desvinculado';
+  /** desktop: botão só a partir de sm; none: sem botão (use onReady); all: sempre visível */
+  triggerVisibility?: 'all' | 'desktop' | 'none';
+  onReady?: (handlers: { openManage: () => void }) => void;
 }
 
 type Step = 'closed' | 'choose' | 'delete_confirm';
@@ -20,6 +23,8 @@ export function PatientLinkManageFlow({
   patientId,
   patientName,
   statusVinculo = 'ativo',
+  triggerVisibility = 'all',
+  onReady,
 }: PatientLinkManageFlowProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -71,10 +76,14 @@ export function PatientLinkManageFlow({
     return null;
   }
 
-  function openManage() {
+  const openManageStable = useCallback(() => {
     setActionError(null);
     setStep('choose');
-  }
+  }, []);
+
+  useEffect(() => {
+    onReady?.({ openManage: openManageStable });
+  }, [onReady, openManageStable]);
 
   function closeAll() {
     if (mutation.isPending) return;
@@ -92,9 +101,16 @@ export function PatientLinkManageFlow({
     mutation.mutate({ acao: 'delete', confirm_name: confirmName });
   }
 
+  const triggerClass =
+    triggerVisibility === 'desktop' ? 'hidden sm:block' : triggerVisibility === 'none' ? 'hidden' : '';
+
   return (
     <>
-      <PatientRecordOptionsMenu onManageLink={openManage} disabled={mutation.isPending} />
+      {triggerVisibility !== 'none' && (
+        <div className={triggerClass}>
+          <PatientRecordOptionsMenu onManageLink={openManageStable} disabled={mutation.isPending} />
+        </div>
+      )}
 
       <PatientLinkManageModal
         isOpen={step === 'choose'}

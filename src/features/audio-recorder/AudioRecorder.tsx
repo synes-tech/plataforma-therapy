@@ -8,6 +8,7 @@ import { fetchSessionNoteContent, useAudioJobWatcher } from './useAudioJobWatche
 
 interface AudioRecorderProps {
   patientId: string;
+  scheduleId?: string;
   recordingType: 'onboarding' | 'post_session' | 'note';
   onComplete?: (jobId: string) => void;
 }
@@ -72,7 +73,7 @@ function stepIndex(state: RecordingState): number {
   return 3;
 }
 
-export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRecorderProps) {
+export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete }: AudioRecorderProps) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
@@ -95,7 +96,7 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
     setSessionNoteId(null);
     jobIdRef.current = null;
     setProcessingJobId(null);
-  }, [patientId]);
+  }, [patientId, scheduleId]);
 
   useEffect(() => {
     return () => {
@@ -194,10 +195,19 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
         })
         .eq('id', sessionNoteId);
       if (error) throw error;
+
+      if (scheduleId) {
+        await callFunction('complete-schedule-session', {
+          schedule_id: scheduleId,
+          session_note_id: sessionNoteId,
+        });
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
       void queryClient.invalidateQueries({ queryKey: ['patient-sessions', patientId] });
+      void queryClient.invalidateQueries({ queryKey: ['daily-sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
       resetRecorder();
     },
     onError: (err: Error) => {
@@ -216,6 +226,7 @@ export function AudioRecorder({ patientId, recordingType, onComplete }: AudioRec
         patient_id: patientId,
         recording_type: recordingType,
         duration_seconds: duration,
+        ...(scheduleId ? { schedule_id: scheduleId } : {}),
       });
 
       const wavBlob = await blobToWav(audioBlob);

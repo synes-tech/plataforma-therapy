@@ -38,8 +38,8 @@ function BackChevron() {
 }
 
 /**
- * Cabeçalho fixo (sticky) reutilizável para telas internas.
- * Ancora no topo da área de scroll principal, à direita da sidebar.
+ * Cabeçalho de página reutilizável para telas internas.
+ * Mobile: rola com o conteúdo (não sticky). Desktop (lg+): fixo no topo da área de scroll.
  */
 export function PageHeader({
   title,
@@ -54,7 +54,7 @@ export function PageHeader({
 
   return (
     <header
-      className={`sticky top-0 z-40 shrink-0 border-b border-slate-100 bg-white/90 backdrop-blur-md ${bleedClass} ${className}`.trim()}
+      className={`shrink-0 border-b border-slate-100 bg-white/90 backdrop-blur-md lg:sticky lg:top-0 lg:z-40 ${bleedClass} ${className}`.trim()}
     >
       <div className="py-4 lg:py-5">
         {backButton && (

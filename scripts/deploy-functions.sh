@@ -29,6 +29,8 @@ FUNCTIONS=(
   "list-pending-evolutions"
   "get-daily-sessions"
   "get-monthly-summary"
+  "start-schedule-session"
+  "complete-schedule-session"
   "create-schedule"
   "reschedule-session"
   "list-agreements"

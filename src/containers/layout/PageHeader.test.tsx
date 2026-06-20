@@ -34,11 +34,12 @@ describe('PageHeader', () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it('aplica classes sticky e z-index', () => {
+  it('aplica sticky apenas no desktop', () => {
     const { container } = render(<PageHeader title="Teste" />);
     const header = container.querySelector('header');
-    expect(header?.className).toContain('sticky');
-    expect(header?.className).toContain('top-0');
-    expect(header?.className).toContain('z-40');
+    expect(header?.className).toContain('lg:sticky');
+    expect(header?.className).toContain('lg:top-0');
+    expect(header?.className).toContain('lg:z-40');
+    expect(header?.className).not.toContain(' sticky ');
   });
 });

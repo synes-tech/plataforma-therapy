@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { MobileNavSelect } from '@shared/ui/MobileNavSelect';
 import type { PatientListTab } from './patient-archive.types';
 
 const TABS: { id: PatientListTab; label: string; to: string }[] = [
@@ -13,9 +14,21 @@ interface PatientListTabsProps {
 }
 
 export function PatientListTabs({ active, action }: PatientListTabsProps) {
+  const navigate = useNavigate();
+
   return (
     <div className={action ? 'mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between' : ''}>
-      <nav className="-mx-1 overflow-x-auto px-1 scrollbar-hide" aria-label="Pacientes">
+      <MobileNavSelect
+        value={active}
+        options={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+        onChange={(id) => {
+          const tab = TABS.find((t) => t.id === id);
+          if (tab) navigate(tab.to);
+        }}
+        ariaLabel="Pacientes"
+      />
+
+      <nav className="-mx-1 hidden overflow-x-auto px-1 scrollbar-hide sm:block" aria-label="Pacientes">
         <div
           className="inline-flex min-w-max gap-1 rounded-xl bg-slate-100 p-1 sm:min-w-0 sm:w-full sm:max-w-md"
           role="tablist"

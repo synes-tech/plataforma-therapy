@@ -42,7 +42,7 @@ export default function SettingsHubContainer() {
         title={PAGE_TITLE}
         subtitle="Sua foto, dados pessoais, plano, faturas e notificações."
         tabs={
-          <div className="flex items-stretch gap-2 sm:gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-3">
             <div className="flex min-h-0 min-w-0 flex-1 items-stretch">
               <SettingsHubTabs active={activeTab} embedded />
             </div>

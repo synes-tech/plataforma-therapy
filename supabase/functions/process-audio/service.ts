@@ -103,7 +103,7 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
   try {
     const { data: recording } = await supabase
       .from('audio_recordings')
-      .select('storage_path, professional_id, clinic_id, recording_type, mime_type')
+      .select('storage_path, professional_id, clinic_id, recording_type, mime_type, schedule_id')
       .eq('id', input.audio_recording_id)
       .single();
 
@@ -155,6 +155,7 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
         clinic_id: recording.clinic_id,
         audio_recording_id: input.audio_recording_id,
         transcription_id: transcriptionRecord!.id,
+        schedule_id: recording.schedule_id ?? null,
         status: 'draft',
         content: { ...soap, transcription },
         ai_generated: true,

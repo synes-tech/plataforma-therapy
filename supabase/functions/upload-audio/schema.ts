@@ -4,4 +4,5 @@ export const UploadAudioSchema = z.object({
   patient_id: z.string().uuid(),
   recording_type: z.enum(['onboarding', 'post_session', 'note', 'clinical_return']),
   duration_seconds: z.number().int().min(1).max(600).optional(), // Max 10 min
+  schedule_id: z.string().uuid().optional(),
 });

@@ -4,6 +4,11 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
+import {
+  resolveEffectiveScheduleStatus,
+  shouldPersistNotCompleted,
+  type ScheduleLifecycleRow,
+} from '../_shared/schedule-lifecycle.ts';
 
 /**
  * get-daily-sessions
@@ -42,7 +47,7 @@ async function fetchSessionsForRange(
 ) {
   const { data: rows, error } = await supabase
     .from('therapist_schedule')
-    .select('id, patient_id, title, scheduled_at, duration_minutes, status')
+    .select('id, patient_id, title, scheduled_at, duration_minutes, status, started_at, completed_at, session_note_id')
     .eq('professional_id', professionalId)
     .is('deleted_at', null)
     .gte('scheduled_at', rangeStart)
@@ -53,7 +58,19 @@ async function fetchSessionsForRange(
     throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });
   }
 
-  const patientIds = [...new Set((rows ?? []).map((r) => r.patient_id).filter(Boolean))] as string[];
+  const scheduleRows = (rows ?? []) as ScheduleLifecycleRow[];
+  const idsToMarkNotCompleted = scheduleRows
+    .filter((r) => shouldPersistNotCompleted(r))
+    .map((r) => r.id);
+
+  if (idsToMarkNotCompleted.length > 0) {
+    await supabase
+      .from('therapist_schedule')
+      .update({ status: 'not_completed' })
+      .in('id', idsToMarkNotCompleted);
+  }
+
+  const patientIds = [...new Set(scheduleRows.map((r) => r.patient_id).filter(Boolean))] as string[];
 
   const patientMap = new Map<string, { id: string; name: string; birth_date: string | null; foto_url: string | null }>();
   if (patientIds.length > 0) {
@@ -78,14 +95,20 @@ async function fetchSessionsForRange(
     });
   }
 
-  return (rows ?? []).map((r) => {
+  return scheduleRows.map((r) => {
     const patient = r.patient_id ? patientMap.get(r.patient_id) ?? null : null;
     const contact = r.patient_id ? contactMap.get(r.patient_id) ?? null : null;
+    const effectiveStatus = resolveEffectiveScheduleStatus(
+      idsToMarkNotCompleted.includes(r.id) ? { ...r, status: 'not_completed' } : r,
+    );
     return {
       id: r.id,
       scheduled_at: r.scheduled_at,
       duration_minutes: r.duration_minutes,
-      status: r.status,
+      status: effectiveStatus,
+      started_at: r.started_at,
+      completed_at: r.completed_at,
+      session_note_id: r.session_note_id,
       title: r.title,
       patient: patient
         ? { id: patient.id, name: patient.name, birth_date: patient.birth_date, foto_url: patient.foto_url ?? null }
