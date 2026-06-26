@@ -6,12 +6,15 @@ import type { ScheduledTherapiesInput } from './schema.ts';
 
 export interface ScheduledTherapySession {
   id: string;
+  schedule_id?: string | null;
+  session_note_id?: string | null;
   scheduled_at: string;
   time: string;
   therapist_name: string;
-  status: 'scheduled' | 'in_progress';
+  status: string;
   duration_minutes: number;
   title: string;
+  has_shared_report?: boolean;
 }
 
 export interface ScheduledTherapyDay {

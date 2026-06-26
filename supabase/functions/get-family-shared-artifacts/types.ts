@@ -7,6 +7,7 @@ export interface GetFamilySharedArtifactsPayload {
 export interface FamilySharedArtifactItem {
   id: string;
   tipo_artefato: FamilyArtifactType;
+  titulo: string | null;
   conteudo_texto: string;
   criado_em: string;
 }

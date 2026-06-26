@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Spinner } from '@containers/loading';
 import { CheckinDayDetailContent } from '@containers/patient/checkins/CheckinDayDetailContent';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -8,7 +9,7 @@ import {
   mapFamilyDiaryEntryToCheckinDay,
   type FamilyDiaryEntryRow,
 } from './family-calendar.utils';
-import { formatRoutineEntryTime } from './routine-diary.utils';
+import { canRegisterEntryDate, formatRoutineEntryTime } from './routine-diary.utils';
 
 interface FamilyCalendarDayModalProps {
   patientId: string;
@@ -17,7 +18,9 @@ interface FamilyCalendarDayModalProps {
 }
 
 export function FamilyCalendarDayModal({ patientId, date, onClose }: FamilyCalendarDayModalProps) {
+  const navigate = useNavigate();
   const isOpen = date !== null;
+  const canRegisterAnother = date ? canRegisterEntryDate(date) : false;
 
   const { data: entries = [], isLoading, error } = useQuery({
     queryKey: ['family-calendar-day', patientId, date],
@@ -49,13 +52,27 @@ export function FamilyCalendarDayModal({ patientId, date, onClose }: FamilyCalen
       title={title}
       size="2xl"
       footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-charcoal px-5 text-sm font-semibold text-white transition-colors hover:bg-charcoal-light sm:w-auto"
-        >
-          Fechar
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          {canRegisterAnother ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate(`/family/diary?date=${date}`);
+              }}
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-primary/30 bg-primary/10 px-5 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 sm:w-auto"
+            >
+              Registrar outro momento
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-charcoal px-5 text-sm font-semibold text-white transition-colors hover:bg-charcoal-light sm:w-auto"
+          >
+            Fechar
+          </button>
+        </div>
       }
     >
       {isLoading ? (

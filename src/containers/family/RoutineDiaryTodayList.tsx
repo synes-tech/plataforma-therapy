@@ -1,17 +1,20 @@
 import {
   buildRoutineEntrySummary,
+  formatEntryDateLong,
   formatRoutineEntryTime,
+  isTodayEntryDate,
   moodEmoji,
   pluralizeRegistros,
   type RoutineDiaryEntry,
 } from './routine-diary.utils';
 
 interface RoutineDiaryTodayListProps {
+  entryDate: string;
   entries: RoutineDiaryEntry[];
   isLoading?: boolean;
 }
 
-export function RoutineDiaryTodayList({ entries, isLoading }: RoutineDiaryTodayListProps) {
+export function RoutineDiaryTodayList({ entryDate, entries, isLoading }: RoutineDiaryTodayListProps) {
   if (isLoading) {
     return (
       <section className="w-full rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
@@ -22,13 +25,17 @@ export function RoutineDiaryTodayList({ entries, isLoading }: RoutineDiaryTodayL
 
   if (entries.length === 0) return null;
 
+  const listTitle = isTodayEntryDate(entryDate)
+    ? 'Registros de hoje'
+    : `Registros de ${formatEntryDateLong(entryDate)}`;
+
   return (
     <section
       className="w-full rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft"
-      aria-label="Registros de hoje"
+      aria-label={listTitle}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-medium text-charcoal">Registros de hoje</h4>
+        <h4 className="text-sm font-medium capitalize text-charcoal">{listTitle}</h4>
         <span className="rounded-full bg-mint/15 px-2.5 py-0.5 text-xs font-semibold text-mint-dark">
           {pluralizeRegistros(entries.length)}
         </span>

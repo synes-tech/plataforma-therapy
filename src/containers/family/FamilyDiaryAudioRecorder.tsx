@@ -8,11 +8,12 @@ const MAX_DURATION_SEC = 180;
 export interface FamilyAudioResult {
   transcricao: string;
   audioUrl: string;
+  durationSeconds?: number;
 }
 
 interface FamilyDiaryAudioRecorderProps {
   patientId: string;
-  onTranscription: (result: FamilyAudioResult) => void;
+  onTranscriptionReady: (result: FamilyAudioResult) => void;
   disabled?: boolean;
   /** Destaque como opção principal do check-in */
   prominent?: boolean;
@@ -45,7 +46,7 @@ function networkErrorMessage(): string {
 
 export function FamilyDiaryAudioRecorder({
   patientId,
-  onTranscription,
+  onTranscriptionReady,
   disabled = false,
   prominent = false,
   className = '',
@@ -216,16 +217,17 @@ export function FamilyDiaryAudioRecorder({
         duration_seconds: durationRef.current,
       });
 
-      onTranscription({
+      onTranscriptionReady({
         transcricao: complete.transcricao,
         audioUrl: complete.audio_url,
+        durationSeconds: durationRef.current || undefined,
       });
       reset();
     } catch {
       setError(networkErrorMessage());
       setState('error');
     }
-  }, [onTranscription, patientId, reset]);
+  }, [onTranscriptionReady, patientId, reset]);
 
   const isBusy = state === 'uploading' || state === 'transcribing';
 

@@ -19,7 +19,7 @@ export async function getFamilySharedArtifacts(
 
   const { data, error } = await supabase
     .from('recomendacoes_salvas')
-    .select('id, tipo_artefato, conteudo_texto, criado_em')
+    .select('id, tipo_artefato, titulo, conteudo_texto, criado_em')
     .eq('paciente_id', link.patient_id)
     .eq('compartilhado_familia', true)
     .not('tipo_artefato', 'is', null)
@@ -44,6 +44,7 @@ export async function getFamilySharedArtifacts(
     items.push({
       id: row.id,
       tipo_artefato: tipo as FamilySharedArtifactItem['tipo_artefato'],
+      titulo: (row as { titulo?: string | null }).titulo ?? null,
       conteudo_texto: text,
       criado_em: row.criado_em,
     });

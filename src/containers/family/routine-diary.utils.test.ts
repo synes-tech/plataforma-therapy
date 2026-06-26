@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRoutineEntrySummary,
+  canRegisterEntryDate,
   formatRoutineEntryTime,
+  isTodayEntryDate,
+  minRetroactiveEntryDateKey,
   moodEmoji,
   pluralizeRegistros,
   todayEntryDateKey,
@@ -39,5 +42,19 @@ describe('routine-diary.utils', () => {
   it('pluralizeRegistros trata singular e plural', () => {
     expect(pluralizeRegistros(1)).toBe('1 registro');
     expect(pluralizeRegistros(3)).toBe('3 registros');
+  });
+
+  it('isTodayEntryDate retorna true apenas para a data atual', () => {
+    expect(isTodayEntryDate(todayEntryDateKey())).toBe(true);
+    expect(isTodayEntryDate('2000-01-01')).toBe(false);
+  });
+
+  it('canRegisterEntryDate permite hoje e retroativo dentro do limite', () => {
+    const ref = new Date('2026-06-09T12:00:00');
+    expect(canRegisterEntryDate('2026-06-09', ref)).toBe(true);
+    expect(canRegisterEntryDate('2026-06-08', ref)).toBe(true);
+    expect(canRegisterEntryDate('2026-06-10', ref)).toBe(false);
+    expect(canRegisterEntryDate(minRetroactiveEntryDateKey(ref), ref)).toBe(true);
+    expect(canRegisterEntryDate('2026-05-25', ref)).toBe(false);
   });
 });

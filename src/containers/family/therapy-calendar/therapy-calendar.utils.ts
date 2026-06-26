@@ -1,5 +1,30 @@
 import type { ScheduledTherapyDay } from './therapy-calendar.types';
 
+export interface TherapyMonthSummary {
+  total: number;
+  upcoming: number;
+  completed: number;
+  withSharedReport: number;
+}
+
+export function summarizeTherapyMonth(days: ScheduledTherapyDay[]): TherapyMonthSummary {
+  let total = 0;
+  let upcoming = 0;
+  let completed = 0;
+  let withSharedReport = 0;
+
+  for (const day of days) {
+    for (const session of day.sessions) {
+      total += 1;
+      if (session.status === 'scheduled' || session.status === 'in_progress') upcoming += 1;
+      if (session.status === 'completed' || session.status === 'not_completed') completed += 1;
+      if (session.has_shared_report) withSharedReport += 1;
+    }
+  }
+
+  return { total, upcoming, completed, withSharedReport };
+}
+
 export function toTherapyDateKey(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }

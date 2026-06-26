@@ -1,5 +1,6 @@
 import { createUserClient, createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ForbiddenError } from '../_shared/errors.ts';
+import { resolveEntryDate, validateDiaryEntryDate } from '../_shared/diary-entry-date.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { SubmitDiaryPayload, SubmitDiaryResponse } from './types.ts';
 
@@ -43,7 +44,8 @@ export async function submitDiary(
   }
 
   // 4. Insert diary entry (RLS will also validate)
-  const entryDate = payload.entry_date ?? new Date().toISOString().split('T')[0];
+  const entryDate = resolveEntryDate(payload.entry_date);
+  validateDiaryEntryDate(entryDate);
 
   const { data: entry, error } = await serviceClient
     .from('diary_entries')
@@ -65,6 +67,14 @@ export async function submitDiary(
     .single();
 
   if (error) {
+    if (error.code === '23505') {
+      throw new AppError({
+        code: 'DIARY_CREATE_FAILED',
+        message:
+          'Não foi possível salvar o check-in. Se o erro persistir, peça ao suporte para aplicar a atualização de múltiplos registros por dia.',
+        statusCode: 500,
+      });
+    }
     throw new AppError({ code: 'DIARY_CREATE_FAILED', message: error.message, statusCode: 500 });
   }
 

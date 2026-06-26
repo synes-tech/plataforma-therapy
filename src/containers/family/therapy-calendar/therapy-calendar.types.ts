@@ -1,11 +1,14 @@
 export interface ScheduledTherapySession {
   id: string;
+  schedule_id?: string | null;
+  session_note_id?: string | null;
   scheduled_at: string;
   time: string;
   therapist_name: string;
-  status: 'scheduled' | 'in_progress' | string;
+  status: string;
   duration_minutes: number;
   title: string;
+  has_shared_report?: boolean;
 }
 
 export interface ScheduledTherapyDay {
@@ -29,5 +32,7 @@ export const THERAPY_MONTHS = [
 
 export const THERAPY_STATUS_LABELS: Record<string, string> = {
   scheduled: 'Agendada',
-  in_progress: 'Confirmada',
+  in_progress: 'Em andamento',
+  completed: 'Realizada',
+  not_completed: 'Não realizada',
 };

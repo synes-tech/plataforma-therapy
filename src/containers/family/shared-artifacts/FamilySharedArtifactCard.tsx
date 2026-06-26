@@ -5,6 +5,7 @@ import { formatArtifactDateShort } from '../../patient/documents/patient-artifac
 export interface FamilySharedArtifact {
   id: string;
   tipo_artefato: 'acao_recomendada' | 'resumo_proativo' | 'relatorio_sessao';
+  titulo: string | null;
   conteudo_texto: string;
   criado_em: string;
 }

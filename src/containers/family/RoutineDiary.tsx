@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoadingButton, PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
@@ -7,9 +7,18 @@ import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { FamilyDiaryAudioRecorder } from './FamilyDiaryAudioRecorder';
+import { FamilyAudioCheckinModal } from './FamilyAudioCheckinModal';
+import type { FamilyAudioCheckinDraft } from './family-audio-checkin.types';
 import { ManualCheckinDivider } from './ManualCheckinDivider';
+import { RoutineDiaryEntryDateField } from './RoutineDiaryEntryDateField';
 import { RoutineDiaryTodayList } from './RoutineDiaryTodayList';
-import { todayEntryDateKey, type RoutineDiaryEntry } from './routine-diary.utils';
+import {
+  formatEntryDateLong,
+  isTodayEntryDate,
+  isValidEntryDateKey,
+  todayEntryDateKey,
+  type RoutineDiaryEntry,
+} from './routine-diary.utils';
 
 const MOODS = [
   { value: 1, emoji: '😢', label: 'Difícil' },
@@ -36,9 +45,15 @@ const CATEGORIES = [
   { id: 'sensorial', label: 'Sensorial' },
 ];
 
+function resolveInitialEntryDate(dateParam: string | null): string {
+  if (dateParam && isValidEntryDateKey(dateParam)) return dateParam;
+  return todayEntryDateKey();
+}
+
 export default function RoutineDiary() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: link, isLoading } = useQuery({
     queryKey: ['family-link', user?.id],
@@ -54,26 +69,49 @@ export default function RoutineDiary() {
     enabled: !!user,
   });
 
+  const [selectedEntryDate, setSelectedEntryDate] = useState(() =>
+    resolveInitialEntryDate(searchParams.get('date')),
+  );
   const [mood, setMood] = useState<number | null>(null);
   const [sleep, setSleep] = useState<number | null>(null);
   const [crisisOccurred, setCrisisOccurred] = useState(false);
   const [crisisLevel, setCrisisLevel] = useState(3);
   const [categories, setCategories] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [transcricao, setTranscricao] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [audioCheckinDraft, setAudioCheckinDraft] = useState<FamilyAudioCheckinDraft | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const entryDate = todayEntryDateKey();
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam && isValidEntryDateKey(dateParam) && dateParam !== selectedEntryDate) {
+      setSelectedEntryDate(dateParam);
+    }
+  }, [searchParams, selectedEntryDate]);
 
-  const { data: todayEntries = [], isLoading: todayEntriesLoading } = useQuery({
-    queryKey: ['diary-entries-today', link?.patient_id, entryDate],
+  function handleEntryDateChange(nextDate: string) {
+    setSelectedEntryDate(nextDate);
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (nextDate === todayEntryDateKey()) {
+          params.delete('date');
+        } else {
+          params.set('date', nextDate);
+        }
+        return params;
+      },
+      { replace: true },
+    );
+  }
+
+  const { data: dayEntries = [], isLoading: dayEntriesLoading } = useQuery({
+    queryKey: ['diary-entries-by-date', link?.patient_id, selectedEntryDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('diary_entries')
         .select('id, mood_score, sleep_quality, crisis_occurred, crisis_level, notes, created_at')
         .eq('patient_id', link!.patient_id)
-        .eq('entry_date', entryDate)
+        .eq('entry_date', selectedEntryDate)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
@@ -87,22 +125,28 @@ export default function RoutineDiary() {
     mutationFn: () =>
       callFunction('submit-diary', {
         patient_id: link!.patient_id,
+        entry_date: selectedEntryDate,
         mood_score: mood,
         sleep_quality: sleep,
         crisis_occurred: crisisOccurred,
         crisis_level: crisisOccurred ? crisisLevel : undefined,
         categories,
         notes: notes || undefined,
-        audio_note_url: audioUrl ?? undefined,
-        transcricao: transcricao ?? undefined,
       }),
     onSuccess: () => {
-      setSuccess(true);
       void queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
-      void queryClient.invalidateQueries({ queryKey: ['diary-entries-today'] });
+      void queryClient.invalidateQueries({ queryKey: ['diary-entries-by-date'] });
       void queryClient.invalidateQueries({ queryKey: ['family-calendar'] });
+      clearFormFields();
+      setSuccessMessage('Check-in registrado com sucesso!');
+      window.setTimeout(() => setSuccessMessage(null), 3500);
     },
   });
+
+  const headerDateLabel = useMemo(
+    () => (isTodayEntryDate(selectedEntryDate) ? 'Hoje' : formatEntryDateLong(selectedEntryDate)),
+    [selectedEntryDate],
+  );
 
   if (isLoading) {
     return <PageLoader minHeight="screen" label="Carregando diário..." />;
@@ -122,85 +166,98 @@ export default function RoutineDiary() {
     mutation.mutate();
   }
 
-  function reset() {
-    setSuccess(false);
+  function clearFormFields() {
     setMood(null);
     setSleep(null);
     setCrisisOccurred(false);
     setCrisisLevel(3);
     setCategories([]);
     setNotes('');
-    setAudioUrl(null);
-    setTranscricao(null);
+    setAudioCheckinDraft(null);
   }
 
-  const today = new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(new Date());
-
-  if (success) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center lg:min-h-[50vh] lg:py-24">
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-mint/15">
-          <svg className="h-8 w-8 text-mint-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h3 className="font-serif text-xl text-charcoal">Registrado, obrigado!</h3>
-        <p className="mt-2 max-w-sm text-sm text-charcoal-muted">
-          Você pode registrar quantos momentos quiser hoje — cada relato ajuda o terapeuta a acompanhar crises e
-          mudanças ao longo do dia.
-        </p>
-        <button
-          onClick={reset}
-          className="mt-6 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-charcoal shadow-soft transition-colors hover:bg-slate-50"
-        >
-          Registrar outro momento
-        </button>
-      </div>
-    );
+  function handleAudioCheckinSuccess() {
+    setAudioCheckinDraft(null);
+    clearFormFields();
+    void queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
+    void queryClient.invalidateQueries({ queryKey: ['diary-entries-by-date'] });
+    void queryClient.invalidateQueries({ queryKey: ['family-calendar'] });
+    setSuccessMessage('Check-in registrado com sucesso!');
+    window.setTimeout(() => setSuccessMessage(null), 3500);
   }
 
   return (
     <div className="animate-fade-in w-full">
       <PushNotificationPrompt />
 
+      {successMessage ? (
+        <div
+          className="mb-5 flex items-center gap-2 rounded-xl border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-medium text-mint-dark"
+          role="status"
+          aria-live="polite"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          {successMessage}
+        </div>
+      ) : null}
+
       <header className="mb-6 lg:mb-8">
-        <p className="text-xs font-medium uppercase tracking-wide text-primary">{today}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-primary capitalize">{headerDateLabel}</p>
         <h1 className="mt-1 font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Diário de Rotina</h1>
         <p className="mt-1 max-w-3xl text-sm text-charcoal-muted lg:text-base">
           Registre momentos do dia de <span className="font-medium text-charcoal">{link.patients?.name}</span>.
-          Comece gravando um áudio ou preencha os campos manualmente.
+          Vários check-ins no mesmo dia são permitidos — inclusive mais de uma crise.
         </p>
       </header>
 
-      <RoutineDiaryTodayList entries={todayEntries} isLoading={todayEntriesLoading} />
+      <RoutineDiaryEntryDateField
+        value={selectedEntryDate}
+        onChange={handleEntryDateChange}
+        disabled={mutation.isPending || audioCheckinDraft !== null}
+      />
 
-      <div className={todayEntries.length > 0 || todayEntriesLoading ? 'mt-5' : undefined}>
+      <div className="mt-5">
+        <RoutineDiaryTodayList
+          entryDate={selectedEntryDate}
+          entries={dayEntries}
+          isLoading={dayEntriesLoading}
+        />
+      </div>
+
+      <div className="mt-5">
         <FamilyDiaryAudioRecorder
           patientId={link.patient_id}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || audioCheckinDraft !== null}
           prominent
-          onTranscription={({ transcricao: text, audioUrl: url }) => {
-            setTranscricao(text);
-            setAudioUrl(url);
-            setNotes(text.slice(0, 1000));
+          onTranscriptionReady={({ transcricao, audioUrl, durationSeconds }) => {
+            setAudioCheckinDraft({
+              entryDate: selectedEntryDate,
+              transcricao,
+              audioUrl,
+              durationSeconds,
+            });
           }}
         />
       </div>
 
+      <FamilyAudioCheckinModal
+        patientId={link.patient_id}
+        draft={audioCheckinDraft}
+        onClose={() => setAudioCheckinDraft(null)}
+        onSuccess={handleAudioCheckinSuccess}
+      />
+
       <ManualCheckinDivider />
 
-      <form onSubmit={handleSubmit} className="w-full space-y-5 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
+      <form onSubmit={handleSubmit} className="mt-5 w-full space-y-5 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
         {mutation.error && (
           <div role="alert" className="rounded-xl border border-error/15 bg-error-light/40 px-4 py-3 text-sm text-error lg:col-span-2 xl:col-span-3">
             {mutation.error instanceof Error ? mutation.error.message : 'Erro ao enviar'}
           </div>
         )}
 
-        {/* Mood */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
           <h4 className="mb-3 text-sm font-medium text-charcoal">Humor neste momento</h4>
           <div className="flex justify-between gap-1.5">
@@ -222,7 +279,6 @@ export default function RoutineDiary() {
           </div>
         </section>
 
-        {/* Sleep */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
           <h4 className="mb-3 text-sm font-medium text-charcoal">Qualidade do sono</h4>
           <div className="flex gap-1.5">
@@ -244,7 +300,6 @@ export default function RoutineDiary() {
           </div>
         </section>
 
-        {/* Crisis */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-charcoal">Houve crise neste momento?</h4>
@@ -284,7 +339,6 @@ export default function RoutineDiary() {
           )}
         </section>
 
-        {/* Categories */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
           <h4 className="mb-3 text-sm font-medium text-charcoal">Áreas relevantes</h4>
           <div className="flex flex-wrap gap-2">
@@ -306,16 +360,8 @@ export default function RoutineDiary() {
           </div>
         </section>
 
-        {/* Notes */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft lg:col-span-2 xl:col-span-3">
-          <h4 className="mb-2 text-sm font-medium text-charcoal">
-            Observações {transcricao ? '(revise a transcrição)' : '(opcional)'}
-          </h4>
-          {transcricao && (
-            <p className="mb-2 rounded-lg bg-mint/10 px-3 py-2 text-xs text-mint-dark">
-              Áudio transcrito com sucesso. Ajuste o texto se necessário antes de registrar.
-            </p>
-          )}
+          <h4 className="mb-2 text-sm font-medium text-charcoal">Observações (opcional)</h4>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
