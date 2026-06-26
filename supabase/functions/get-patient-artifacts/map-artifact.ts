@@ -34,9 +34,11 @@ export function formatLegacyArtifactText(conteudo: unknown): string {
 export function mapArtifactRow(row: {
   id: string;
   tipo_artefato: string | null;
+  titulo?: string | null;
   conteudo_texto: string | null;
   conteudo: unknown;
   criado_em: string;
+  compartilhado_familia?: boolean | null;
 }): { item: import('./types.ts').PatientArtifactItem | null } {
   if (row.tipo_artefato && row.conteudo_texto?.trim()) {
     const tipo = row.tipo_artefato as import('./types.ts').ArtifactType;
@@ -48,9 +50,11 @@ export function mapArtifactRow(row: {
       item: {
         id: row.id,
         tipo_artefato: tipo,
+        titulo: row.titulo?.trim() || null,
         conteudo_texto: row.conteudo_texto.trim(),
         criado_em: row.criado_em,
         is_legacy: false,
+        compartilhado_familia: row.compartilhado_familia === true,
       },
     };
   }
@@ -62,9 +66,11 @@ export function mapArtifactRow(row: {
     item: {
       id: row.id,
       tipo_artefato: 'acao_recomendada',
+      titulo: null,
       conteudo_texto: legacyText,
       criado_em: row.criado_em,
       is_legacy: true,
+      compartilhado_familia: row.compartilhado_familia === true,
     },
   };
 }

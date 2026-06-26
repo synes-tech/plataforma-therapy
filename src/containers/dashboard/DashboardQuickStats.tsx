@@ -1,58 +1,6 @@
-import type { ReactNode } from 'react';
-import { SkeletonBlock } from '@containers/loading';
 import type { BriefingSummary } from './dashboard.types';
-
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  icon: ReactNode;
-  tone?: 'primary' | 'mint' | 'alert';
-  loading?: boolean;
-}
-
-const TONE_STYLES = {
-  primary: {
-    card: 'dashboard-stat-surface',
-    icon: 'bg-primary/10 text-primary',
-    value: 'text-charcoal',
-  },
-  mint: {
-    card: 'dashboard-stat-surface',
-    icon: 'bg-mint/10 text-mint-dark',
-    value: 'text-charcoal',
-  },
-  alert: {
-    card: 'dashboard-stat-surface',
-    icon: 'bg-alert/15 text-alert',
-    value: 'text-charcoal',
-  },
-  alertActive: {
-    card: 'dashboard-stat-surface',
-    icon: 'bg-error/10 text-error',
-    value: 'text-error',
-  },
-} as const;
-
-function StatCard({ label, value, icon, tone = 'primary', loading }: StatCardProps) {
-  const hasAlerts = tone === 'alert' && Number(value) > 0;
-  const styles = hasAlerts ? TONE_STYLES.alertActive : TONE_STYLES[tone];
-
-  return (
-    <div className={`flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-4 ${styles.card}`}>
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.icon}`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-charcoal-muted">{label}</p>
-        {loading ? (
-          <SkeletonBlock className="mt-1.5 h-6 w-10 rounded-md" />
-        ) : (
-          <p className={`mt-0.5 font-display text-xl font-semibold tabular-nums ${styles.value}`}>{value}</p>
-        )}
-      </div>
-    </div>
-  );
-}
+import { DASHBOARD_QUICK_STATS } from './dashboard-quick-stats.constants';
+import { DashboardQuickStatCard } from './DashboardQuickStatCard';
 
 function UsersIcon() {
   return (
@@ -78,6 +26,12 @@ function BellIcon() {
   );
 }
 
+const STAT_ICONS = {
+  active_patients: <UsersIcon />,
+  sessions_week: <CalendarIcon />,
+  pending_alerts: <BellIcon />,
+} as const;
+
 interface DashboardQuickStatsProps {
   summary?: BriefingSummary;
   loading?: boolean;
@@ -87,27 +41,17 @@ export function DashboardQuickStats({ summary, loading }: DashboardQuickStatsPro
   return (
     <section aria-label="Métricas rápidas" className="mb-6 md:mb-8">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-        <StatCard
-          label="Pacientes ativos"
-          value={summary?.active_patients_count ?? 0}
-          icon={<UsersIcon />}
-          tone="primary"
-          loading={loading}
-        />
-        <StatCard
-          label="Sessões na semana"
-          value={summary?.sessions_this_week ?? 0}
-          icon={<CalendarIcon />}
-          tone="mint"
-          loading={loading}
-        />
-        <StatCard
-          label="Alertas pendentes"
-          value={summary?.alerts_count ?? 0}
-          icon={<BellIcon />}
-          tone="alert"
-          loading={loading}
-        />
+        {DASHBOARD_QUICK_STATS.map((stat) => (
+          <DashboardQuickStatCard
+            key={stat.id}
+            label={stat.label}
+            value={stat.getValue(summary)}
+            icon={STAT_ICONS[stat.id]}
+            tone={stat.tone}
+            loading={loading}
+            action={stat.action}
+          />
+        ))}
       </div>
     </section>
   );

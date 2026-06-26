@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { InlineLoadingButton } from '@containers/loading';
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 import { SessionAudioPlayer } from './SessionAudioPlayer';
 import { exportSessionSummaryPdf } from './exportSessionSummaryPdf';
 import {
@@ -107,7 +108,7 @@ export function SessionHistoryItem({
               Resumo da IA
             </h4>
             <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
-              <MarkdownSummary content={summaryMarkdown} />
+              <AiMarkdownContent content={summaryMarkdown} variant="light" />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <InlineLoadingButton
@@ -146,26 +147,5 @@ export function SessionHistoryItem({
         </div>
       )}
     </article>
-  );
-}
-
-function MarkdownSummary({ content }: { content: string }) {
-  const lines = content.split('\n');
-
-  return (
-    <div className="space-y-2 text-sm leading-relaxed text-charcoal">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-1" />;
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h5 key={idx} className="pt-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              {trimmed.replace(/^##\s+/, '')}
-            </h5>
-          );
-        }
-        return <p key={idx}>{trimmed}</p>;
-      })}
-    </div>
   );
 }

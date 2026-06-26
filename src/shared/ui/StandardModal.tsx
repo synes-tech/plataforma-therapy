@@ -9,13 +9,14 @@ interface StandardModalProps {
   /** Optional action buttons rendered in the standardized footer. */
   footer?: React.ReactNode;
   /** Max width of the desktop dialog. Defaults to a balanced 'lg'. */
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'md' | 'lg' | 'xl' | '2xl';
 }
 
 const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
   md: 'md:max-w-md',
   lg: 'md:max-w-lg',
   xl: 'md:max-w-2xl',
+  '2xl': 'md:max-w-4xl',
 };
 
 /**

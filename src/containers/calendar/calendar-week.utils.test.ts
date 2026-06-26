@@ -4,6 +4,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   durationToHeightPx,
+  getMinutesFromGridOffsetY,
+  getTimeFromGridOffsetY,
+  getTimeFromHourSlotClick,
   getWeekDays,
   getWeekSunday,
   layoutDayEvents,
@@ -77,5 +80,16 @@ describe('calendar-week.utils', () => {
     expect(laid).toHaveLength(1);
     expect(laid[0]?.patientName).toBe('Maria');
     expect(laid[0]?.dayISO).toBe('2026-06-09');
+  });
+
+  it('converte clique no grid em horário arredondado (15 min)', () => {
+    expect(getTimeFromGridOffsetY(2 * 64)).toBe('09:00');
+    expect(getMinutesFromGridOffsetY(2 * 64 + 20)).toBe(9 * 60 + 15);
+  });
+
+  it('converte clique dentro de faixa horária da semana', () => {
+    expect(getTimeFromHourSlotClick(9, 0)).toBe('09:00');
+    expect(getTimeFromHourSlotClick(9, 20)).toBe('09:15');
+    expect(getTimeFromHourSlotClick(14, 48)).toBe('14:45');
   });
 });

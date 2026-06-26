@@ -4,4 +4,5 @@ export const ProcessAudioSchema = z.object({
   audio_recording_id: z.string().uuid(),
   patient_id: z.string().uuid(),
   job_id: z.string().uuid(),
+  anotacoes_texto: z.string().max(50000).optional().nullable(),
 });

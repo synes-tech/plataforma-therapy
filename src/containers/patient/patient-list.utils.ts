@@ -4,6 +4,7 @@ import type {
   PatientListItem,
   PatientSortOption,
   PatientStatusFilter,
+  FamilyLinkStatus,
 } from './patient-list.types';
 
 export function getPatientAge(birthDate: string): number {
@@ -107,4 +108,22 @@ export function statusDotClass(status: string): string {
   if (status === 'active') return 'bg-mint';
   if (status === 'suspended') return 'bg-error';
   return 'bg-slate-400';
+}
+
+export const FAMILY_LINK_LABEL: Record<FamilyLinkStatus, string> = {
+  vinculado: 'Vinculado',
+  pendente: 'Pendente',
+};
+
+export function familyLinkStatusClass(status: FamilyLinkStatus): string {
+  if (status === 'vinculado') return 'bg-mint-50 text-mint-dark ring-1 ring-mint/20';
+  return 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80';
+}
+
+export function familyLinkDotClass(status: FamilyLinkStatus): string {
+  return status === 'vinculado' ? 'bg-mint' : 'bg-alert';
+}
+
+export function resolveFamilyLinkStatus(patient: PatientListItem): FamilyLinkStatus {
+  return patient.family_link_status ?? 'pendente';
 }

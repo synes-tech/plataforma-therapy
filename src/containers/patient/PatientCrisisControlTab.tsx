@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CrisisCheckinsSkeleton, LoadingOverlay } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { CheckinDayReadModal } from './checkins/CheckinDayReadModal';
+import { CheckinMonthHistoryList } from './checkins/CheckinMonthHistoryList';
 import { CheckinsCalendarGrid } from './checkins/CheckinsCalendarGrid';
 import type { CrisisCalendarDay, CrisisCalendarResponse } from './checkins/checkins-calendar.types';
 import { toDateKey } from './checkins/checkins-calendar.utils';
@@ -24,6 +25,7 @@ export function PatientCrisisControlTab({ patientId }: PatientCrisisControlTabPr
   const [viewYear, setViewYear] = useState(focusYear ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(focusMonth ?? today.getMonth() + 1);
   const [viewingDay, setViewingDay] = useState<CrisisCalendarDay | null>(null);
+  const [expandedMobileDate, setExpandedMobileDate] = useState<string | null>(null);
 
   const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: ['patient-crisis-calendar', patientId, viewYear, viewMonth],
@@ -46,6 +48,10 @@ export function PatientCrisisControlTab({ patientId }: PatientCrisisControlTabPr
   }, [data?.days]);
 
   useEffect(() => {
+    setExpandedMobileDate(null);
+  }, [viewYear, viewMonth]);
+
+  useEffect(() => {
     if (!focusDate || !focusYear || !focusMonth) return;
     setViewYear(focusYear);
     setViewMonth(focusMonth);
@@ -55,7 +61,7 @@ export function PatientCrisisControlTab({ patientId }: PatientCrisisControlTabPr
     if (!focusDate || !data?.days) return;
     const day = filledMap.get(focusDate);
     if (day?.filled) {
-      setViewingDay(day);
+      setExpandedMobileDate(day.date);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -66,6 +72,19 @@ export function PatientCrisisControlTab({ patientId }: PatientCrisisControlTabPr
       );
     }
   }, [focusDate, data?.days, filledMap, setSearchParams]);
+
+  function handleViewDay(day: CrisisCalendarDay) {
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile) {
+      setExpandedMobileDate((prev) => (prev === day.date ? null : day.date));
+      return;
+    }
+    setViewingDay(day);
+  }
+
+  function handleToggleMobileDate(date: string) {
+    setExpandedMobileDate((prev) => (prev === date ? null : date));
+  }
 
   function prevMonth() {
     if (viewMonth === 1) {
@@ -150,9 +169,15 @@ export function PatientCrisisControlTab({ patientId }: PatientCrisisControlTabPr
           isFetching={isFetching}
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}
-          onViewDay={setViewingDay}
+          onViewDay={handleViewDay}
         />
       )}
+
+      <CheckinMonthHistoryList
+        days={data?.days ?? []}
+        expandedDate={expandedMobileDate}
+        onToggleDate={handleToggleMobileDate}
+      />
 
       <CheckinDayReadModal day={viewingDay} onClose={() => setViewingDay(null)} />
 

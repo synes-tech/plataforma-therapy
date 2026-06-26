@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { SessionBriefCards } from '@features/family-portal/SessionBriefCards';
+import { FamilySharedArtifacts } from './shared-artifacts/FamilySharedArtifacts';
 
 interface Agreement {
   id: string;
@@ -66,9 +67,9 @@ export default function Agreements() {
   const done = agreements.filter((a) => a.status === 'done');
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in w-full">
       <header className="mb-6 lg:mb-8">
-        <h1 className="font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Combinados</h1>
+        <h1 className="font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Relatórios e Combinados</h1>
         <p className="mt-1 text-sm text-charcoal-muted lg:text-base">
           Orientações do terapeuta e o que praticar em casa com {data?.patient_name?.split(' ')[0] ?? 'seu filho(a)'}.
         </p>
@@ -95,6 +96,16 @@ export default function Agreements() {
         />
       )}
 
+      <section className="mb-8 mt-8 space-y-3">
+        <div>
+          <h2 className="font-display text-sm font-semibold text-charcoal">Orientações do terapeuta</h2>
+          <p className="mt-1 text-xs text-charcoal-muted">
+            Materiais compartilhados pelo profissional para apoiar a rotina em casa.
+          </p>
+        </div>
+        <FamilySharedArtifacts />
+      </section>
+
       {!isLoading && !error && agreements.length === 0 && (
         <div className="mb-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 py-12 text-center">
           <p className="text-sm text-charcoal-muted">Nenhum combinado na lista ainda.</p>
@@ -105,7 +116,11 @@ export default function Agreements() {
       )}
 
       {(pending.length > 0 || done.length > 0) && (
-        <div className={`gap-6 ${pending.length > 0 && done.length > 0 ? 'lg:grid lg:grid-cols-2' : ''}`}>
+        <div
+          className={`w-full gap-6 ${
+            pending.length > 0 && done.length > 0 ? 'lg:grid lg:grid-cols-2 xl:grid-cols-3' : ''
+          }`}
+        >
           {pending.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-charcoal-muted/60">A praticar</h2>

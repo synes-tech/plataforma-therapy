@@ -1,4 +1,11 @@
+export interface CheckinTextDetail {
+  kind: string;
+  label: string;
+  text: string;
+}
+
 export interface CrisisCalendarDay {
+  id?: string;
   date: string;
   filled: boolean;
   mood_score: number;
@@ -7,6 +14,9 @@ export interface CrisisCalendarDay {
   crisis_level: number | null;
   categories: string[];
   notes: string | null;
+  transcricao?: string | null;
+  audio_note_url?: string | null;
+  text_details?: CheckinTextDetail[];
   family_member_id: string;
 }
 

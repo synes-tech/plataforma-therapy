@@ -3,6 +3,7 @@ import {
   buildArtifactTitle,
   formatArtifactDate,
   formatArtifactDateShort,
+  resolveArtifactTitle,
   truncateArtifactPreview,
 } from './patient-artifacts.format';
 import { filterPatientArtifacts } from './patient-artifacts.utils';
@@ -11,9 +12,11 @@ import type { PatientArtifact } from './patient-artifacts.types';
 const sampleArtifact = (overrides: Partial<PatientArtifact> = {}): PatientArtifact => ({
   id: '1',
   tipo_artefato: 'acao_recomendada',
+  titulo: null,
   conteudo_texto: 'Texto de exemplo para o documento salvo pelo copiloto.',
   criado_em: '2026-06-19T14:24:00.000Z',
   is_legacy: false,
+  compartilhado_familia: false,
   ...overrides,
 });
 
@@ -30,6 +33,18 @@ describe('formatArtifactDate', () => {
 describe('formatArtifactDateShort', () => {
   it('formata data curta pt-BR', () => {
     expect(formatArtifactDateShort('2026-06-19T14:24:00.000Z')).toMatch(/19\/06\/2026/);
+  });
+});
+
+describe('resolveArtifactTitle', () => {
+  it('prioriza título customizado quando existir', () => {
+    expect(
+      resolveArtifactTitle({
+        titulo: 'Plano personalizado da família',
+        tipo_artefato: 'acao_recomendada',
+        criado_em: '2026-06-19T14:24:00.000Z',
+      }),
+    ).toBe('Plano personalizado da família');
   });
 });
 

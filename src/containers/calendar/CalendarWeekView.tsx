@@ -6,13 +6,16 @@ import { CalendarWeekGrid } from './CalendarWeekGrid';
 import { getWeekDays, sessionsToLayoutedEvents } from './calendar-week.utils';
 import type { RangeSessionsResponse } from './calendar-week.types';
 
+import type { WeekSlotClickPayload } from './calendar-week.types';
+
 interface CalendarWeekViewProps {
   weekSundayISO: string;
   todayISO: string;
   onDayClick: (dayISO: string) => void;
+  onSlotClick: (payload: WeekSlotClickPayload) => void;
 }
 
-export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick }: CalendarWeekViewProps) {
+export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick, onSlotClick }: CalendarWeekViewProps) {
   const weekDays = useMemo(() => getWeekDays(weekSundayISO), [weekSundayISO]);
   const startDate = weekDays[0]!;
   const endDate = weekDays[6]!;
@@ -53,6 +56,7 @@ export function CalendarWeekView({ weekSundayISO, todayISO, onDayClick }: Calend
       todayISO={todayISO}
       showRefetchOverlay={showRefetchOverlay}
       onEventClick={onDayClick}
+      onSlotClick={onSlotClick}
     />
   );
 }

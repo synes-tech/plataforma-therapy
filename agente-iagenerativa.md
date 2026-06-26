@@ -130,6 +130,12 @@ Com base no histórico acima e nos relatos recentes da família, sugira 3 ativid
 * Implementar como middleware de pré-processamento na Edge Function.
 * Se utilizar modelos locais/self-hosted no futuro, a anonimização pode ser relaxada.
 
+### 5.5 Formato de saída em Markdown
+* **Saída estruturada:** relatórios, resumos, copiloto e artefatos devem usar Markdown (`##` seções, `**ênfase**`, listas `-`).
+* **Persistência:** gravar Markdown no banco (texto bruto); a formatação visual é responsabilidade do frontend (`AiMarkdownContent`).
+* **Consistência:** preferir `##` para seções clínicas (Subjetivo, Objetivo, Avaliação, Plano) e listas com `-` para itens acionáveis.
+* **Proibido:** HTML na resposta do LLM; apenas Markdown simples suportado pelo parser da plataforma.
+
 ## 6. AVALIAÇÃO E QUALIDADE (LLMOps)
 
 ### 6.1 Métricas de Qualidade RAG

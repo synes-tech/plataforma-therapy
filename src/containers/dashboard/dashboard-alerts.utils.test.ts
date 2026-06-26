@@ -5,11 +5,26 @@ import { describe, it, expect } from 'vitest';
 import type { AlertItem } from './dashboard.types';
 import {
   getAlertCheckinPath,
+  getAlertDismissAriaLabel,
   getAlertEmoji,
+  getAlertRowClassName,
   getAlertSummary,
+  getCrisisLevelLabel,
+  sortAlertsByPriority,
 } from './dashboard-alert-summary.utils';
+import {
+  DASHBOARD_ALERTS_SUBTITLE,
+  DASHBOARD_ALERTS_TITLE,
+} from './dashboard-alerts.constants';
 
 const ALERT_LIST_MAX_HEIGHT_CLASS = 'max-h-96';
+
+describe('DashboardAlertsCard microcopy', () => {
+  it('usa título principal e subtítulo descritivo com hierarquia correta', () => {
+    expect(DASHBOARD_ALERTS_TITLE).toBe('Alerta dos Pacientes');
+    expect(DASHBOARD_ALERTS_SUBTITLE).toBe('últimos 7 dias');
+  });
+});
 
 describe('DashboardAlertsCard layout constants', () => {
   it('usa altura máxima para ~10 itens com scroll', () => {
@@ -71,5 +86,28 @@ describe('dashboard alert summary utils', () => {
 
   it('monta rota de check-in com data do alerta', () => {
     expect(getAlertCheckinPath(sampleAlert())).toBe('/patients/patient-1/checkins?date=2026-06-08');
+  });
+
+  it('prioriza alertas de crise no topo', () => {
+    const sorted = sortAlertsByPriority([
+      sampleAlert({ id: 'positive-1', type: 'positive' }),
+      sampleAlert({ id: 'crisis-1', type: 'crisis' }),
+    ]);
+
+    expect(sorted.map((alert) => alert.id)).toEqual(['crisis-1', 'positive-1']);
+  });
+
+  it('formata badge de nível de crise', () => {
+    expect(getCrisisLevelLabel(4)).toBe('Nível 4/5');
+    expect(getCrisisLevelLabel(null)).toBeNull();
+  });
+
+  it('usa aria-label específico para dispensar crise', () => {
+    expect(getAlertDismissAriaLabel(sampleAlert())).toContain('crise');
+  });
+
+  it('aplica superfície visual distinta para crise', () => {
+    expect(getAlertRowClassName('crisis')).toContain('alert');
+    expect(getAlertRowClassName('positive')).toContain('mint');
   });
 });

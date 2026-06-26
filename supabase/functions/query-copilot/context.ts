@@ -73,7 +73,7 @@ export async function prepareCopilotContext(
 
   const { data: professional } = await supabase
     .from('professionals')
-    .select('id')
+    .select('id, name, crp, specialty')
     .eq('user_id', caller.id)
     .eq('id', typedPatient.professional_id)
     .is('deleted_at', null)
@@ -141,6 +141,13 @@ export async function prepareCopilotContext(
     diaryEntries,
     sessionNotes,
     ragContext,
+    professional: professional
+      ? {
+          name: professional.name,
+          crp: professional.crp,
+          specialty: professional.specialty,
+        }
+      : undefined,
   });
 
   const chatMessages: ChatMessage[] = [];

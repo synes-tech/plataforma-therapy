@@ -4,6 +4,8 @@ export interface SessionSoapContent {
   assessment: string;
   plan: string;
   summary_markdown?: string;
+  clinical_raw_text?: string;
+  family_text?: string;
   transcription?: string;
 }
 

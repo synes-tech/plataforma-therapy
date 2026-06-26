@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
 } from '@react-pdf/renderer';
+import { PdfContentBlocks } from '@containers/pdf/PdfContentBlocks';
 import type { PdfTextBlock } from '@features/pdf/pdfUtils';
 import { markdownToPdfBlocks } from '@features/pdf/pdfUtils';
 
@@ -50,22 +51,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#64748b',
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0f766e',
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  paragraph: {
-    marginBottom: 8,
-    color: '#334155',
-  },
-  bullet: {
-    marginBottom: 4,
-    paddingLeft: 8,
-    color: '#334155',
-  },
   footer: {
     position: 'absolute',
     bottom: 32,
@@ -89,27 +74,7 @@ export function SessionSummaryPdfDocument({ data }: { data: SessionSummaryPdfPay
           </Text>
         </View>
 
-        {data.summaryBlocks.map((block, idx) => {
-          if (block.type === 'heading') {
-            return (
-              <Text key={idx} style={styles.sectionTitle}>
-                {block.text}
-              </Text>
-            );
-          }
-          if (block.type === 'bullet') {
-            return (
-              <Text key={idx} style={styles.bullet}>
-                • {block.text}
-              </Text>
-            );
-          }
-          return (
-            <Text key={idx} style={styles.paragraph}>
-              {block.text}
-            </Text>
-          );
-        })}
+        <PdfContentBlocks blocks={data.summaryBlocks} />
 
         <Text style={styles.footer}>
           Exportado em {new Date(data.exportedAt).toLocaleString('pt-BR')} · Documento gerado pela Unithery

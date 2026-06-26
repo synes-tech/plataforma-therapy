@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@containers/layout';
@@ -7,8 +7,8 @@ import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import { supabase } from '@shared/lib/supabase';
 import { callFunction } from '@shared/lib/api';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
-import { AudioRecorder } from '@features/audio-recorder/AudioRecorder';
-import { SessionNoteReview } from '@features/audio-recorder/SessionNoteReview';
+import { ClinicalSessionWorkspace } from './session/ClinicalSessionWorkspace';
+import { SessionNoteReviewPanel } from './session/SessionNoteReviewPanel';
 
 export default function SessionContainer() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -16,6 +16,7 @@ export default function SessionContainer() {
   const scheduleId = searchParams.get('scheduleId');
   const navigate = useNavigate();
   const reviewSectionRef = useRef<HTMLElement>(null);
+  const [focusNoteId, setFocusNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!scheduleId) return;
@@ -38,6 +39,11 @@ export default function SessionContainer() {
     },
     enabled: !!patientId,
   });
+
+  const handleSessionProcessed = useCallback((sessionNoteId: string) => {
+    setFocusNoteId(sessionNoteId);
+    reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   if (!patientId) {
     return (
@@ -65,7 +71,7 @@ export default function SessionContainer() {
             <PatientAvatar name={patientName} fotoUrl={patient?.foto_url} size="md" />
             <div className="min-w-0">
               <h1 className="font-serif text-xl font-medium tracking-tight text-charcoal sm:text-2xl md:text-3xl">
-                Gravar sessão
+                Sessão clínica
               </h1>
               <p className="mt-0.5 truncate text-sm text-charcoal-muted">{patientName}</p>
             </div>
@@ -74,7 +80,7 @@ export default function SessionContainer() {
         subtitle={
           <div className="space-y-2">
             <p className="max-w-2xl text-sm leading-relaxed text-charcoal-muted">
-              Dite suas observações pós-consulta. A IA transcreve e gera o relatório estruturado para sua revisão.
+              Workspace multimodal: grave áudio, digite anotações ou combine os dois. A IA estrutura o relatório para lapidação e aprovação.
             </p>
             {patient?.diagnoses && patient.diagnoses.length > 0 && (
               <DiagnosisChips diagnoses={patient.diagnoses} max={4} />
@@ -84,19 +90,18 @@ export default function SessionContainer() {
       />
 
       <div className="mt-6 space-y-8 pb-8 lg:mt-8 lg:pb-10">
-        <section aria-labelledby="session-recorder-title">
-          <AudioRecorder
-            patientId={patientId}
-            scheduleId={scheduleId ?? undefined}
-            recordingType="post_session"
-            onComplete={() => {
-              reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          />
-        </section>
+        <ClinicalSessionWorkspace
+          patientId={patientId}
+          scheduleId={scheduleId ?? undefined}
+          onSessionProcessed={handleSessionProcessed}
+        />
 
         <section ref={reviewSectionRef} aria-labelledby="session-review-title">
-          <SessionNoteReview patientId={patientId} />
+          <SessionNoteReviewPanel
+            patientId={patientId}
+            scheduleId={scheduleId ?? undefined}
+            focusNoteId={focusNoteId}
+          />
         </section>
       </div>
     </div>

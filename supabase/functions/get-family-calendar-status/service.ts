@@ -6,6 +6,7 @@ import { assertFamilyOwnsPatient } from '../_shared/family-access.ts';
 export interface CalendarDayStatus {
   date: string;
   filled: boolean;
+  entry_count?: number;
   mood_score?: number;
   crisis_occurred?: boolean;
 }

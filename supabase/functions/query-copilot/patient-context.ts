@@ -138,6 +138,11 @@ export interface BuildSystemInstructionInput {
   diaryEntries: DiaryEntryRow[];
   sessionNotes: SessionNoteRow[];
   ragContext: string;
+  professional?: {
+    name: string;
+    crp: string | null;
+    specialty: string | null;
+  };
 }
 
 export function buildCopilotSystemInstruction(input: BuildSystemInstructionInput): string {
@@ -148,6 +153,13 @@ export function buildCopilotSystemInstruction(input: BuildSystemInstructionInput
   const diaryBlock = formatDiaryContextBlock(diaryEntries);
   const sessionsBlock = formatSessionsContextBlock(sessionNotes);
   const anamnesisBlock = formatAnamnesisBlock(patient);
+
+  const professionalBlock = input.professional
+    ? `TERAPEUTA RESPONSÁVEL (use estes dados reais em relatórios/orientações para pais — NUNCA placeholders):
+- Nome: ${input.professional.name}
+- Registro: ${input.professional.crp?.trim() || input.professional.specialty?.trim() || 'Não informado'}
+- Ao redigir documentos para a família, assine com o nome e registro acima. Proibido usar [Seu Nome e Credenciais] ou placeholders similares.`
+    : '';
 
   return `Você é um Copiloto Clínico auxiliando um terapeuta. O paciente atual é ${patient.name}, ${ageLabel} anos. Diagnóstico/Contexto: ${contextSummary}. Relatos recentes da família: ${diaryBlock}. Responda sempre de forma técnica, direta e estruturada, como um parceiro de discussão clínica.
 
@@ -166,6 +178,8 @@ REGRAS INVIOLÁVEIS:
 - NÃO invente dados. NÃO extrapole além do que está documentado.
 
 ${ANAMNESIS_AI_INSTRUCTIONS}
+
+${professionalBlock ? `\n=== ${professionalBlock}\n` : ''}
 
 === ÚLTIMAS SESSÕES REGISTRADAS (${sessionNotes.length}) ===
 ${sessionsBlock}

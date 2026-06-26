@@ -14,9 +14,11 @@ export interface GetPatientArtifactsPayload {
 export interface PatientArtifactItem {
   id: string;
   tipo_artefato: ArtifactType;
+  titulo: string | null;
   conteudo_texto: string;
   criado_em: string;
   is_legacy: boolean;
+  compartilhado_familia: boolean;
 }
 
 export interface GetPatientArtifactsResponse {

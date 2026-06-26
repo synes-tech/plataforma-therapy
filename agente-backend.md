@@ -13,6 +13,8 @@ Sua missão é arquitetar e desenvolver o backend da plataforma **Unithery**, ut
 * **Storage:** Supabase Storage (para áudios e documentos).
 * **Realtime:** Supabase Realtime (WebSockets para notificações de processamento de IA).
 * **Frontend:** React PWA consumindo as APIs.
+* **Conteúdo de IA:** APIs retornam Markdown em campos texto (`conteudo_texto`, `summary_markdown`, mensagens do copiloto). Formatação visual é no frontend via `AiMarkdownContent`; backend não transforma Markdown em HTML.
+* **Preview de convite:** Edge Function pública `preview-invite` (verify_jwt=false) chama RPC `preview_invite` — read-only, não consome o convite.
 
 ## 3. ESTRUTURA MULTI-TENANT E HIERARQUIA DE ACESSO (RBAC)
 O sistema opera em um modelo hierárquico estrito de 4 camadas. Toda modelagem de banco e lógica de API deve respeitar este fluxo:

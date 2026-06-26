@@ -5,10 +5,16 @@ import { CardGridSkeleton, PageLoader } from '@containers/loading';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
+import { TherapyCalendar } from './therapy-calendar/TherapyCalendar';
+import { THERAPY_MONTHS } from './therapy-calendar/therapy-calendar.types';
+import { toTherapyDateKey } from './therapy-calendar/therapy-calendar.utils';
+import { pluralizeRegistros } from './routine-diary.utils';
+import { FamilyCalendarDayModal } from './FamilyCalendarDayModal';
 
 interface CalendarDay {
   date: string;
   filled: boolean;
+  entry_count?: number;
   mood_score?: number;
   crisis_occurred?: boolean;
 }
@@ -22,62 +28,12 @@ interface CalendarResponse {
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-
-const MOOD_LABELS: Record<number, { emoji: string; label: string }> = {
-  1: { emoji: '😢', label: 'Difícil' },
-  2: { emoji: '😟', label: 'Abaixo' },
-  3: { emoji: '😐', label: 'Neutro' },
-  4: { emoji: '🙂', label: 'Bom' },
-  5: { emoji: '😄', label: 'Ótimo' },
-};
-
-function toDateKey(y: number, m: number, d: number): string {
-  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-}
-
-function DayDetailPanel({ day }: { day: CalendarDay }) {
-  const mood = day.mood_score ? MOOD_LABELS[day.mood_score] : null;
-  const dateFormatted = new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(new Date(day.date + 'T12:00:00'));
-
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted/70">
-        {dateFormatted}
-      </p>
-      <div className="mt-3 flex items-center gap-3">
-        {mood && (
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{mood.emoji}</span>
-            <span className="text-sm font-medium text-charcoal">{mood.label}</span>
-          </div>
-        )}
-        {day.crisis_occurred && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            Crise registrada
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function FamilyCalendar() {
   const { user } = useAuth();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1);
-  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: link, isLoading: linkLoading } = useQuery({
     queryKey: ['family-link', user?.id],
@@ -93,7 +49,7 @@ export default function FamilyCalendar() {
     enabled: !!user,
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: routineLoading } = useQuery({
     queryKey: ['family-calendar', viewYear, viewMonth],
     queryFn: () =>
       callFunction<CalendarResponse>('get-family-calendar-status', {
@@ -119,7 +75,7 @@ export default function FamilyCalendar() {
 
     for (let i = 0; i < firstDow; i++) cells.push({ day: null });
     for (let d = 1; d <= daysInMonth; d++) {
-      cells.push({ day: d, dateKey: toDateKey(viewYear, viewMonth, d) });
+      cells.push({ day: d, dateKey: toTherapyDateKey(viewYear, viewMonth, d) });
     }
     return cells;
   }, [viewYear, viewMonth]);
@@ -131,7 +87,7 @@ export default function FamilyCalendar() {
     } else {
       setViewMonth((m) => m - 1);
     }
-    setSelectedDay(null);
+    setSelectedDate(null);
   }
 
   function nextMonth() {
@@ -141,7 +97,7 @@ export default function FamilyCalendar() {
     } else {
       setViewMonth((m) => m + 1);
     }
-    setSelectedDay(null);
+    setSelectedDate(null);
   }
 
   if (linkLoading) {
@@ -152,73 +108,89 @@ export default function FamilyCalendar() {
     return <Navigate to="/family/link" replace />;
   }
 
-  const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const filledCount = data?.days?.filter((d) => d.filled).length ?? 0;
-  const crisisCount = data?.days?.filter((d) => d.crisis_occurred).length ?? 0;
+  const todayKey = toTherapyDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const filledDaysCount = data?.days?.length ?? 0;
+  const crisisDaysCount = data?.days?.filter((d) => d.crisis_occurred).length ?? 0;
   const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
 
   return (
-    <div className="animate-fade-in">
-      <header className="mb-6">
+    <div className="animate-fade-in w-full space-y-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-8 xl:space-y-0">
+      <header className="xl:col-span-2">
         <h1 className="font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">
           Calendário de Rotina
         </h1>
         <p className="mt-1 text-sm text-charcoal-muted">
-          Acompanhe os registros diários de{' '}
+          Acompanhe as terapias e os registros diários de{' '}
           <span className="font-medium text-charcoal">{link.patients?.name}</span>
         </p>
       </header>
 
-      {/* Summary cards */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm">
-          <p className="text-lg font-semibold text-primary">{filledCount}</p>
-          <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Preenchidos</p>
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm">
-          <p className="text-lg font-semibold text-amber-600">{crisisCount}</p>
-          <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Com crise</p>
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm">
-          <p className="text-lg font-semibold text-charcoal-muted">
-            {daysInMonth - filledCount}
-          </p>
-          <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Vazios</p>
-        </div>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm xl:col-span-2">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="rounded-lg p-2 text-charcoal-muted hover:bg-slate-50"
+          aria-label="Mês anterior"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <p className="font-display text-base font-semibold text-charcoal">
+          {THERAPY_MONTHS[viewMonth - 1]} {viewYear}
+        </p>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="rounded-lg p-2 text-charcoal-muted hover:bg-slate-50"
+          aria-label="Próximo mês"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
-      {/* Calendar */}
-      <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-primary-50/40 to-mint-50/30 px-4 py-4 sm:px-5">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={prevMonth}
-              className="rounded-lg p-2 text-charcoal-muted hover:bg-white/80"
-              aria-label="Mês anterior"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h2 className="font-display text-base font-semibold text-charcoal">
-              {MONTHS[viewMonth - 1]} {viewYear}
-            </h2>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className="rounded-lg p-2 text-charcoal-muted hover:bg-white/80"
-              aria-label="Próximo mês"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+      <TherapyCalendar
+        viewYear={viewYear}
+        viewMonth={viewMonth}
+        todayKey={todayKey}
+        enabled={!!link}
+        onPrevMonth={prevMonth}
+        onNextMonth={nextMonth}
+        hideMonthNav
+      />
+
+      <section
+        className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"
+        aria-label="Calendário de check-ins diários"
+      >
+        <div className="border-b border-slate-100 bg-gradient-to-r from-mint-50/40 to-white px-4 py-4 sm:px-5">
+          <h2 className="font-display text-base font-semibold text-charcoal sm:text-lg">
+            Diário de humor e rotina
+          </h2>
+          <p className="mt-0.5 text-xs text-charcoal-muted sm:text-sm">
+            Registros diários preenchidos pela família — você pode registrar vários momentos no mesmo dia.
+          </p>
+
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-slate-100 bg-white p-3 text-center">
+              <p className="text-lg font-semibold text-primary">{filledDaysCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Dias com registro</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white p-3 text-center">
+              <p className="text-lg font-semibold text-amber-600">{crisisDaysCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Dias com crise</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white p-3 text-center">
+              <p className="text-lg font-semibold text-charcoal-muted">{daysInMonth - filledDaysCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-charcoal-muted/70">Sem registro</p>
+            </div>
           </div>
         </div>
 
         <div className="p-4 sm:p-5">
-          {isLoading ? (
+          {routineLoading ? (
             <CardGridSkeleton count={35} className="grid-cols-7 gap-1.5" />
           ) : (
             <>
@@ -236,13 +208,15 @@ export default function FamilyCalendar() {
                   const isToday = cell.dateKey === todayKey;
                   const filled = !!status?.filled;
                   const crisis = status?.crisis_occurred;
-                  const isSelected = selectedDay?.date === cell.dateKey;
+                  const isSelected = selectedDate === cell.dateKey;
 
                   return (
                     <button
                       key={cell.dateKey}
                       type="button"
-                      onClick={() => setSelectedDay(status ?? null)}
+                      onClick={() => {
+                        if (filled && cell.dateKey) setSelectedDate(cell.dateKey);
+                      }}
                       disabled={!filled}
                       className={`relative flex aspect-square flex-col items-center justify-center rounded-xl border text-xs transition-all ${
                         isSelected
@@ -257,7 +231,7 @@ export default function FamilyCalendar() {
                       } ${filled ? 'cursor-pointer' : 'cursor-default'}`}
                       aria-label={
                         filled
-                          ? `${cell.day} - Diário preenchido${crisis ? ', crise registrada' : ''}`
+                          ? `${cell.day} - ${status?.entry_count && status.entry_count > 1 ? pluralizeRegistros(status.entry_count) : 'Diário preenchido'}${crisis ? ', crise registrada' : ''}`
                           : `${cell.day} - Sem registro`
                       }
                     >
@@ -266,7 +240,11 @@ export default function FamilyCalendar() {
                       </span>
                       {filled && (
                         <span className="mt-0.5 text-[10px] leading-none" aria-hidden>
-                          {crisis ? '⚠️' : '✓'}
+                          {status?.entry_count && status.entry_count > 1
+                            ? status.entry_count
+                            : crisis
+                              ? '⚠️'
+                              : '✓'}
                         </span>
                       )}
                     </button>
@@ -274,7 +252,6 @@ export default function FamilyCalendar() {
                 })}
               </div>
 
-              {/* Legend */}
               <div className="mt-4 flex flex-wrap gap-3 text-[10px] text-charcoal-muted">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-3 w-3 rounded border border-mint/30 bg-mint-50" /> Preenchido
@@ -291,12 +268,11 @@ export default function FamilyCalendar() {
         </div>
       </section>
 
-      {/* Day detail */}
-      {selectedDay && (
-        <div className="mt-4">
-          <DayDetailPanel day={selectedDay} />
-        </div>
-      )}
+      <FamilyCalendarDayModal
+        patientId={link.patient_id}
+        date={selectedDate}
+        onClose={() => setSelectedDate(null)}
+      />
     </div>
   );
 }

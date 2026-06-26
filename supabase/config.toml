@@ -53,3 +53,9 @@ enabled = true
 
 [functions.transcribe-copilot-audio]
 verify_jwt = false
+
+[functions.preview-invite]
+verify_jwt = false
+
+[functions.register-family]
+verify_jwt = false

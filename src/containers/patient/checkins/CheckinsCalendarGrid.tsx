@@ -1,6 +1,7 @@
 import {
   CHECKIN_MONTHS,
   CHECKIN_WEEKDAYS,
+  MOOD_LABELS,
   type CrisisCalendarDay,
 } from './checkins-calendar.types';
 import { buildCheckinMonthGrid } from './checkins-calendar.utils';
@@ -124,7 +125,10 @@ export function CheckinsCalendarGrid({
                       crisis ? 'text-amber-800' : 'text-emerald-800'
                     }`}
                   >
-                    {crisis ? 'Com crise' : 'Check-in'}
+                    <span className="sm:hidden" aria-hidden>
+                      {MOOD_LABELS[status.mood_score]?.emoji ?? '📝'}
+                    </span>
+                    <span className="hidden sm:inline">{crisis ? 'Com crise' : 'Check-in'}</span>
                   </span>
                   <button
                     type="button"
@@ -133,11 +137,10 @@ export function CheckinsCalendarGrid({
                     className="mt-auto inline-flex h-6 w-full items-center justify-center gap-1 rounded-md bg-charcoal text-white transition-all hover:bg-charcoal-light active:scale-[0.98] disabled:opacity-50 md:h-7"
                     aria-label={`Visualizar check-in do dia ${cell.day}`}
                   >
-                    <span className="md:hidden">
+                    <span className="text-[9px] font-bold uppercase tracking-wide sm:hidden">Ver</span>
+                    <span className="hidden md:inline-flex md:items-center md:gap-1">
                       <ViewIcon />
-                    </span>
-                    <span className="hidden text-[9px] font-bold uppercase tracking-wide md:inline">
-                      VISUALIZAR
+                      <span className="text-[9px] font-bold uppercase tracking-wide">VISUALIZAR</span>
                     </span>
                   </button>
                 </>

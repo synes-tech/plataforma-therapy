@@ -4,6 +4,7 @@ export interface SaveAiArtifactPayload {
   patient_id: string;
   conteudo_texto: string;
   tipo_artefato: AiArtifactType;
+  compartilhado_familia: boolean;
 }
 
 export interface SaveAiArtifactResponse {
@@ -11,6 +12,7 @@ export interface SaveAiArtifactResponse {
   criado_em: string;
   artifact_fingerprint: string;
   tipo_artefato: AiArtifactType;
+  compartilhado_familia: boolean;
   already_saved: boolean;
   message: string;
 }

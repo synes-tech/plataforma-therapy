@@ -114,7 +114,7 @@ function CheckinDayReadModalDesktop({
             </svg>
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6 scrollbar-thin">
           <CheckinDayDetailContent day={day} />
         </div>
       </div>

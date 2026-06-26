@@ -18,7 +18,7 @@ export async function getPatientArtifacts(
 
   let query = supabase
     .from('recomendacoes_salvas')
-    .select('id, tipo_artefato, conteudo_texto, conteudo, criado_em')
+    .select('id, tipo_artefato, titulo, conteudo_texto, conteudo, criado_em, compartilhado_familia')
     .eq('paciente_id', ctx.patient_id)
     .order('criado_em', { ascending: false });
 

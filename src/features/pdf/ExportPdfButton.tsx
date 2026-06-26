@@ -16,7 +16,7 @@ export function ExportPdfButton({ patientId, patientName, className = '', varian
     setLoading(true);
     setError(null);
     try {
-      const { exportPatientPdf } = await import('./exportPatientPdf');
+      const { exportPatientPdf } = await import('@containers/pdf/exportPatientPdf');
       await exportPatientPdf(patientId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao gerar PDF.');

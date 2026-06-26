@@ -6,6 +6,9 @@ import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { Toast } from '../Toast';
 import { exportOrShareArtifactPdf } from './exportArtifactPdf';
+import { pdfDeliverySuccessMessage } from '@containers/pdf/pdf-delivery.messages';
+import { buildVisibilityChangeToast } from '../copilot/patient-copilot-family-share.utils';
+import { PatientArtifactEditModal } from './PatientArtifactEditModal';
 import { PatientArtifactFiltersBar } from './PatientArtifactFiltersBar';
 import { PatientArtifactReadModal } from './PatientArtifactReadModal';
 import { PatientArtifactsEmptyState } from './PatientArtifactsEmptyState';
@@ -26,6 +29,8 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
   const [filter, setFilter] = useState<ArtifactFilterValue>('todos');
   const [search, setSearch] = useState('');
   const [readingArtifact, setReadingArtifact] = useState<PatientArtifact | null>(null);
+  const [editingArtifact, setEditingArtifact] = useState<PatientArtifact | null>(null);
+  const [editReturnToRead, setEditReturnToRead] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PatientArtifact | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
@@ -56,8 +61,6 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
     );
   }, [artifactDeepLink, allItems, setSearchParams]);
 
-  const hasActiveFilters = filter !== 'todos' || search.trim().length > 0;
-
   const deleteMutation = useMutation({
     mutationFn: (artifactId: string) =>
       callFunction('delete-saved-recommendation', {
@@ -80,6 +83,7 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
       );
 
       if (readingArtifact?.id === artifactId) setReadingArtifact(null);
+      if (editingArtifact?.id === artifactId) setEditingArtifact(null);
       if (pendingDelete?.id === artifactId) setPendingDelete(null);
 
       return { previous };
@@ -101,16 +105,147 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (vars: { artifactId: string; titulo: string; conteudo_texto: string }) =>
+      callFunction<{
+        id: string;
+        titulo: string | null;
+        conteudo_texto: string;
+      }>('update-saved-artifact', {
+        patient_id: patientId,
+        artifact_id: vars.artifactId,
+        titulo: vars.titulo,
+        conteudo_texto: vars.conteudo_texto,
+      }),
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: ['patient-artifacts', patientId] });
+      const previous = queryClient.getQueryData<PatientArtifactsResponse>([
+        'patient-artifacts',
+        patientId,
+      ]);
+
+      const patchItem = (item: PatientArtifact): PatientArtifact =>
+        item.id === vars.artifactId
+          ? {
+              ...item,
+              titulo: vars.titulo,
+              conteudo_texto: vars.conteudo_texto,
+            }
+          : item;
+
+      queryClient.setQueryData<PatientArtifactsResponse>(
+        ['patient-artifacts', patientId],
+        (old) => (old ? { ...old, items: old.items.map(patchItem) } : old),
+      );
+
+      setReadingArtifact((current) => (current?.id === vars.artifactId ? patchItem(current) : current));
+      setEditingArtifact((current) =>
+        current?.id === vars.artifactId
+          ? {
+              ...current,
+              titulo: vars.titulo,
+              conteudo_texto: vars.conteudo_texto,
+            }
+          : current,
+      );
+
+      return { previous };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
+      void queryClient.invalidateQueries({ queryKey: ['ai-artifact-status', patientId] });
+    },
+    onError: (err: Error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['patient-artifacts', patientId], context.previous);
+      }
+      setToast({
+        message: err.message || 'Não foi possível salvar as alterações',
+        variant: 'error',
+      });
+    },
+  });
+
+  const visibilityMutation = useMutation({
+    mutationFn: (vars: { artifactId: string; shared: boolean }) =>
+      callFunction<{ compartilhado_familia: boolean }>('update-artifact-visibility', {
+        artifact_id: vars.artifactId,
+        compartilhado_familia: vars.shared,
+      }),
+    onMutate: async ({ artifactId, shared }) => {
+      await queryClient.cancelQueries({ queryKey: ['patient-artifacts', patientId] });
+      const previous = queryClient.getQueryData<PatientArtifactsResponse>([
+        'patient-artifacts',
+        patientId,
+      ]);
+
+      queryClient.setQueryData<PatientArtifactsResponse>(
+        ['patient-artifacts', patientId],
+        (old) =>
+          old
+            ? {
+                ...old,
+                items: old.items.map((item) =>
+                  item.id === artifactId ? { ...item, compartilhado_familia: shared } : item,
+                ),
+              }
+            : old,
+      );
+
+      setReadingArtifact((current) =>
+        current?.id === artifactId ? { ...current, compartilhado_familia: shared } : current,
+      );
+
+      return { previous };
+    },
+    onSuccess: (_data, vars) => {
+      setToast({ message: buildVisibilityChangeToast(vars.shared), variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
+    },
+    onError: (err: Error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['patient-artifacts', patientId], context.previous);
+      }
+      setToast({
+        message: err.message || 'Não foi possível atualizar a visibilidade',
+        variant: 'error',
+      });
+    },
+  });
+
+  const hasActiveFilters = filter !== 'todos' || search.trim().length > 0;
   const showInitialSkeleton = !data && (isPending || isFetching);
   const showRefetchOverlay = !!data && isFetching;
   const showEmpty = !showInitialSkeleton && !error && items.length === 0;
 
+  function handleStartEdit(artifact: PatientArtifact, fromRead = false) {
+    setEditingArtifact(artifact);
+    setEditReturnToRead(fromRead);
+    if (fromRead) setReadingArtifact(null);
+  }
+
+  function handleEditBack() {
+    if (updateMutation.isPending) return;
+    if (editReturnToRead && editingArtifact) {
+      setReadingArtifact(editingArtifact);
+    }
+    setEditingArtifact(null);
+    setEditReturnToRead(false);
+  }
+
+  function handleEditClose() {
+    if (updateMutation.isPending) return;
+    setEditingArtifact(null);
+    setReadingArtifact(null);
+    setEditReturnToRead(false);
+  }
+
   async function handleExportPdf(artifact: PatientArtifact) {
     setExportingId(artifact.id);
     try {
-      const result = await exportOrShareArtifactPdf(artifact, patientName);
+      const result = await exportOrShareArtifactPdf(artifact, patientId, patientName);
       setToast({
-        message: result === 'shared' ? 'PDF compartilhado' : 'PDF exportado com sucesso',
+        message: pdfDeliverySuccessMessage(result),
         variant: 'success',
       });
     } catch (err) {
@@ -174,6 +309,7 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
           <PatientArtifactsTable
             items={items}
             onRead={setReadingArtifact}
+            onEdit={(artifact) => handleStartEdit(artifact, false)}
             onExportPdf={(artifact) => void handleExportPdf(artifact)}
             onRequestDelete={setPendingDelete}
             exportingId={exportingId}
@@ -185,10 +321,30 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
       <PatientArtifactReadModal
         artifact={readingArtifact}
         onClose={() => setReadingArtifact(null)}
+        onEdit={(artifact) => handleStartEdit(artifact, true)}
         onExportPdf={(artifact) => void handleExportPdf(artifact)}
         onRequestDelete={setPendingDelete}
+        onVisibilityChange={(artifactId, shared) =>
+          visibilityMutation.mutate({ artifactId, shared })
+        }
+        isUpdatingVisibility={visibilityMutation.isPending}
         exportingId={exportingId}
         deletingId={deleteMutation.isPending ? pendingDelete?.id ?? null : null}
+      />
+
+      <PatientArtifactEditModal
+        artifact={editingArtifact}
+        isOpen={editingArtifact !== null}
+        onBack={handleEditBack}
+        onClose={handleEditClose}
+        onSave={async (payload) => {
+          if (!editingArtifact) return;
+          await updateMutation.mutateAsync({
+            artifactId: editingArtifact.id,
+            titulo: payload.titulo,
+            conteudo_texto: payload.conteudo_texto,
+          });
+        }}
       />
 
       <Toast

@@ -25,3 +25,9 @@ export const ARTIFACT_BADGE_CONFIG: Record<
     className: 'bg-ai-50 text-ai ring-violet-100',
   },
 };
+
+export function getArtifactVisibilityBadge(shared: boolean): { label: string; className: string } {
+  return shared
+    ? { label: '📱 Visível para a família', className: 'bg-mint-50 text-mint-dark ring-mint/20' }
+    : { label: '🔒 Apenas visualização interna', className: 'bg-slate-100 text-charcoal-muted ring-slate-200' };
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { exportSessionPlanPdf } from '@containers/copilot/exportSessionPlanPdf';
 
 export interface PlanItem {
   id: string;
@@ -7,30 +8,33 @@ export interface PlanItem {
 }
 
 interface PlanSidebarProps {
+  patientId?: string;
   patientName?: string;
   items: PlanItem[];
   onRemove: (id: string) => void;
 }
 
-export function PlanSidebar({ patientName, items, onRemove }: PlanSidebarProps) {
-  const [sent, setSent] = useState(false);
+export function PlanSidebar({ patientId, patientName, items, onRemove }: PlanSidebarProps) {
+  const [generating, setGenerating] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleGenerate() {
-    // Monta um resumo textual do plano e abre a caixa de impressão/salvar como PDF.
-    const lines = items
-      .map((it, i) => `${i + 1}. ${it.title}\n${it.content}`)
-      .join('\n\n');
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(
-        `<pre style="font-family:ui-sans-serif,system-ui;white-space:pre-wrap;padding:32px;line-height:1.5">` +
-          `Plano de Sessão${patientName ? ' — ' + patientName : ''}\n\n${lines}</pre>`,
-      );
-      win.document.close();
-      win.print();
+  async function handleGenerate() {
+    if (generating || items.length === 0 || !patientId) return;
+
+    setGenerating(true);
+    setError(null);
+
+    try {
+      await exportSessionPlanPdf(patientId, patientName?.trim() || 'Paciente', items);
+      setSuccess(true);
+      window.setTimeout(() => setSuccess(false), 2500);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : 'Não foi possível gerar o PDF.');
+    } finally {
+      setGenerating(false);
     }
-    setSent(true);
-    setTimeout(() => setSent(false), 2500);
   }
 
   return (
@@ -79,12 +83,28 @@ export function PlanSidebar({ patientName, items, onRemove }: PlanSidebarProps) 
 
       <div className="shrink-0 border-t border-slate-100 p-4">
         <button
-          onClick={handleGenerate}
-          disabled={items.length === 0}
+          type="button"
+          onClick={() => void handleGenerate()}
+          disabled={items.length === 0 || generating || !patientId}
+          aria-busy={generating}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {sent ? '✓ Plano gerado' : 'Gerar PDF / Enviar para Família'}
+          {generating ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Gerando PDF...
+            </>
+          ) : success ? (
+            '✓ Plano gerado'
+          ) : (
+            'Gerar PDF / Enviar para Família'
+          )}
         </button>
+        {error && (
+          <p className="mt-2 text-center text-[11px] text-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );

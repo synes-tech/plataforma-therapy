@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyPatientListFilters, getPaginationMeta, paginatePatients } from './patient-list.utils';
+import { applyPatientListFilters, getPaginationMeta, paginatePatients, resolveFamilyLinkStatus } from './patient-list.utils';
 import type { PatientListItem } from './patient-list.types';
 
 const SAMPLE: PatientListItem[] = [
@@ -52,5 +52,18 @@ describe('patient-list.utils', () => {
     expect(meta.totalPages).toBe(3);
     expect(meta.start).toBe(11);
     expect(meta.end).toBe(20);
+  });
+
+  it('resolve family link status com fallback pendente', () => {
+    expect(
+      resolveFamilyLinkStatus({
+        id: '1',
+        name: 'Ana',
+        birth_date: '2010-01-01',
+        diagnoses: [],
+        status: 'active',
+        created_at: '2026-01-01',
+      }),
+    ).toBe('pendente');
   });
 });

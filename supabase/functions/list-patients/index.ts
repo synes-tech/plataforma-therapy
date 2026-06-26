@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { attachFamilyLinkStatus } from '../_shared/patient-family-link-status.ts';
 import { buildPatientSearchOrFilter, normalizePatientSearchTerm } from '../_shared/patient-search.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
 import { ListPatientsSchema } from './schema.ts';
@@ -64,7 +65,8 @@ serve(async (req: Request) => {
 
       const { data: patients, error } = await query;
       if (error) throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });
-      return successResponse(patients ?? [], req, 200);
+      const enriched = await attachFamilyLinkStatus(supabase, patients ?? []);
+      return successResponse(enriched, req, 200);
     }
 
     let query = supabase
@@ -86,7 +88,8 @@ serve(async (req: Request) => {
       throw new AppError({ code: 'FETCH_FAILED', message: error.message, statusCode: 500 });
     }
 
-    return successResponse(patients ?? [], req, 200);
+    const enriched = await attachFamilyLinkStatus(supabase, patients ?? []);
+    return successResponse(enriched, req, 200);
   } catch (error) {
     return errorResponse(error, req);
   }

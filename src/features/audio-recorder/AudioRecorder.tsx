@@ -1,10 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Spinner, LoadingButton } from '@containers/loading';
+import { Spinner } from '@containers/loading';
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 import { callFunction } from '@shared/lib/api';
-import { supabase } from '@shared/lib/supabase';
-import { blobToWav, pickRecorderMime } from '@shared/lib/audio-wav';
+import { blobToWav } from '@shared/lib/audio-wav';
 import { fetchSessionNoteContent, useAudioJobWatcher } from './useAudioJobWatcher';
+import {
+  formatCaptureTime,
+  useSessionAudioCapture,
+} from './useSessionAudioCapture';
 
 interface AudioRecorderProps {
   patientId: string;
@@ -75,41 +79,41 @@ function stepIndex(state: RecordingState): number {
 
 export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete }: AudioRecorderProps) {
   const queryClient = useQueryClient();
+  const capture = useSessionAudioCapture();
+  const {
+    resetCapture,
+    startRecording: captureStart,
+    stopRecording: captureStop,
+    error: captureError,
+    duration,
+    isRecording: captureIsRecording,
+    isPaused: captureIsPaused,
+  } = capture;
+
   const [state, setState] = useState<RecordingState>('idle');
-  const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [sessionNote, setSessionNote] = useState<SessionNoteContent | null>(null);
-  const [sessionNoteId, setSessionNoteId] = useState<string | null>(null);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<number | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const jobIdRef = useRef<string | null>(null);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
+  const jobIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    resetCapture();
     setState('idle');
-    setDuration(0);
     setError(null);
     setSessionNote(null);
-    setSessionNoteId(null);
     jobIdRef.current = null;
     setProcessingJobId(null);
-  }, [patientId, scheduleId]);
+  }, [patientId, scheduleId, resetCapture]);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-    };
-  }, []);
+    if (captureError && state === 'idle') {
+      setError(captureError);
+      setState('error');
+    }
+  }, [captureError, state]);
 
   const handleJobCompleted = useCallback(
     async (noteId: string) => {
-      setSessionNoteId(noteId);
       const content = await fetchSessionNoteContent(noteId);
 
       if (content) {
@@ -140,80 +144,6 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
     jobId: processingJobId,
     onCompleted: handleJobCompleted,
     onFailed: handleJobFailed,
-  });
-
-  const startRecording = useCallback(async () => {
-    try {
-      setError(null);
-      setSessionNote(null);
-      setSessionNoteId(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const recorderMime = pickRecorderMime();
-      const mediaRecorder = new MediaRecorder(stream, recorderMime ? { mimeType: recorderMime } : undefined);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.start(1000);
-      setState('recording');
-      setDuration(0);
-
-      timerRef.current = window.setInterval(() => {
-        setDuration((d) => d + 1);
-      }, 1000);
-    } catch {
-      setError('Permissão de microfone negada. Verifique as configurações do navegador.');
-      setState('error');
-    }
-  }, []);
-
-  const resetRecorder = useCallback(() => {
-    setState('idle');
-    setDuration(0);
-    setError(null);
-    setSessionNote(null);
-    setSessionNoteId(null);
-    jobIdRef.current = null;
-    setProcessingJobId(null);
-  }, []);
-
-  const approveMutation = useMutation({
-    mutationFn: async () => {
-      if (!sessionNoteId) throw new Error('Relatório não encontrado.');
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      const { error } = await supabase
-        .from('session_notes')
-        .update({
-          status: 'approved',
-          approved_at: new Date().toISOString(),
-          approved_by: userId,
-        })
-        .eq('id', sessionNoteId);
-      if (error) throw error;
-
-      if (scheduleId) {
-        await callFunction('complete-schedule-session', {
-          schedule_id: scheduleId,
-          session_note_id: sessionNoteId,
-        });
-      }
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['session-notes-draft', patientId] });
-      void queryClient.invalidateQueries({ queryKey: ['patient-sessions', patientId] });
-      void queryClient.invalidateQueries({ queryKey: ['daily-sessions'] });
-      void queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
-      resetRecorder();
-    },
-    onError: (err: Error) => {
-      setError(err.message || 'Não foi possível aprovar o relatório. Tente novamente.');
-      setState('error');
-    },
   });
 
   const uploadMutation = useMutation({
@@ -259,27 +189,34 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
     },
   });
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && state === 'recording') {
-      mediaRecorderRef.current.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      setState('uploading');
-      const recordedType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-      setTimeout(() => {
-        const blob = new Blob(chunksRef.current, { type: recordedType });
-        uploadMutation.mutate(blob);
-      }, 200);
-    }
-  }, [state, uploadMutation]);
+  const resetRecorder = useCallback(() => {
+    resetCapture();
+    setState('idle');
+    setError(null);
+    setSessionNote(null);
+    jobIdRef.current = null;
+    setProcessingJobId(null);
+  }, [resetCapture]);
 
-  function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
+  const startRecording = useCallback(async () => {
+    setError(null);
+    setSessionNote(null);
+    setState('recording');
+    await captureStart();
+  }, [captureStart]);
+
+  const stopRecording = useCallback(async () => {
+    if (state !== 'recording' && !captureIsRecording && !captureIsPaused) return;
+
+    setState('uploading');
+    const blob = await captureStop();
+    if (!blob) {
+      setError('Nenhum áudio capturado. Tente gravar novamente.');
+      setState('error');
+      return;
+    }
+    uploadMutation.mutate(blob);
+  }, [captureIsPaused, captureIsRecording, captureStop, state, uploadMutation]);
 
   const previewText =
     sessionNote?.transcription?.trim() ||
@@ -288,7 +225,7 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
     null;
 
   const currentStep = stepIndex(state);
-  const isRecording = state === 'recording';
+  const isRecordingActive = state === 'recording' || captureIsRecording || captureIsPaused;
   const isBusy = state === 'uploading' || state === 'processing';
 
   return (
@@ -340,12 +277,12 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
           })}
         </ol>
 
-        {error && (
+        {(error || captureError) && (
           <div
             role="alert"
             className="mb-5 rounded-xl border border-error/15 bg-error-light/60 px-4 py-3 text-sm text-error"
           >
-            {error}
+            {error || captureError}
             <button
               type="button"
               onClick={resetRecorder}
@@ -358,11 +295,11 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
 
         <div className="rounded-2xl border border-slate-100 bg-[#F8FAF9] px-4 py-8 sm:px-8 sm:py-10">
           <div className="flex flex-col items-center gap-5">
-            {(isRecording || isBusy) && <WaveformBars active={isRecording} />}
+            {(isRecordingActive || isBusy) && <WaveformBars active={isRecordingActive} />}
 
-            {isRecording && (
+            {isRecordingActive && (
               <p className="font-mono text-4xl font-medium tabular-nums tracking-tight text-charcoal" aria-live="polite">
-                {formatTime(duration)}
+                {formatCaptureTime(duration)}
               </p>
             )}
 
@@ -400,7 +337,9 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
                 {previewText ? (
                   <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-white p-4">
                     <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">Resumo</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-charcoal">{previewText}</p>
+                    <div className="mt-2">
+                      <AiMarkdownContent content={previewText} variant="light" />
+                    </div>
                   </div>
                 ) : (
                   <p className="rounded-xl border border-mint-100 bg-mint-50/50 px-4 py-3 text-sm text-charcoal">
@@ -409,27 +348,15 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
                 )}
 
                 <p className="mt-3 text-xs text-charcoal-muted">
-                  O relatório completo está em &quot;Pendentes de revisão&quot; abaixo.
+                  Role até &quot;Revisão e aprovação&quot; abaixo para lapidar o texto e escolher se a
+                  família poderá ver o relatório.
                 </p>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {sessionNoteId && (
-                    <LoadingButton
-                      type="button"
-                      variant="primary"
-                      loading={approveMutation.isPending}
-                      loadingLabel="Aprovando..."
-                      onClick={() => approveMutation.mutate()}
-                      className="h-9 px-4 text-xs font-semibold"
-                    >
-                      Aprovar relatório
-                    </LoadingButton>
-                  )}
+                <div className="mt-4">
                   <button
                     type="button"
                     onClick={resetRecorder}
-                    disabled={approveMutation.isPending}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-charcoal transition-colors hover:border-primary/30 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-charcoal transition-colors hover:border-primary/30 hover:bg-primary-50"
                   >
                     Gravar nova sessão
                   </button>
@@ -452,7 +379,7 @@ export function AudioRecorder({ patientId, scheduleId, recordingType, onComplete
               </>
             )}
 
-            {isRecording && (
+            {isRecordingActive && state !== 'uploading' && state !== 'processing' && (
               <>
                 <button
                   type="button"

@@ -107,6 +107,20 @@ src/
 * **Terapeuta:** Formulários com auto-save (debounce de 2s). Draft status visível. Validação inline em tempo real (não apenas on-submit).
 * **Prevenção de Erros (Nielsen):** Confirmação em ações destrutivas. Relatório de IA sempre em estado "Rascunho" até aprovação explícita do profissional.
 
+### 4.6 Renderização de Markdown gerado por IA
+* **Componente canônico:** `src/shared/ui/AiMarkdownContent.tsx` (+ `ai-markdown.utils.ts`).
+* **Regra:** Nunca exibir Markdown cru (`**negrito**`, `## título`, `- item`) em telas de leitura. Sempre renderizar títulos, negrito, listas e parágrafos formatados.
+* **Onde aplicar:** chat do copiloto, modais de preview/salvamento, artefatos salvos, resumos SOAP, painéis executivos/proativos, portal família.
+* **Segurança:** parser próprio → nós React; proibido `dangerouslySetInnerHTML` para conteúdo de IA.
+* **Variantes:** `light` (superfícies claras), `dark` (painéis sobre fundo escuro), `compact` (cards densos).
+* **Exceção:** campos editáveis (textarea) mantêm texto bruto; apenas visualização usa `AiMarkdownContent`.
+
+### 4.7 Pré-visualização segura de convite (onboarding família)
+* **Pasta:** `src/containers/family/invite-link/` (`useInviteCodePreview`, `InvitePatientSafetyCheck`, `InviteCodeField`).
+* **Fluxo:** ao completar 8 caracteres do código, requisição assíncrona debounced → exibir nome do paciente → só então habilitar botão de confirmação.
+* **Telas:** `RegisterFamily`, `LinkInvite`, `InviteContainer` (via `InviteCodeForm`).
+* **Proibido:** lógica de preview em `features/` ou `pages/`.
+
 ## 5. FLUXO DE NAVEGAÇÃO CRÍTICO
 
 ### Terapeuta:

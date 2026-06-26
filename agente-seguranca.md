@@ -24,6 +24,9 @@ Sua missão é analisar, auditar e fortalecer todas as camadas da plataforma **U
 | Realtime (WebSocket) | Unauthorized subscription, data eavesdropping | Média |
 | Invite Flow | Brute force de código, timing attacks | Alta |
 
+* **XSS em conteúdo de IA:** proibido `dangerouslySetInnerHTML` para Markdown de LLM; usar parser React (`AiMarkdownContent`) que não injeta HTML arbitrário.
+* **Preview de convite:** endpoint público expõe apenas `patient_name` para códigos válidos pendentes (entropia ~83B combinações). Monitorar abuso por rate limit futuro; não retornar dados clínicos além do nome.
+
 ## 4. FRAMEWORK DE ANÁLISE (STRIDE + OWASP TOP 10:2025)
 
 ### 4.1 Modelagem de Ameaças STRIDE

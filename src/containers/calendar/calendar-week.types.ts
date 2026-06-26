@@ -29,3 +29,8 @@ export interface LayoutedWeekEvent {
 export const WEEK_HOUR_START = 7;
 export const WEEK_HOUR_END = 22;
 export const WEEK_HOUR_HEIGHT_PX = 64;
+
+export interface WeekSlotClickPayload {
+  dayISO: string;
+  time: string;
+}

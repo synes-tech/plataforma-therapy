@@ -65,14 +65,6 @@ export async function submitDiary(
     .single();
 
   if (error) {
-    // Handle duplicate entry for same day
-    if (error.code === '23505') {
-      throw new AppError({
-        code: 'DUPLICATE_ENTRY',
-        message: 'Já existe um registro para este paciente nesta data',
-        statusCode: 409,
-      });
-    }
     throw new AppError({ code: 'DIARY_CREATE_FAILED', message: error.message, statusCode: 500 });
   }
 

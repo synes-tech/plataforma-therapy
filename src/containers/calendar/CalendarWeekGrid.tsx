@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
 import { LoadingOverlay } from '@containers/loading';
 import { CalendarWeekEventBlock } from './CalendarWeekEventBlock';
-import type { LayoutedWeekEvent } from './calendar-week.types';
+import type { LayoutedWeekEvent, WeekSlotClickPayload } from './calendar-week.types';
 import {
   buildHourMarkers,
   formatDayHeader,
   getNowIndicatorTopPx,
+  getTimeFromHourSlotClick,
   weekGridHeightPx,
 } from './calendar-week.utils';
-import { WEEK_HOUR_HEIGHT_PX } from './calendar-week.types';
+import { WEEK_HOUR_HEIGHT_PX, WEEK_HOUR_START } from './calendar-week.types';
 
 interface CalendarWeekGridProps {
   weekDays: string[];
@@ -16,6 +17,7 @@ interface CalendarWeekGridProps {
   todayISO: string;
   showRefetchOverlay?: boolean;
   onEventClick?: (dayISO: string) => void;
+  onSlotClick?: (payload: WeekSlotClickPayload) => void;
 }
 
 export function CalendarWeekGrid({
@@ -24,10 +26,10 @@ export function CalendarWeekGrid({
   todayISO,
   showRefetchOverlay = false,
   onEventClick,
+  onSlotClick,
 }: CalendarWeekGridProps) {
   const gridHeight = weekGridHeightPx();
   const hours = buildHourMarkers();
-  const nowTop = getNowIndicatorTopPx();
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, LayoutedWeekEvent[]>();
@@ -43,7 +45,7 @@ export function CalendarWeekGrid({
   return (
     <div className="relative rounded-2xl border border-slate-200/80 bg-white shadow-sm">
       <LoadingOverlay show={showRefetchOverlay} label="Atualizando agenda..." />
-      {/* Cabeçalho dos dias — scroll horizontal no mobile */}
+
       <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide">
         <div className="flex min-w-[640px] md:min-w-0">
           <div className="w-14 shrink-0 md:w-16" />
@@ -70,27 +72,25 @@ export function CalendarWeekGrid({
         </div>
       </div>
 
-      {/* Grid com scroll vertical */}
       <div className="max-h-[70vh] overflow-y-auto overflow-x-auto">
         <div className="flex min-w-[640px] md:min-w-0">
-          {/* Coluna de horas */}
           <div className="relative w-14 shrink-0 md:w-16" style={{ height: gridHeight }}>
             {hours.slice(0, -1).map((hour) => (
               <div
                 key={hour}
                 className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-charcoal-muted md:text-xs"
-                style={{ top: (hour - 7) * WEEK_HOUR_HEIGHT_PX }}
+                style={{ top: (hour - WEEK_HOUR_START) * WEEK_HOUR_HEIGHT_PX }}
               >
                 {String(hour).padStart(2, '0')}:00
               </div>
             ))}
           </div>
 
-          {/* Colunas dos dias */}
           <div className="flex flex-1 snap-x snap-mandatory overflow-x-auto md:overflow-visible">
             {weekDays.map((dayISO) => {
               const isToday = dayISO === todayISO;
               const dayEvents = eventsByDay.get(dayISO) ?? [];
+              const dayHeader = formatDayHeader(dayISO, todayISO);
 
               return (
                 <div
@@ -98,18 +98,40 @@ export function CalendarWeekGrid({
                   className="relative min-w-[calc(100vw-4rem)] flex-1 snap-center border-l border-slate-100 md:min-w-0"
                   style={{ height: gridHeight }}
                 >
+                  {onSlotClick &&
+                    hours.slice(0, -1).map((hour) => (
+                      <button
+                        key={`${dayISO}-${hour}`}
+                        type="button"
+                        className="absolute inset-x-0 z-[1] cursor-pointer border-0 bg-transparent transition-colors hover:bg-primary/[0.06] focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/35"
+                        style={{
+                          top: (hour - WEEK_HOUR_START) * WEEK_HOUR_HEIGHT_PX,
+                          height: WEEK_HOUR_HEIGHT_PX,
+                        }}
+                        aria-label={`Novo agendamento — ${dayHeader.weekday}, ${String(hour).padStart(2, '0')}:00`}
+                        onClick={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          const offsetInHour = event.clientY - rect.top;
+                          onSlotClick({
+                            dayISO,
+                            time: getTimeFromHourSlotClick(hour, offsetInHour),
+                          });
+                        }}
+                      />
+                    ))}
+
                   {hours.slice(0, -1).map((hour) => (
                     <div
-                      key={hour}
-                      className="absolute inset-x-0 border-t border-slate-100"
-                      style={{ top: (hour - 7) * WEEK_HOUR_HEIGHT_PX }}
+                      key={`line-${dayISO}-${hour}`}
+                      className="pointer-events-none absolute inset-x-0 border-t border-slate-100"
+                      style={{ top: (hour - WEEK_HOUR_START) * WEEK_HOUR_HEIGHT_PX }}
                     />
                   ))}
 
-                  {isToday && nowTop !== null && (
+                  {isToday && getNowIndicatorTopPx() !== null && (
                     <div
                       className="pointer-events-none absolute inset-x-0 z-20 flex items-center"
-                      style={{ top: nowTop }}
+                      style={{ top: getNowIndicatorTopPx()! }}
                     >
                       <span className="-ml-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
                       <span className="h-0.5 flex-1 bg-red-500" />
@@ -120,7 +142,10 @@ export function CalendarWeekGrid({
                     <CalendarWeekEventBlock
                       key={event.id}
                       event={event}
-                      onClick={() => onEventClick?.(dayISO)}
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        onEventClick?.(dayISO);
+                      }}
                     />
                   ))}
                 </div>

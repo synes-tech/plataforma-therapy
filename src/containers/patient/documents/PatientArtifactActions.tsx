@@ -18,6 +18,7 @@ const iconBtnClass =
 interface PatientArtifactActionsProps {
   artifact: PatientArtifact;
   onView?: (artifact: PatientArtifact) => void;
+  onEdit?: (artifact: PatientArtifact) => void;
   onExportPdf: (artifact: PatientArtifact) => void;
   onRequestDelete: (artifact: PatientArtifact) => void;
   exportingId: string | null;
@@ -28,6 +29,7 @@ interface PatientArtifactActionsProps {
 export function PatientArtifactActions({
   artifact,
   onView,
+  onEdit,
   onExportPdf,
   onRequestDelete,
   exportingId,
@@ -37,10 +39,21 @@ export function PatientArtifactActions({
   const isExporting = exportingId === artifact.id;
   const isDeleting = deletingId === artifact.id;
   const isBusy = isExporting || isDeleting;
+  const canEdit = !artifact.is_legacy && !!onEdit;
 
   if (layout === 'modal') {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => onEdit(artifact)}
+            disabled={isBusy}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+          >
+            Editar
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => onExportPdf(artifact)}
@@ -78,6 +91,18 @@ export function PatientArtifactActions({
           aria-label="Visualizar documento"
         >
           VISUALIZAR
+        </button>
+      ) : null}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={() => onEdit(artifact)}
+          disabled={isBusy}
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold tracking-wide text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+          aria-label="Editar documento"
+          title="Editar"
+        >
+          EDITAR
         </button>
       ) : null}
       <button

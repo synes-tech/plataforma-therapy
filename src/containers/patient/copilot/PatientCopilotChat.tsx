@@ -13,9 +13,13 @@ import {
   removeSavedType,
 } from './patient-copilot-saved-state';
 import { buildConversationHistory, patientFirstName } from './patient-copilot.utils';
+import { PatientCopilotSaveArtifactModal } from './PatientCopilotSaveArtifactModal';
+import { AI_ARTIFACT_OPTIONS } from './patient-copilot-artifact.constants';
+import { buildArtifactSaveToast } from './patient-copilot-family-share.utils';
 import type { AiArtifactType, CopilotMessage } from './patient-copilot.types';
 import { usePatientCopilotSavedArtifacts } from './usePatientCopilotSavedArtifacts';
 import { useCopilotAudioInput } from './useCopilotAudioInput';
+import { Toast } from '../Toast';
 
 export interface PatientCopilotChatProps {
   patientId: string;
@@ -26,6 +30,12 @@ export interface PatientCopilotChatProps {
 
 interface SavingTarget {
   messageId: string;
+  tipo: AiArtifactType;
+}
+
+interface PendingSaveTarget {
+  messageId: string;
+  content: string;
   tipo: AiArtifactType;
 }
 
@@ -45,6 +55,8 @@ export function PatientCopilotChat({
   const [savedByMessage, setSavedByMessage] = useState<Record<string, Set<AiArtifactType>>>({});
   const [savedArtifactIdsByMessage, setSavedArtifactIdsByMessage] = useState<SavedArtifactIdsByMessage>({});
   const [saving, setSaving] = useState<SavingTarget | null>(null);
+  const [pendingSave, setPendingSave] = useState<PendingSaveTarget | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fingerprintCacheRef = useRef(new Map<string, string>());
@@ -76,6 +88,8 @@ export function PatientCopilotChat({
     setSavedByMessage({});
     setSavedArtifactIdsByMessage({});
     setSaving(null);
+    setPendingSave(null);
+    setToast(null);
     fingerprintCacheRef.current.clear();
   }, [patientId]);
 
@@ -120,28 +134,47 @@ export function PatientCopilotChat({
     [navigate, patientId],
   );
 
-  const handleSaveArtifact = useCallback(
-    async (messageId: string, content: string, tipo: AiArtifactType) => {
-      if (saving) return;
+  const handleRequestSave = useCallback((messageId: string, content: string, tipo: AiArtifactType) => {
+    if (saving) return;
+    setPendingSave({ messageId, content, tipo });
+  }, [saving]);
 
+  const handleConfirmSave = useCallback(
+    async (compartilhadoFamilia: boolean) => {
+      if (!pendingSave || saving) return;
+
+      const { messageId, content, tipo } = pendingSave;
       setSaving({ messageId, tipo });
       setSavedByMessage((prev) => mergeSavedType(prev, messageId, tipo));
 
       try {
-        const result = await saveArtifact(content, tipo);
+        const result = await saveArtifact(content, tipo, compartilhadoFamilia);
         setSavedArtifactIdsByMessage((prev) => ({
           ...prev,
           [messageId]: { ...prev[messageId], [tipo]: result.artifactId },
         }));
+        setPendingSave(null);
+        setToast({
+          message: buildArtifactSaveToast(tipo, compartilhadoFamilia),
+          variant: 'success',
+        });
       } catch (err) {
         setSavedByMessage((prev) => removeSavedType(prev, messageId, tipo));
+        setToast({
+          message: err instanceof Error ? err.message : 'Falha ao salvar artefato',
+          variant: 'error',
+        });
         console.error('Falha ao salvar artefato:', err);
       } finally {
         setSaving(null);
       }
     },
-    [saveArtifact, saving],
+    [pendingSave, saveArtifact, saving],
   );
+
+  const pendingSaveOption = pendingSave
+    ? AI_ARTIFACT_OPTIONS.find((option) => option.type === pendingSave.tipo)
+    : null;
 
   async function streamReply(userMessage: string, assistantId: string, historySnapshot: CopilotMessage[]) {
     const conversationHistory = buildConversationHistory(historySnapshot);
@@ -261,7 +294,7 @@ export function PatientCopilotChat({
                 savedTypes={savedByMessage[msg.id] ?? EMPTY_SAVED_TYPES}
                 savingType={saving?.messageId === msg.id ? saving.tipo : null}
                 savedArtifactIds={savedArtifactIdsByMessage[msg.id] ?? {}}
-                onSaveArtifact={(tipo) => void handleSaveArtifact(msg.id, msg.content, tipo)}
+                onRequestSave={(tipo) => handleRequestSave(msg.id, msg.content, tipo)}
                 onViewArtifact={viewArtifact}
                 onViewDocuments={viewDocuments}
               />
@@ -270,6 +303,25 @@ export function PatientCopilotChat({
           </div>
         )}
       </div>
+
+      <PatientCopilotSaveArtifactModal
+        isOpen={pendingSave !== null}
+        artifactLabel={pendingSaveOption?.label ?? 'Documento'}
+        contentPreview={pendingSave?.content ?? ''}
+        tipo={pendingSave?.tipo ?? null}
+        isSaving={saving !== null}
+        onClose={() => {
+          if (!saving) setPendingSave(null);
+        }}
+        onConfirm={(compartilhadoFamilia) => void handleConfirmSave(compartilhadoFamilia)}
+      />
+
+      <Toast
+        message={toast?.message ?? ''}
+        visible={toast !== null}
+        variant={toast?.variant ?? 'success'}
+        onDismiss={() => setToast(null)}
+      />
 
       <PatientCopilotChatInput
         value={input}

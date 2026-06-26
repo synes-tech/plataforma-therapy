@@ -26,6 +26,9 @@ Identidade visual e Design System: `identidade-visual.md`
 
 - **Modais:** usar SEMPRE `src/shared/ui/StandardModal.tsx` para formulários de criação/edição e confirmações (centralizado no desktop, bottom sheet no mobile). Proibido formulário inline que empurra a lista ou modal ad-hoc.
 - **Identidade visual:** seguir `identidade-visual.md` (tokens de cor, tipografia serif/display/sans, surfaces brancas sobre `#F8FAF9`). As telas devem conversar entre si.
+- **Markdown de IA:** todo texto gerado por IA em Markdown deve ser exibido via `src/shared/ui/AiMarkdownContent.tsx` (nunca raw com `**`, `##`, etc.). Aplicar no chat, artefatos salvos, resumos de sessão, previews e portal família. Variantes: `light` (padrão), `dark` (painéis executivos), `compact` (cards).
+- **Convite familiar:** preview assíncrono do paciente em `containers/family/invite-link/`; botão de confirmação só habilita após `preview-invite` válido.
+- **Deploy Supabase:** toda entrega com migration ou Edge Function nova deve incluir deploy remoto validado (Agente DBA §8). Nunca encerrar só avisando “deploy necessário”.
 
 ## Regras de execução
 

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { InlineLoadingButton } from '@containers/loading';
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 import { SessionAudioPlayer } from '../session/SessionAudioPlayer';
 import { exportSessionSummaryPdf } from '../session/exportSessionSummaryPdf';
 import {
@@ -21,24 +22,7 @@ interface PatientSessionReadModalProps {
 }
 
 function MarkdownSummary({ content }: { content: string }) {
-  const lines = content.split('\n');
-
-  return (
-    <div className="space-y-2 text-sm leading-relaxed text-charcoal">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-1" />;
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h5 key={idx} className="pt-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              {trimmed.replace(/^##\s+/, '')}
-            </h5>
-          );
-        }
-        return <p key={idx}>{trimmed}</p>;
-      })}
-    </div>
-  );
+  return <AiMarkdownContent content={content} variant="light" />;
 }
 
 export function PatientSessionReadModal({

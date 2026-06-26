@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
+import { InviteCodeField } from '@containers/family/invite-link/InviteCodeField';
+import { InvitePatientSafetyCheck } from '@containers/family/invite-link/InvitePatientSafetyCheck';
+import { useInviteCodePreview } from '@containers/family/invite-link/useInviteCodePreview';
 import type { ApiResponse } from '@shared/types';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
@@ -30,8 +33,17 @@ export default function RegisterFamily() {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const invitePreview = useInviteCodePreview(code);
+  const canSubmit =
+    invitePreview.isVerified &&
+    name.trim().length >= 2 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
+    !isSubmitting;
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError(null);
     setIsSubmitting(true);
 
@@ -43,7 +55,7 @@ export default function RegisterFamily() {
           name: name.trim(),
           email: email.trim(),
           password,
-          invite_code: code.trim(),
+          invite_code: invitePreview.normalizedCode,
         }),
       });
 
@@ -279,18 +291,20 @@ export default function RegisterFamily() {
                     </div>
                   </Field>
 
-                  <Field label="Código de convite" htmlFor="code">
-                    <input
-                      id="code"
-                      type="text"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.slice(0, 8))}
-                      required
-                      maxLength={8}
-                      placeholder="AbC12xYz"
-                      className={`${inputClass} font-mono text-base tracking-[0.25em] sm:text-lg sm:tracking-[0.3em]`}
-                    />
-                  </Field>
+                  <InviteCodeField
+                    id="code"
+                    label="Código de convite"
+                    value={code}
+                    onChange={setCode}
+                    inputClassName={`${inputClass} font-mono text-base tracking-[0.25em] sm:text-lg sm:tracking-[0.3em]`}
+                    helperText="Cole ou digite os 8 caracteres enviados pelo terapeuta."
+                  />
+
+                  <InvitePatientSafetyCheck
+                    status={invitePreview.status}
+                    patientName={invitePreview.patientName}
+                    error={invitePreview.error}
+                  />
 
                   <LoadingButton
                     type="submit"
@@ -298,6 +312,7 @@ export default function RegisterFamily() {
                     loadingLabel="Criando conta..."
                     variant="dark"
                     fullWidth
+                    disabled={!canSubmit}
                     className="mt-1 h-11 sm:mt-2 sm:h-12 [@media(max-height:640px)]:h-10 [@media(max-height:640px)]:text-xs"
                   >
                     Criar conta e vincular

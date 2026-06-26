@@ -226,6 +226,8 @@ OUTPUT ESPERADO:
 1. **Sempre respeitar dependências.** Nunca acionar Frontend sem ter API pronta. Nunca acionar Backend sem ter schema.
 2. **DBA antes de Backend. Backend antes de Frontend. QA após Frontend. Segurança fecha a fase.**
 3. **IA (3) é acionado em paralelo com Backend (2)** nas fases 4 e 5, pois precisam co-criar.
+4. **Markdown de IA:** toda entrega que exibe texto gerado por LLM no frontend deve usar `AiMarkdownContent` (ver Agente Frontend §4.6).
+5. **Deploy remoto:** entregas com migration ou Edge Function nova exigem deploy + validação no Supabase antes de encerrar (ver Agente DBA §8). Proibido finalizar só com “deploy necessário”.
 
 ### 6.2 Bloqueios e Desvios
 * Se um agente está bloqueado por dependência não entregue, reordene: puxe outra entrega não-bloqueada da mesma fase.

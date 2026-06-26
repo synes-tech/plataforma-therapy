@@ -59,7 +59,7 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
   const savedKeysSerialized = useMemo(() => serializeSavedKeys(savedKeys), [savedKeys]);
 
   const saveArtifact = useCallback(
-    async (content: string, tipo: AiArtifactType) => {
+    async (content: string, tipo: AiArtifactType, compartilhadoFamilia = false) => {
       const fingerprint = await artifactFingerprint(content);
       const key = artifactSaveKey(fingerprint, tipo);
 
@@ -68,12 +68,14 @@ export function usePatientCopilotSavedArtifacts(patientId: string) {
         criado_em: string;
         artifact_fingerprint: string;
         tipo_artefato: AiArtifactType;
+        compartilhado_familia: boolean;
         already_saved: boolean;
         message: string;
       }>('save-ai-artifact', {
         patient_id: patientId,
         conteudo_texto: content,
         tipo_artefato: tipo,
+        compartilhado_familia: compartilhadoFamilia,
       });
 
       setLocalKeys((prev) => {

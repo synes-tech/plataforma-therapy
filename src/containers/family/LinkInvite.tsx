@@ -1,10 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
+import { InviteCodeField } from '@containers/family/invite-link/InviteCodeField';
+import { InvitePatientSafetyCheck } from '@containers/family/invite-link/InvitePatientSafetyCheck';
+import { useInviteCodePreview } from '@containers/family/invite-link/useInviteCodePreview';
 import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+
+const codeInputClass =
+  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-mono text-lg tracking-[0.3em] text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10';
 
 /**
  * LinkInvite — vínculo de código para quem já está autenticado mas ainda
@@ -18,12 +24,20 @@ export default function LinkInvite() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const preview = useInviteCodePreview(code);
+  const canSubmit = preview.isVerified && name.trim().length >= 2 && !isSubmitting;
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
+
     setError(null);
     setIsSubmitting(true);
     try {
-      await callFunction('link-family-account', { invite_code: code.trim(), name });
+      await callFunction('link-family-account', {
+        invite_code: preview.normalizedCode,
+        name: name.trim(),
+      });
       await supabase.auth.refreshSession();
       navigate('/family/diary', { replace: true });
     } catch (err) {
@@ -75,21 +89,19 @@ export default function LinkInvite() {
               />
             </div>
 
-            <div>
-              <label htmlFor="link-code" className="mb-1.5 block text-sm font-medium text-charcoal">
-                Código (8 caracteres)
-              </label>
-              <input
-                id="link-code"
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.slice(0, 8))}
-                required
-                maxLength={8}
-                placeholder="AbC12xYz"
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-mono text-lg tracking-[0.3em] text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
-              />
-            </div>
+            <InviteCodeField
+              id="link-code"
+              label="Código (8 caracteres)"
+              value={code}
+              onChange={setCode}
+              inputClassName={codeInputClass}
+            />
+
+            <InvitePatientSafetyCheck
+              status={preview.status}
+              patientName={preview.patientName}
+              error={preview.error}
+            />
 
             <LoadingButton
               type="submit"
@@ -97,7 +109,7 @@ export default function LinkInvite() {
               loadingLabel="Vinculando..."
               variant="dark"
               fullWidth
-              disabled={code.length !== 8 || !name}
+              disabled={!canSubmit}
               className="mt-2 h-12"
             >
               Vincular

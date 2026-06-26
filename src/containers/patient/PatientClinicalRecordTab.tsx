@@ -127,9 +127,10 @@ export function PatientClinicalRecordTab({
     if (generatingPdf) return;
     setGeneratingPdf(true);
     try {
-      const { exportClinicalRecordPdf } = await import('@features/pdf/exportClinicalRecordPdf');
-      await exportClinicalRecordPdf(patientId, form);
-      setToast({ message: 'PDF da ficha clínica gerado com sucesso', variant: 'success' });
+      const { exportClinicalRecordPdf } = await import('@containers/pdf/exportClinicalRecordPdf');
+      const { pdfDeliverySuccessMessage } = await import('@containers/pdf/pdf-delivery.messages');
+      const result = await exportClinicalRecordPdf(patientId, form);
+      setToast({ message: pdfDeliverySuccessMessage(result), variant: 'success' });
     } catch (err) {
       setToast({
         message: err instanceof Error ? err.message : 'Não foi possível gerar o PDF',

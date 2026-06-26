@@ -1,5 +1,5 @@
-import DOMPurify from 'dompurify';
 import { ThinkingIndicator } from '@features/copilot/ThinkingIndicator';
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 import { PatientCopilotArtifactToolbar } from './PatientCopilotArtifactToolbar';
 import { DOC_TYPE_LABELS } from './patient-copilot.constants';
@@ -10,7 +10,7 @@ interface PatientCopilotMessageBubbleProps {
   savedTypes: Set<AiArtifactType>;
   savingType: AiArtifactType | null;
   savedArtifactIds: Partial<Record<AiArtifactType, string>>;
-  onSaveArtifact: (tipo: AiArtifactType) => void;
+  onRequestSave: (tipo: AiArtifactType) => void;
   onViewArtifact: (artifactId: string) => void;
   onViewDocuments: () => void;
 }
@@ -20,7 +20,7 @@ export function PatientCopilotMessageBubble({
   savedTypes,
   savingType,
   savedArtifactIds,
-  onSaveArtifact,
+  onRequestSave,
   onViewArtifact,
   onViewDocuments,
 }: PatientCopilotMessageBubbleProps) {
@@ -60,12 +60,9 @@ export function PatientCopilotMessageBubble({
         {message.streaming && !message.content && <ThinkingIndicator />}
 
         {message.content && (
-          <p
-            className="animate-fade-in whitespace-pre-wrap text-sm leading-relaxed text-gray-900"
-            dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(message.content, { ALLOWED_TAGS: [] }),
-            }}
-          />
+          <div className="animate-fade-in text-gray-900">
+            <AiMarkdownContent content={message.content} variant="light" />
+          </div>
         )}
 
         {message.streaming && message.content && (
@@ -108,7 +105,7 @@ export function PatientCopilotMessageBubble({
             savedTypes={savedTypes}
             savingType={savingType}
             savedArtifactIds={savedArtifactIds}
-            onSave={(tipo) => onSaveArtifact(tipo)}
+            onRequestSave={onRequestSave}
             onViewArtifact={onViewArtifact}
             onViewDocuments={onViewDocuments}
           />

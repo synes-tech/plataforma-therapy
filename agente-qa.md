@@ -33,6 +33,7 @@ Sua missão é garantir a integridade funcional, de segurança e de performance 
   - Cálculo de cotas e limites (profissional atingiu limite de pacientes?).
   - Funções de autorização (RBAC helpers: `canUserAccessPatient()`).
   - Guardrails de IA (filtros de input/output).
+  - Parser de Markdown de IA (`parseMarkdownContent`, `formatInlineMarkdown` em `src/shared/ui/ai-markdown.utils.ts`).
 * **Mocking:** Isolar dependências externas (Supabase Client, APIs de LLM, Storage) com mocks tipados. Teste unitário não depende de rede.
 * **Padrão de teste:**
 ```typescript

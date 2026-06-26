@@ -2,6 +2,10 @@ import type { SessionSoapContent } from './session-history.types';
 
 /** Gera markdown estruturado a partir do SOAP (notas legadas sem summary_markdown). */
 export function soapToSummaryMarkdown(soap: SessionSoapContent): string {
+  if (soap.clinical_raw_text?.trim()) {
+    return soap.clinical_raw_text.trim();
+  }
+
   if (soap.summary_markdown?.trim()) {
     return soap.summary_markdown.trim();
   }

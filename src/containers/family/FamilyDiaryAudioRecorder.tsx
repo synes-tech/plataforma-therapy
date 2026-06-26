@@ -14,6 +14,9 @@ interface FamilyDiaryAudioRecorderProps {
   patientId: string;
   onTranscription: (result: FamilyAudioResult) => void;
   disabled?: boolean;
+  /** Destaque como opção principal do check-in */
+  prominent?: boolean;
+  className?: string;
 }
 
 type RecorderState = 'idle' | 'recording' | 'preview' | 'uploading' | 'transcribing' | 'error';
@@ -44,6 +47,8 @@ export function FamilyDiaryAudioRecorder({
   patientId,
   onTranscription,
   disabled = false,
+  prominent = false,
+  className = '',
 }: FamilyDiaryAudioRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle');
   const [duration, setDuration] = useState(0);
@@ -226,14 +231,28 @@ export function FamilyDiaryAudioRecorder({
 
   return (
     <section
-      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft lg:col-span-2"
-      aria-label="Gravação de áudio do dia"
+      className={`w-full rounded-2xl border p-4 shadow-soft sm:p-5 ${
+        prominent
+          ? 'border-primary/25 bg-gradient-to-b from-primary-50/50 to-white'
+          : 'border-slate-200/80 bg-white'
+      } ${className}`.trim()}
+      aria-label="Gravação de áudio do check-in"
     >
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h4 className="text-sm font-medium text-charcoal">Relatar o dia em áudio</h4>
-          <p className="mt-0.5 text-xs text-charcoal-muted">
-            Grave um relato curto — a IA transcreve e você pode revisar antes de enviar.
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-sm font-semibold text-charcoal sm:text-base">
+              {prominent ? 'Grave seu check-in em áudio' : 'Relatar o dia em áudio'}
+            </h4>
+            {prominent ? (
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                Recomendado
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-charcoal-muted sm:text-sm">
+            Toque no microfone e conte como foi o momento. A transcrição aparece abaixo para você revisar antes de
+            registrar.
           </p>
         </div>
         {state === 'recording' && (
@@ -302,10 +321,17 @@ export function FamilyDiaryAudioRecorder({
             type="button"
             onClick={startRecording}
             disabled={disabled}
-            className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-primary text-white shadow-md transition-transform hover:bg-primary-dark active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex items-center justify-center rounded-full bg-primary text-white shadow-md transition-transform hover:bg-primary-dark active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+              prominent ? 'h-20 w-20 sm:h-24 sm:w-24' : 'h-[4.5rem] w-[4.5rem]'
+            }`}
             aria-label="Iniciar gravação de áudio"
           >
-            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <svg
+              className={prominent ? 'h-9 w-9 sm:h-10 sm:w-10' : 'h-7 w-7'}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
             </svg>

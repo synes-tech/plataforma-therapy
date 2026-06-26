@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { InlineLoadingButton, ListPageSkeleton } from '@containers/loading';
 import type { AlertItem } from './dashboard.types';
-import {
-  getAlertCheckinPath,
-  getAlertEmoji,
-  getAlertSummary,
-} from './dashboard-alert-summary.utils';
+import { sortAlertsByPriority } from './dashboard-alert-summary.utils';
+import { DashboardAlertRow } from './DashboardAlertRow';
 import { useClearDashboardAlerts } from './useClearDashboardAlerts';
+import { useDismissDashboardAlert } from './useDismissDashboardAlert';
+import {
+  DASHBOARD_ALERTS_SUBTITLE,
+  DASHBOARD_ALERTS_SUBTITLE_CLASS,
+  DASHBOARD_ALERTS_TITLE,
+  DASHBOARD_ALERTS_TITLE_CLASS,
+} from './dashboard-alerts.constants';
 
 function CheckCircleIcon() {
   return (
@@ -23,43 +26,6 @@ function MutedBellIllustration() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" opacity="0.35" />
     </svg>
-  );
-}
-
-function AlertRow({ alert }: { alert: AlertItem }) {
-  const isCrisis = alert.type === 'crisis';
-  const checkinPath = getAlertCheckinPath(alert);
-
-  return (
-    <div
-      className={`flex items-center gap-2.5 rounded-xl border border-[#EDE4DC]/45 border-l-[3px] bg-white/45 px-3 py-2.5 ${isCrisis ? 'border-l-alert' : 'border-l-mint'}`}
-    >
-      <span className="shrink-0 text-base leading-none" aria-hidden>
-        {getAlertEmoji(alert.type)}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-tight text-charcoal">
-          {alert.patient?.name ?? 'Paciente'}
-        </p>
-        <p className="mt-0.5 truncate text-[11px] leading-snug text-charcoal-muted">
-          {getAlertSummary(alert)}
-        </p>
-      </div>
-
-      {checkinPath ? (
-        <Link
-          to={checkinPath}
-          className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-white px-3 text-xs font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary-50"
-        >
-          Ver
-        </Link>
-      ) : (
-        <span className="inline-flex h-8 shrink-0 items-center rounded-lg px-3 text-xs text-charcoal-muted/50">
-          —
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -98,8 +64,13 @@ interface DashboardAlertsCardProps {
 
 export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProps) {
   const clearMutation = useClearDashboardAlerts();
+  const dismissMutation = useDismissDashboardAlert();
   const [fadingOut, setFadingOut] = useState(false);
   const [justCleared, setJustCleared] = useState(false);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(() => new Set());
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
+
+  const sortedAlerts = useMemo(() => sortAlertsByPriority(alerts), [alerts]);
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -108,7 +79,7 @@ export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProp
   }, [alerts.length]);
 
   async function handleClearAll() {
-    if (alerts.length === 0 || clearMutation.isPending) return;
+    if (alerts.length === 0 || clearMutation.isPending || dismissMutation.isPending) return;
 
     setFadingOut(true);
 
@@ -121,20 +92,51 @@ export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProp
     }
   }
 
+  async function handleDismissOne(alertId: string) {
+    if (dismissMutation.isPending || clearMutation.isPending) return;
+
+    setDismissingId(alertId);
+    setRemovingIds((current) => new Set(current).add(alertId));
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      await dismissMutation.mutateAsync(alertId);
+
+      if (alerts.length <= 1) {
+        setJustCleared(true);
+      }
+    } catch {
+      setRemovingIds((current) => {
+        const next = new Set(current);
+        next.delete(alertId);
+        return next;
+      });
+    } finally {
+      setDismissingId(null);
+    }
+  }
+
   const showClearedEmpty = justCleared && alerts.length === 0;
   const showDefaultEmpty = !justCleared && alerts.length === 0;
 
   return (
-    <section className="lg:col-span-4" aria-labelledby="alerts-title">
-      <div className="mb-4 flex min-w-0 items-center gap-2">
-        <h2 id="alerts-title" className="font-display text-base font-semibold text-charcoal">
-          Alertas nos Últimos 7 Dias
-        </h2>
-        {alerts.length > 0 && (
-          <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
-            {alerts.length}
-          </span>
-        )}
+    <section className="lg:col-span-4" aria-labelledby="alerts-title" aria-describedby="alerts-subtitle">
+      <div className="mb-4 flex min-w-0 items-start gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="alerts-title" className={DASHBOARD_ALERTS_TITLE_CLASS}>
+              {DASHBOARD_ALERTS_TITLE}
+            </h2>
+            {alerts.length > 0 && (
+              <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
+                {alerts.length}
+              </span>
+            )}
+          </div>
+          <p id="alerts-subtitle" className={DASHBOARD_ALERTS_SUBTITLE_CLASS}>
+            {DASHBOARD_ALERTS_SUBTITLE}
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -150,20 +152,29 @@ export function DashboardAlertsCard({ alerts, loading }: DashboardAlertsCardProp
           }`}
         >
           <div className="max-h-80 space-y-2 overflow-y-auto p-3 scrollbar-thin">
-            {alerts.map((alert) => (
-              <AlertRow key={alert.id} alert={alert} />
+            {sortedAlerts.map((alert) => (
+              <DashboardAlertRow
+                key={alert.id}
+                alert={alert}
+                onDismiss={(alertId) => void handleDismissOne(alertId)}
+                dismissing={dismissingId === alert.id}
+                removing={removingIds.has(alert.id)}
+              />
             ))}
           </div>
 
-          <div className="flex justify-end border-t border-[#EDE4DC]/40 px-3 py-2.5">
+          <div className="flex flex-col gap-1 border-t border-[#EDE4DC]/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-charcoal-muted/80">
+              Dispense um alerta com <span className="font-medium text-charcoal-muted">Lido</span> ou limpe todos de uma vez.
+            </p>
             <InlineLoadingButton
               type="button"
               onClick={() => void handleClearAll()}
               loading={clearMutation.isPending}
-              disabled={fadingOut}
-              className="text-xs text-charcoal-muted transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={fadingOut || dismissMutation.isPending}
+              className="shrink-0 text-xs text-charcoal-muted transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Marcar como lidos
+              Marcar todos como lidos
             </InlineLoadingButton>
           </div>
         </div>

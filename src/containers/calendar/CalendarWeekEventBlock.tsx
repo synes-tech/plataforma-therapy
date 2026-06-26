@@ -11,7 +11,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string }> = {
 
 interface CalendarWeekEventBlockProps {
   event: LayoutedWeekEvent;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export function CalendarWeekEventBlock({ event, onClick }: CalendarWeekEventBlockProps) {
@@ -25,7 +25,7 @@ export function CalendarWeekEventBlock({ event, onClick }: CalendarWeekEventBloc
     <button
       type="button"
       onClick={onClick}
-      className={`absolute overflow-hidden rounded-lg border-l-4 px-2 py-1 text-left shadow-sm transition-shadow hover:shadow-md ${style.bg} ${style.border}`}
+      className={`absolute z-10 overflow-hidden rounded-lg border-l-4 px-2 py-1 text-left shadow-sm transition-shadow hover:shadow-md ${style.bg} ${style.border}`}
       style={{
         top: `${top}px`,
         height: `${height}px`,

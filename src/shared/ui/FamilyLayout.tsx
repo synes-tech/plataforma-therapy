@@ -11,6 +11,8 @@ interface FamilyLayoutProps {
 
 interface NavItem {
   label: string;
+  /** Rótulo curto na barra inferior mobile */
+  mobileLabel?: string;
   href: string;
   icon: React.ReactNode;
 }
@@ -35,7 +37,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Combinados',
+    label: 'Relatórios e Combinados',
+    mobileLabel: 'Combinados',
     href: '/family/agreements',
     icon: (
       <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -178,7 +181,7 @@ export function FamilyLayout({ children }: FamilyLayoutProps) {
         </header>
 
         <main className="flex-1 overflow-y-auto px-5 pb-28 pt-5 lg:px-8 lg:pb-8 lg:pt-8">
-          <div className="mx-auto w-full max-w-3xl">{children}</div>
+          <div className="w-full min-w-0">{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
@@ -208,7 +211,7 @@ export function FamilyLayout({ children }: FamilyLayoutProps) {
                     )}
                   </svg>
                 </span>
-                {item.label}
+                {item.mobileLabel ?? item.label}
               </Link>
             );
           })}

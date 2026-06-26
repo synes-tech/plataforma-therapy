@@ -1,86 +1,79 @@
-import { sanitizeFilename } from '@features/pdf/pdfUtils';
+import { PremiumMarkdownPdfDocument } from '@containers/pdf/PremiumMarkdownPdfDocument';
+import { deliverPdfBlob, type PdfDeliveryResult } from '@containers/pdf/deliverPdfBlob';
+import {
+  injectProfessionalPlaceholders,
+  injectProfessionalPlaceholdersInBlocks,
+  markdownToPdfBlocks,
+  sanitizeFilename,
+} from '@containers/pdf/pdf-content.utils';
+import { fetchPdfExportContext } from '@containers/pdf/pdf-context.service';
 import { ARTIFACT_BADGE_CONFIG } from './patient-artifacts.constants';
 import {
-  buildArtifactTitle,
   formatArtifactDate,
+  resolveArtifactTitle,
 } from './patient-artifacts.format';
 import type { PatientArtifact } from './patient-artifacts.types';
-import type { ArtifactPdfPayload } from './ArtifactPdfDocument';
 
-function buildPdfPayload(
-  artifact: PatientArtifact,
-  patientName?: string,
-): ArtifactPdfPayload {
-  const paragraphs = artifact.conteudo_texto
-    .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  return {
-    title: buildArtifactTitle(artifact.tipo_artefato, artifact.criado_em),
-    typeLabel: ARTIFACT_BADGE_CONFIG[artifact.tipo_artefato].label,
-    dateLabel: formatArtifactDate(artifact.criado_em),
-    patientName,
-    paragraphs: paragraphs.length > 0 ? paragraphs : [artifact.conteudo_texto.trim()],
-  };
+function buildContentBlocks(artifact: PatientArtifact) {
+  return markdownToPdfBlocks(artifact.conteudo_texto);
 }
 
 export async function buildArtifactPdfBlob(
   artifact: PatientArtifact,
+  patientId: string,
   patientName?: string,
 ): Promise<Blob> {
+  const exportContext = await fetchPdfExportContext(patientId);
+  const injectedText = injectProfessionalPlaceholders(artifact.conteudo_texto, exportContext.professional);
+  const artifactWithInjection = { ...artifact, conteudo_texto: injectedText };
+
+  const contentBlocks = injectProfessionalPlaceholdersInBlocks(
+    buildContentBlocks(artifactWithInjection),
+    exportContext.professional,
+  );
+
   const { pdf } = await import('@react-pdf/renderer');
-  const { ArtifactPdfDocument } = await import('./ArtifactPdfDocument');
-  const payload = buildPdfPayload(artifact, patientName);
-  return pdf(<ArtifactPdfDocument data={payload} />).toBlob();
+
+  return pdf(
+    <PremiumMarkdownPdfDocument
+      context={exportContext}
+      meta={{
+        documentTitle: resolveArtifactTitle(artifact),
+        documentSubtitle: ARTIFACT_BADGE_CONFIG[artifact.tipo_artefato].label,
+        metaLine: [
+          formatArtifactDate(artifact.criado_em),
+          patientName ? `Paciente: ${patientName}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        disclaimer:
+          'Conteúdo produzido com apoio de IA sob supervisão clínica. Adapte antes de compartilhar com a família, quando aplicável.',
+      }}
+      contentBlocks={contentBlocks}
+    />,
+  ).toBlob();
 }
 
 export async function exportArtifactPdf(
   artifact: PatientArtifact,
+  patientId: string,
   patientName?: string,
-): Promise<void> {
-  const blob = await buildArtifactPdfBlob(artifact, patientName);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+): Promise<PdfDeliveryResult> {
+  const blob = await buildArtifactPdfBlob(artifact, patientId, patientName);
   const date = artifact.criado_em.slice(0, 10);
-  const slug = sanitizeFilename(buildArtifactTitle(artifact.tipo_artefato, artifact.criado_em));
-  link.href = url;
-  link.download = `unithery-doc-${slug}-${date}.pdf`;
-  link.click();
-  URL.revokeObjectURL(url);
+  const title = resolveArtifactTitle(artifact);
+  const slug = sanitizeFilename(title);
+
+  return deliverPdfBlob(blob, `unithery-doc-${slug}-${date}.pdf`, { shareTitle: title });
 }
 
-export type ExportOrSharePdfResult = 'shared' | 'downloaded';
+export type ExportOrSharePdfResult = PdfDeliveryResult;
 
-/** Compartilha PDF nativamente quando possível; senão faz download. */
+/** Entrega PDF conforme dispositivo (preview+download no desktop; share no mobile). */
 export async function exportOrShareArtifactPdf(
   artifact: PatientArtifact,
+  patientId: string,
   patientName?: string,
 ): Promise<ExportOrSharePdfResult> {
-  const blob = await buildArtifactPdfBlob(artifact, patientName);
-  const title = buildArtifactTitle(artifact.tipo_artefato, artifact.criado_em);
-  const date = artifact.criado_em.slice(0, 10);
-  const file = new File([blob], `unithery-documento-${date}.pdf`, { type: 'application/pdf' });
-
-  if (
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files: [file] })
-  ) {
-    try {
-      await navigator.share({ title, files: [file] });
-      return 'shared';
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') throw err;
-    }
-  }
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const slug = sanitizeFilename(title);
-  link.href = url;
-  link.download = `unithery-doc-${slug}-${date}.pdf`;
-  link.click();
-  URL.revokeObjectURL(url);
-  return 'downloaded';
+  return exportArtifactPdf(artifact, patientId, patientName);
 }

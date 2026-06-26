@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
-import DOMPurify from 'dompurify';
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 
 interface CopilotChatProps {
   patientId: string;
@@ -223,13 +223,11 @@ function MessageBubble({ message }: { message: Message }) {
               : 'bg-surface-card text-text'
         }`}
       >
-        {/* Message content — sanitized */}
-        <p
-          className="whitespace-pre-wrap text-sm"
-          dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(message.content, { ALLOWED_TAGS: [] }),
-          }}
-        />
+        {isUser ? (
+          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+        ) : (
+          <AiMarkdownContent content={message.content} variant="light" />
+        )}
 
         {/* Sources */}
         {message.sources && message.sources.length > 0 && (

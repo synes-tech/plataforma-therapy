@@ -1,8 +1,8 @@
-import { ARTIFACT_BADGE_CONFIG } from './patient-artifacts.constants';
+import { ARTIFACT_BADGE_CONFIG, getArtifactVisibilityBadge } from './patient-artifacts.constants';
 import { PatientArtifactActions } from './PatientArtifactActions';
 import {
-  buildArtifactTitle,
   formatArtifactDateShort,
+  resolveArtifactTitle,
   truncateArtifactPreview,
 } from './patient-artifacts.format';
 import type { PatientArtifact } from './patient-artifacts.types';
@@ -10,10 +10,22 @@ import type { PatientArtifact } from './patient-artifacts.types';
 interface PatientArtifactsTableProps {
   items: PatientArtifact[];
   onRead: (artifact: PatientArtifact) => void;
+  onEdit: (artifact: PatientArtifact) => void;
   onExportPdf: (artifact: PatientArtifact) => void;
   onRequestDelete: (artifact: PatientArtifact) => void;
   exportingId: string | null;
   deletingId: string | null;
+}
+
+function ArtifactVisibilityBadge({ shared }: { shared: boolean }) {
+  const badge = getArtifactVisibilityBadge(shared);
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${badge.className}`}
+    >
+      {badge.label}
+    </span>
+  );
 }
 
 function ArtifactTypeBadge({ tipo }: { tipo: PatientArtifact['tipo_artefato'] }) {
@@ -30,6 +42,7 @@ function ArtifactTypeBadge({ tipo }: { tipo: PatientArtifact['tipo_artefato'] })
 export function PatientArtifactsTable({
   items,
   onRead,
+  onEdit,
   onExportPdf,
   onRequestDelete,
   exportingId,
@@ -43,13 +56,14 @@ export function PatientArtifactsTable({
             <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-charcoal-muted">
               <th className="w-[7.5rem] px-5 py-3 font-semibold">Data</th>
               <th className="px-5 py-3 font-semibold">Título / Resumo</th>
+              <th className="w-[12rem] px-5 py-3 font-semibold">Visibilidade</th>
               <th className="w-[8.5rem] px-5 py-3 font-semibold">Tipo</th>
               <th className="w-[17rem] px-5 py-3 text-right font-semibold">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.map((artifact) => {
-              const title = buildArtifactTitle(artifact.tipo_artefato, artifact.criado_em);
+              const title = resolveArtifactTitle(artifact);
               const preview = truncateArtifactPreview(artifact.conteudo_texto);
               const dateShort = formatArtifactDateShort(artifact.criado_em);
 
@@ -63,6 +77,9 @@ export function PatientArtifactsTable({
                     <p className="mt-0.5 line-clamp-1 text-xs text-charcoal-muted">{preview}</p>
                   </td>
                   <td className="px-5 py-3.5">
+                    <ArtifactVisibilityBadge shared={artifact.compartilhado_familia} />
+                  </td>
+                  <td className="px-5 py-3.5">
                     <ArtifactTypeBadge tipo={artifact.tipo_artefato} />
                   </td>
                   <td className="px-5 py-3.5 text-right">
@@ -70,6 +87,7 @@ export function PatientArtifactsTable({
                       <PatientArtifactActions
                         artifact={artifact}
                         onView={onRead}
+                        onEdit={onEdit}
                         onExportPdf={onExportPdf}
                         onRequestDelete={onRequestDelete}
                         exportingId={exportingId}
@@ -100,11 +118,13 @@ export function PatientArtifactsTable({
                   {dateShort || '—'}
                 </time>
                 <ArtifactTypeBadge tipo={artifact.tipo_artefato} />
+                <ArtifactVisibilityBadge shared={artifact.compartilhado_familia} />
               </div>
               <p className="line-clamp-2 text-sm text-charcoal">{preview}</p>
               <PatientArtifactActions
                 artifact={artifact}
                 onView={onRead}
+                onEdit={onEdit}
                 onExportPdf={onExportPdf}
                 onRequestDelete={onRequestDelete}
                 exportingId={exportingId}

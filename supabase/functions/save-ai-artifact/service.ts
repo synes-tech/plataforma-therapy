@@ -3,6 +3,7 @@ import { AppError } from '../_shared/errors.ts';
 import { verifyProfessionalPatientWrite } from '../_shared/verify-patient-access.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import { artifactFingerprint } from './fingerprint.ts';
+import { validateClinicalMarkdown } from '../_shared/clinical-markdown-normalize.ts';
 import type { SaveAiArtifactPayload, SaveAiArtifactResponse } from './types.ts';
 
 const ARTIFACT_LABELS: Record<SaveAiArtifactPayload['tipo_artefato'], string> = {
@@ -17,11 +18,24 @@ export async function saveAiArtifact(
 ): Promise<SaveAiArtifactResponse> {
   const supabase = createServiceClient();
   const ctx = await verifyProfessionalPatientWrite(payload.patient_id, caller);
-  const fingerprint = await artifactFingerprint(payload.conteudo_texto);
+
+  const contentValidation = validateClinicalMarkdown(payload.conteudo_texto);
+  if (!contentValidation.ok) {
+    throw new AppError({
+      code: contentValidation.code,
+      message: contentValidation.message,
+      statusCode: 400,
+    });
+  }
+
+  const normalizedContent = contentValidation.normalized;
+  const fingerprint = await artifactFingerprint(normalizedContent);
+
+  const sharedWithFamily = payload.compartilhado_familia === true;
 
   const { data: existing } = await supabase
     .from('recomendacoes_salvas')
-    .select('id, criado_em')
+    .select('id, criado_em, compartilhado_familia')
     .eq('paciente_id', ctx.patient_id)
     .eq('terapeuta_id', ctx.caller_professional_id)
     .eq('tipo_artefato', payload.tipo_artefato)
@@ -34,6 +48,7 @@ export async function saveAiArtifact(
       criado_em: existing.criado_em,
       artifact_fingerprint: fingerprint,
       tipo_artefato: payload.tipo_artefato,
+      compartilhado_familia: existing.compartilhado_familia === true,
       already_saved: true,
       message: `${ARTIFACT_LABELS[payload.tipo_artefato]} já estava salvo`,
     };
@@ -43,8 +58,9 @@ export async function saveAiArtifact(
   const conteudo = {
     source: 'copilot_chat',
     tipo_artefato: payload.tipo_artefato,
-    text: payload.conteudo_texto,
+    text: normalizedContent,
     saved_at: now,
+    shared_with_family: sharedWithFamily,
   };
 
   const { data, error } = await supabase
@@ -54,11 +70,12 @@ export async function saveAiArtifact(
       terapeuta_id: ctx.caller_professional_id,
       clinica_id: ctx.clinic_id,
       tipo_artefato: payload.tipo_artefato,
-      conteudo_texto: payload.conteudo_texto,
+      conteudo_texto: normalizedContent,
       artifact_fingerprint: fingerprint,
+      compartilhado_familia: sharedWithFamily,
       conteudo,
     })
-    .select('id, criado_em')
+    .select('id, criado_em, compartilhado_familia')
     .single();
 
   if (error || !data) {
@@ -79,6 +96,7 @@ export async function saveAiArtifact(
       patient_id: ctx.patient_id,
       tipo_artefato: payload.tipo_artefato,
       artifact_fingerprint: fingerprint,
+      compartilhado_familia: sharedWithFamily,
     },
   });
 
@@ -87,6 +105,7 @@ export async function saveAiArtifact(
     criado_em: data.criado_em,
     artifact_fingerprint: fingerprint,
     tipo_artefato: payload.tipo_artefato,
+    compartilhado_familia: data.compartilhado_familia === true,
     already_saved: false,
     message: `${ARTIFACT_LABELS[payload.tipo_artefato]} salvo com sucesso`,
   };

@@ -147,7 +147,12 @@ export default function IACopilot() {
 
         {/* Coluna 3 — Plano (desktop) */}
         <aside className="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white lg:flex xl:w-80">
-          <PlanSidebar patientName={selected?.name} items={planItems} onRemove={handleRemoveFromPlan} />
+          <PlanSidebar
+            patientId={selected?.id}
+            patientName={selected?.name}
+            items={planItems}
+            onRemove={handleRemoveFromPlan}
+          />
         </aside>
       </div>
 
@@ -159,7 +164,12 @@ export default function IACopilot() {
         size="md"
       >
         <div className="h-[60dvh]">
-          <PlanSidebar patientName={selected?.name} items={planItems} onRemove={handleRemoveFromPlan} />
+          <PlanSidebar
+            patientId={selected?.id}
+            patientName={selected?.name}
+            items={planItems}
+            onRemove={handleRemoveFromPlan}
+          />
         </div>
       </StandardModal>
     </div>

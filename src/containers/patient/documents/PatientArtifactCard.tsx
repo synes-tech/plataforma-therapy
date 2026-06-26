@@ -1,3 +1,4 @@
+import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
 import { ARTIFACT_BADGE_CONFIG } from './patient-artifacts.constants';
 import { formatArtifactDate } from './patient-artifacts.format';
 import type { PatientArtifact } from './patient-artifacts.types';
@@ -58,9 +59,7 @@ export function PatientArtifactCard({
       </header>
 
       <div className="px-4 py-4 sm:px-5">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-          {artifact.conteudo_texto}
-        </p>
+        <AiMarkdownContent content={artifact.conteudo_texto} variant="compact" />
       </div>
 
       <footer className="flex items-center justify-end gap-1 border-t border-slate-50 px-3 py-2 sm:px-4">

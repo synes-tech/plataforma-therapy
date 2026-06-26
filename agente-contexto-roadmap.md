@@ -15,6 +15,8 @@ Clínicas de terapia multidisciplinar e terapeutas autônomos (Psicólogos, Psic
 * IA de Perfil Individualizado e Isolado por paciente.
 * Onboarding Facilitado por Áudio (grava → transcreve → estrutura perfil).
 * Copiloto de Sessão com Sugestão Dinâmica de Tarefas.
+* **Apresentação clínica legível:** respostas e relatórios da IA são gerados em Markdown e exibidos formatados na UI (títulos, negrito, listas) — nunca como sintaxe crua.
+* **Pré-visualização de convite:** ao digitar/colar o código de 8 caracteres no onboarding familiar, a plataforma exibe o **nome do paciente** vinculado antes de habilitar a confirmação final (previne vínculo errado).
 
 ---
 

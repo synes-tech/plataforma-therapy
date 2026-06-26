@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -17,16 +17,28 @@ interface Props {
   onClose: () => void;
   /** Pre-filled date (YYYY-MM-DD) from the calendar click */
   defaultDate: string;
+  /** Pre-filled time (HH:mm) from week grid click */
+  defaultTime?: string;
 }
 
-export function NewScheduleModal({ isOpen, onClose, defaultDate }: Props) {
+export function NewScheduleModal({ isOpen, onClose, defaultDate, defaultTime = '09:00' }: Props) {
   const queryClient = useQueryClient();
   const [patientId, setPatientId] = useState('');
   const [search, setSearch] = useState('');
-  const [time, setTime] = useState('09:00');
+  const [time, setTime] = useState(defaultTime);
   const [duration, setDuration] = useState(50);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTime(defaultTime);
+    setPatientId('');
+    setSearch('');
+    setDuration(50);
+    setNotes('');
+    setError(null);
+  }, [defaultDate, defaultTime, isOpen]);
 
   // Fetch patients for the dropdown
   const { data: patients, isLoading: patientsLoading } = useQuery({
@@ -71,7 +83,7 @@ export function NewScheduleModal({ isOpen, onClose, defaultDate }: Props) {
   function resetAndClose() {
     setPatientId('');
     setSearch('');
-    setTime('09:00');
+    setTime(defaultTime);
     setDuration(50);
     setNotes('');
     setError(null);

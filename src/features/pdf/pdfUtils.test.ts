@@ -11,14 +11,16 @@ describe('markdownToPdfBlocks', () => {
 - Crise registrada na terça`;
 
     const blocks = markdownToPdfBlocks(md);
-    expect(blocks.filter((b) => b.type === 'heading')).toHaveLength(2);
-    expect(blocks.filter((b) => b.type === 'bullet')).toHaveLength(3);
-    expect(blocks.some((b) => b.text.includes('Crise'))).toBe(true);
+    expect(blocks.filter((b) => b.type === 'h2')).toHaveLength(2);
+    expect(blocks.filter((b) => b.type === 'ul')).toHaveLength(2);
+    expect(blocks.some((b) => b.type === 'ul' && b.items.some((item) => item.includes('Crise')))).toBe(
+      true,
+    );
   });
 
-  it('remove markdown bold', () => {
+  it('preserva marcadores inline para renderização no PDF', () => {
     const blocks = markdownToPdfBlocks('## Título\n**texto em negrito**');
-    expect(blocks.some((b) => b.text.includes('**'))).toBe(false);
+    expect(blocks.some((b) => b.type === 'p' && b.text.includes('**texto em negrito**'))).toBe(true);
   });
 });
 

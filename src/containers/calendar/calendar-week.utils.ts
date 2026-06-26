@@ -179,6 +179,35 @@ export function getNowIndicatorTopPx(now = new Date()): number | null {
   return minutesToTopPx(minutes);
 }
 
+/** Converte posição Y no grid (px) em minutos desde meia-noite, arredondado em 15 min. */
+export function getMinutesFromGridOffsetY(offsetY: number): number {
+  const gridStart = WEEK_HOUR_START * 60;
+  const gridEnd = WEEK_HOUR_END * 60;
+  const rawMinutes = gridStart + (offsetY / WEEK_HOUR_HEIGHT_PX) * 60;
+  const snapped = Math.round(rawMinutes / 15) * 15;
+  return Math.max(gridStart, Math.min(gridEnd - 15, snapped));
+}
+
+export function minutesToTimeLabel(minutes: number): string {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${pad(hour)}:${pad(minute)}`;
+}
+
+export function getTimeFromGridOffsetY(offsetY: number): string {
+  return minutesToTimeLabel(getMinutesFromGridOffsetY(offsetY));
+}
+
+/** Horário a partir de um clique dentro de uma faixa horária da visão semanal. */
+export function getTimeFromHourSlotClick(hour: number, offsetYInHourPx: number): string {
+  const snappedInHour = Math.round(((offsetYInHourPx / WEEK_HOUR_HEIGHT_PX) * 60) / 15) * 15;
+  const clampedInHour = Math.max(0, Math.min(45, snappedInHour));
+  const totalMinutes = hour * 60 + clampedInHour;
+  return minutesToTimeLabel(
+    Math.max(WEEK_HOUR_START * 60, Math.min(WEEK_HOUR_END * 60 - 15, totalMinutes)),
+  );
+}
+
 export function formatDayHeader(iso: string, todayISO: string): { weekday: string; day: string; isToday: boolean } {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y!, (m ?? 1) - 1, d);

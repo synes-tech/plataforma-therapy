@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
-import { NewScheduleModal } from '@features/calendar/NewScheduleModal';
+import { NewScheduleModal } from './NewScheduleModal';
 import { CalendarHeaderBar } from './CalendarHeaderBar';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarListView } from './CalendarListView';
@@ -32,6 +32,7 @@ export default function FullCalendar() {
   const [drawerDate, setDrawerDate] = useState<string | null>(null);
   const [newScheduleOpen, setNewScheduleOpen] = useState(false);
   const [newScheduleDate, setNewScheduleDate] = useState(todayISO);
+  const [newScheduleTime, setNewScheduleTime] = useState('09:00');
 
   const weekLabel = useMemo(() => formatWeekRangeLabel(weekSundayISO), [weekSundayISO]);
 
@@ -75,8 +76,11 @@ export default function FullCalendar() {
     setWeekSundayISO(getWeekSunday(todayISO));
   }
 
-  function openNewSchedule(date: string) {
+  function openNewSchedule(date: string, time = '09:00') {
+    setDayActionMenu(null);
+    setDrawerDate(null);
     setNewScheduleDate(date);
+    setNewScheduleTime(time);
     setNewScheduleOpen(true);
   }
 
@@ -135,6 +139,7 @@ export default function FullCalendar() {
             weekSundayISO={weekSundayISO}
             todayISO={todayISO}
             onDayClick={openDayDrawer}
+            onSlotClick={({ dayISO, time }) => openNewSchedule(dayISO, time)}
           />
         )}
 
@@ -161,6 +166,7 @@ export default function FullCalendar() {
         isOpen={newScheduleOpen}
         onClose={() => setNewScheduleOpen(false)}
         defaultDate={newScheduleDate}
+        defaultTime={newScheduleTime}
       />
     </div>
   );

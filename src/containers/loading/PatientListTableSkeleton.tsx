@@ -1,7 +1,7 @@
 import { Spinner } from './Spinner';
 import { SkeletonBlock } from './Skeleton';
 
-const COLUMNS = ['Paciente', 'Idade', 'Diagnósticos', 'Status', 'Ações'];
+const COLUMNS = ['Paciente', 'Idade', 'Diagnósticos', 'Status', 'Status de Vínculo', 'Ações'];
 
 interface PatientListTableSkeletonProps {
   rows?: number;
@@ -27,7 +27,7 @@ export function PatientListTableSkeleton({
 
       {/* Desktop */}
       <div className="relative hidden md:block">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-charcoal-muted">
               {COLUMNS.map((col) => (
@@ -54,6 +54,9 @@ export function PatientListTableSkeleton({
                 </td>
                 <td className="px-5 py-3.5">
                   <SkeletonBlock className="h-6 w-20 rounded-full" />
+                </td>
+                <td className="px-5 py-3.5">
+                  <SkeletonBlock className="h-6 w-24 rounded-full" />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <SkeletonBlock className="ml-auto h-9 w-24 rounded-lg" />

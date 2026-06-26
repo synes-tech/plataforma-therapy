@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { PatientAvatar } from './PatientAvatar';
+import { PatientFamilyLinkStatusBadge } from './PatientFamilyLinkStatusBadge';
 import type { PatientListItem } from './patient-list.types';
 import { getPatientAge, STATUS_LABEL, statusClass, statusDotClass } from './patient-list.utils';
 
@@ -15,13 +16,14 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
     <>
       {/* Desktop: tabela */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-charcoal-muted">
               <th className="px-5 py-3 font-semibold">Paciente</th>
               <th className="px-5 py-3 font-semibold">Idade</th>
               <th className="px-5 py-3 font-semibold">Diagnósticos</th>
               <th className="px-5 py-3 font-semibold">Status</th>
+              <th className="px-5 py-3 font-semibold">Status de Vínculo</th>
               <th className="px-5 py-3 text-right font-semibold">Ações</th>
             </tr>
           </thead>
@@ -44,6 +46,9 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                 </td>
                 <td className="px-5 py-3.5">
                   <StatusBadge status={patient.status} />
+                </td>
+                <td className="px-5 py-3.5">
+                  <PatientFamilyLinkStatusBadge patient={patient} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <button
@@ -81,7 +86,10 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                   </p>
                 </div>
               </button>
-              <StatusBadge status={patient.status} />
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <StatusBadge status={patient.status} />
+                <PatientFamilyLinkStatusBadge patient={patient} />
+              </div>
             </div>
             <div className="mt-3">
               <DiagnosisChips diagnoses={patient.diagnoses} max={3} />

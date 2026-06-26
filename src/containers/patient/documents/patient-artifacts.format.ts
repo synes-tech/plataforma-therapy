@@ -49,6 +49,17 @@ export function buildArtifactTitle(tipo: string, criadoEm: string): string {
   return shortDate ? `${prefix} - ${shortDate}` : prefix;
 }
 
+/** Título exibido: customizado pelo profissional ou derivado do tipo + data. */
+export function resolveArtifactTitle(artifact: {
+  titulo?: string | null;
+  tipo_artefato: string;
+  criado_em: string;
+}): string {
+  const custom = artifact.titulo?.trim();
+  if (custom) return custom;
+  return buildArtifactTitle(artifact.tipo_artefato, artifact.criado_em);
+}
+
 /** Prévia truncada do conteúdo (50 caracteres). */
 export function truncateArtifactPreview(text: string, max = 50): string {
   const normalized = text.replace(/\s+/g, ' ').trim();

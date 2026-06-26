@@ -7,6 +7,9 @@ import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { FamilyDiaryAudioRecorder } from './FamilyDiaryAudioRecorder';
+import { ManualCheckinDivider } from './ManualCheckinDivider';
+import { RoutineDiaryTodayList } from './RoutineDiaryTodayList';
+import { todayEntryDateKey, type RoutineDiaryEntry } from './routine-diary.utils';
 
 const MOODS = [
   { value: 1, emoji: '😢', label: 'Difícil' },
@@ -61,6 +64,25 @@ export default function RoutineDiary() {
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const entryDate = todayEntryDateKey();
+
+  const { data: todayEntries = [], isLoading: todayEntriesLoading } = useQuery({
+    queryKey: ['diary-entries-today', link?.patient_id, entryDate],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('id, mood_score, sleep_quality, crisis_occurred, crisis_level, notes, created_at')
+        .eq('patient_id', link!.patient_id)
+        .eq('entry_date', entryDate)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data ?? []) as RoutineDiaryEntry[];
+    },
+    enabled: !!link,
+  });
+
   const mutation = useMutation({
     mutationFn: () =>
       callFunction('submit-diary', {
@@ -76,8 +98,9 @@ export default function RoutineDiary() {
       }),
     onSuccess: () => {
       setSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['family-calendar'] });
+      void queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
+      void queryClient.invalidateQueries({ queryKey: ['diary-entries-today'] });
+      void queryClient.invalidateQueries({ queryKey: ['family-calendar'] });
     },
   });
 
@@ -126,8 +149,9 @@ export default function RoutineDiary() {
           </svg>
         </div>
         <h3 className="font-serif text-xl text-charcoal">Registrado, obrigado!</h3>
-        <p className="mt-2 max-w-xs text-sm text-charcoal-muted">
-          Esse relato ajuda o terapeuta a entender melhor a rotina de {link.patients?.name?.split(' ')[0]}.
+        <p className="mt-2 max-w-sm text-sm text-charcoal-muted">
+          Você pode registrar quantos momentos quiser hoje — cada relato ajuda o terapeuta a acompanhar crises e
+          mudanças ao longo do dia.
         </p>
         <button
           onClick={reset}
@@ -140,27 +164,45 @@ export default function RoutineDiary() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in w-full">
       <PushNotificationPrompt />
 
       <header className="mb-6 lg:mb-8">
         <p className="text-xs font-medium uppercase tracking-wide text-primary">{today}</p>
         <h1 className="mt-1 font-serif text-2xl tracking-tight text-charcoal lg:text-3xl">Diário de Rotina</h1>
-        <p className="mt-1 text-sm text-charcoal-muted lg:text-base">
-          Como foi o dia de <span className="font-medium text-charcoal">{link.patients?.name}</span>?
+        <p className="mt-1 max-w-3xl text-sm text-charcoal-muted lg:text-base">
+          Registre momentos do dia de <span className="font-medium text-charcoal">{link.patients?.name}</span>.
+          Comece gravando um áudio ou preencha os campos manualmente.
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-5 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+      <RoutineDiaryTodayList entries={todayEntries} isLoading={todayEntriesLoading} />
+
+      <div className={todayEntries.length > 0 || todayEntriesLoading ? 'mt-5' : undefined}>
+        <FamilyDiaryAudioRecorder
+          patientId={link.patient_id}
+          disabled={mutation.isPending}
+          prominent
+          onTranscription={({ transcricao: text, audioUrl: url }) => {
+            setTranscricao(text);
+            setAudioUrl(url);
+            setNotes(text.slice(0, 1000));
+          }}
+        />
+      </div>
+
+      <ManualCheckinDivider />
+
+      <form onSubmit={handleSubmit} className="w-full space-y-5 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
         {mutation.error && (
-          <div role="alert" className="rounded-xl border border-error/15 bg-error-light/40 px-4 py-3 text-sm text-error lg:col-span-2">
+          <div role="alert" className="rounded-xl border border-error/15 bg-error-light/40 px-4 py-3 text-sm text-error lg:col-span-2 xl:col-span-3">
             {mutation.error instanceof Error ? mutation.error.message : 'Erro ao enviar'}
           </div>
         )}
 
         {/* Mood */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
-          <h4 className="mb-3 text-sm font-medium text-charcoal">Humor predominante</h4>
+          <h4 className="mb-3 text-sm font-medium text-charcoal">Humor neste momento</h4>
           <div className="flex justify-between gap-1.5">
             {MOODS.map((m) => (
               <button
@@ -205,7 +247,7 @@ export default function RoutineDiary() {
         {/* Crisis */}
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-charcoal">Houve uma crise hoje?</h4>
+            <h4 className="text-sm font-medium text-charcoal">Houve crise neste momento?</h4>
             <button
               type="button"
               role="switch"
@@ -264,18 +306,8 @@ export default function RoutineDiary() {
           </div>
         </section>
 
-        <FamilyDiaryAudioRecorder
-          patientId={link.patient_id}
-          disabled={mutation.isPending}
-          onTranscription={({ transcricao: text, audioUrl: url }) => {
-            setTranscricao(text);
-            setAudioUrl(url);
-            setNotes(text.slice(0, 1000));
-          }}
-        />
-
         {/* Notes */}
-        <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft lg:col-span-2">
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft lg:col-span-2 xl:col-span-3">
           <h4 className="mb-2 text-sm font-medium text-charcoal">
             Observações {transcricao ? '(revise a transcrição)' : '(opcional)'}
           </h4>
@@ -289,7 +321,7 @@ export default function RoutineDiary() {
             onChange={(e) => setNotes(e.target.value)}
             maxLength={1000}
             rows={3}
-            placeholder="Algo marcante que aconteceu hoje..."
+            placeholder="Descreva o que aconteceu neste momento..."
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary/10"
           />
           <p className="mt-1 text-right text-[10px] text-charcoal-muted/60">{notes.length}/1000</p>
@@ -300,10 +332,11 @@ export default function RoutineDiary() {
           variant="dark"
           fullWidth
           loading={mutation.isPending}
+          loadingLabel="Salvando..."
           disabled={!mood || !sleep}
-          className="h-12 lg:col-span-2 lg:max-w-sm"
+          className="h-12 lg:col-span-2 xl:col-span-3 lg:max-w-xs"
         >
-          Registrar dia
+          Registrar momento
         </LoadingButton>
       </form>
     </div>

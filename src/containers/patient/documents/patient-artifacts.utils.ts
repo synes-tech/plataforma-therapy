@@ -1,4 +1,4 @@
-import { buildArtifactTitle } from './patient-artifacts.format';
+import { resolveArtifactTitle } from './patient-artifacts.format';
 import type { ArtifactFilterValue, PatientArtifact } from './patient-artifacts.types';
 
 export function filterPatientArtifacts(
@@ -12,7 +12,7 @@ export function filterPatientArtifacts(
   if (!query) return result;
 
   return result.filter((item) => {
-    const title = buildArtifactTitle(item.tipo_artefato, item.criado_em).toLowerCase();
+    const title = resolveArtifactTitle(item).toLowerCase();
     return title.includes(query) || item.conteudo_texto.toLowerCase().includes(query);
   });
 }

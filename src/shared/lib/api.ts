@@ -26,6 +26,7 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   INVITE_NOT_FOUND: 'Código de convite inválido.',
   INVITE_CONSUMED: 'Este convite já foi utilizado.',
   INVITE_EXPIRED: 'Este convite expirou. Solicite um novo ao terapeuta.',
+  INVITE_REVOKED: 'Este convite foi revogado.',
   FAMILY_QUOTA_EXCEEDED: 'Limite de familiares para este paciente já atingido.',
   DUPLICATE_ENTRY: 'Já existe um registro para esta data.',
   LLM_ERROR: 'O serviço de IA está indisponível. Tente novamente em instantes.',
@@ -191,6 +192,67 @@ export async function callFunction<T>(
       data.error?.message
         ? data.error.message
         : ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
+    const err = new Error(message) as Error & { code?: string };
+    err.code = code;
+    throw err;
+  }
+
+  return data.data as T;
+}
+
+export interface PublicFunctionOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * Chama Edge Function pública (sem JWT) — onboarding familiar, preview de convite, etc.
+ */
+export async function callPublicFunction<T>(
+  functionName: string,
+  payload: Record<string, unknown>,
+  options: PublicFunctionOptions = {},
+): Promise<T> {
+  const response = await fetch(edgeFunctionUrl(functionName), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  }).catch((err: unknown) => {
+    if (options.signal?.aborted) {
+      throw err;
+    }
+    throw new Error(
+      `Não foi possível conectar ao serviço "${functionName}". Verifique sua conexão ou se a função está publicada no Supabase.`,
+    );
+  });
+
+  let data: ApiResponse<T>;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      response.ok
+        ? `Resposta inválida do serviço "${functionName}".`
+        : `Erro ${response.status} no serviço "${functionName}". Verifique se a função está publicada e configurada.`,
+    );
+  }
+
+  if (!response.ok && data.success !== false) {
+    throw new Error(`Erro ${response.status} no serviço "${functionName}".`);
+  }
+
+  if (!data.success) {
+    const code = data.error?.code ?? 'UNKNOWN';
+    const details = data.error?.details as Record<string, string[]> | undefined;
+
+    if (code === 'VALIDATION_ERROR' && details && typeof details === 'object') {
+      throw new Error(translateFieldErrors(details));
+    }
+
+    const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
     const err = new Error(message) as Error & { code?: string };
     err.code = code;
     throw err;

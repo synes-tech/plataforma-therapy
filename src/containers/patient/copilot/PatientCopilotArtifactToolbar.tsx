@@ -6,7 +6,7 @@ interface PatientCopilotArtifactToolbarProps {
   savedTypes: Set<AiArtifactType>;
   savingType: AiArtifactType | null;
   savedArtifactIds: Partial<Record<AiArtifactType, string>>;
-  onSave: (tipo: AiArtifactType) => void;
+  onRequestSave: (tipo: AiArtifactType) => void;
   onViewArtifact: (artifactId: string) => void;
   onViewDocuments: () => void;
 }
@@ -31,7 +31,7 @@ export function PatientCopilotArtifactToolbar({
   savedTypes,
   savingType,
   savedArtifactIds,
-  onSave,
+  onRequestSave,
   onViewArtifact,
   onViewDocuments,
 }: PatientCopilotArtifactToolbarProps) {
@@ -77,7 +77,7 @@ export function PatientCopilotArtifactToolbar({
               key={option.type}
               type="button"
               disabled={isSaving}
-              onClick={() => onSave(option.type)}
+              onClick={() => onRequestSave(option.type)}
               className="inline-flex h-10 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 text-left shadow-sm transition-all hover:border-primary/35 hover:bg-primary-50/50 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex min-w-0 items-center gap-2.5">
