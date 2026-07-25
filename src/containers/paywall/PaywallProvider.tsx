@@ -10,6 +10,14 @@ import { callFunction } from '@shared/lib/api';
 import { useAuthStore } from '@shared/lib/auth-store';
 import type { CheckoutFormData } from '@containers/checkout';
 import { digitsOnly } from '@containers/checkout';
+
+const STRIPE_BILLING_ENABLED = import.meta.env.VITE_STRIPE_BILLING_ENABLED === 'true';
+
+interface StripeCheckoutResult {
+  url: string;
+  session_id: string;
+  plan_id: string;
+}
 import { PaywallModal, type PaywallStep } from './PaywallModal';
 import { CheckoutWelcomeToast } from './CheckoutWelcomeToast';
 import { PaywallContext, type PaywallContextValue } from './paywall-context';
@@ -17,6 +25,7 @@ import {
   plansForAccountType,
   shouldBlockAiFeature,
   shouldBlockNewPatient,
+  type PaywallBillingCycle,
   type PaywallPlanCard,
   type PaywallTrigger,
   type PaywallBillingState,
@@ -40,7 +49,9 @@ const DEFAULT_STATE: PaywallStatePayload = {
   freemium_patient_limit: 1,
   account_type: 'solo',
   subscription_status: 'active',
+  subscription_plan: 'free',
   trial_ends_at: null,
+  trial_used: false,
   plans: [],
 };
 
@@ -121,6 +132,28 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
     [queryClient, runPendingAction],
   );
 
+  const redirectToStripeCheckout = useCallback(
+    async (plan: PaywallPlanCard, cycle: PaywallBillingCycle) => {
+      setCheckoutError(null);
+      setCheckoutSubmitting(true);
+
+      try {
+        const result = await callFunction<StripeCheckoutResult>('create-stripe-checkout', {
+          plan_id: plan.id,
+          billing_cycle: cycle,
+          intent: trigger === 'plan_catalog' ? 'plan_change' : 'subscribe',
+        });
+        window.location.href = result.url;
+      } catch (err) {
+        setCheckoutError(
+          err instanceof Error ? err.message : 'Não foi possível abrir o checkout seguro.',
+        );
+        setCheckoutSubmitting(false);
+      }
+    },
+    [trigger],
+  );
+
   const handleCheckoutSubmit = useCallback(
     async (formData: CheckoutFormData) => {
       if (!selectedPlan) return;
@@ -144,6 +177,21 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
       }
     },
     [selectedPlan, completeCheckoutSuccess],
+  );
+
+  const handleSelectPlan = useCallback(
+    (plan: PaywallPlanCard, cycle: PaywallBillingCycle) => {
+      setSelectedPlan(plan);
+      setCheckoutError(null);
+
+      if (STRIPE_BILLING_ENABLED) {
+        void redirectToStripeCheckout(plan, cycle);
+        return;
+      }
+
+      setStep('checkout');
+    },
+    [redirectToStripeCheckout],
   );
 
   const openPlansCatalog = useCallback(() => {
@@ -241,11 +289,9 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
         plans={visiblePlans}
         selectedPlan={selectedPlan}
         trialEndsAt={state.trial_ends_at}
-        onSelectPlan={(plan) => {
-          setSelectedPlan(plan);
-          setStep('checkout');
-          setCheckoutError(null);
-        }}
+        trialUsed={state.trial_used}
+        stripeBillingEnabled={STRIPE_BILLING_ENABLED}
+        onSelectPlan={handleSelectPlan}
         onBackToPlans={() => {
           setStep('plans');
           setCheckoutError(null);

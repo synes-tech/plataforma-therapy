@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase.ts';
 import { AppError } from './errors.ts';
+import { isClinicBillingExempt } from './billing-exempt.ts';
 
 export interface PlanoRow {
   id: string;
@@ -95,22 +96,27 @@ export async function assertCanAddPatient(
   clinicId: string,
   professionalId: string,
 ): Promise<void> {
+  if (await isClinicBillingExempt(clinicId)) return;
+
   const limits = await getClinicPlanLimits(clinicId);
 
   const supabase = createServiceClient();
 
   const { data: profData } = await supabase
     .from('professionals')
-    .select('max_patients_override')
+    .select('max_patients_override, patient_quota_bonus')
     .eq('id', professionalId)
     .single();
 
-  const maxPatients =
+  const planBase =
     profData?.max_patients_override ??
     limits.max_patients_per_professional ??
     UNLIMITED_FALLBACK;
 
-  if (limits.max_patients_per_professional === null && profData?.max_patients_override == null) {
+  const bonus = Number(profData?.patient_quota_bonus ?? 0);
+  const maxPatients = planBase + bonus;
+
+  if (limits.max_patients_per_professional === null && profData?.max_patients_override == null && bonus === 0) {
     return;
   }
 
@@ -133,32 +139,19 @@ export async function assertCanAddPatient(
 
 export async function applyPlanoToClinicSettings(
   clinicId: string,
-  planId: string,
+  _planId: string,
 ): Promise<void> {
   const supabase = createServiceClient();
 
-  const { data: plano } = await supabase
-    .from('planos')
-    .select('limite_profissionais, limite_pacientes_por_prof')
-    .eq('id', planId)
-    .eq('ativo', true)
-    .single();
+  const { error } = await supabase.rpc('sync_clinic_settings_from_plano', {
+    p_clinic_id: clinicId,
+  });
 
-  const maxProf = plano?.limite_profissionais ?? 5;
-  const maxPatients = plano?.limite_pacientes_por_prof ?? 30;
-
-  const aiDefaults =
-    planId === 'consultorio'
-      ? { max_ai_queries_per_month: 300, max_audio_minutes_per_month: 200 }
-      : {};
-
-  await supabase.from('clinic_settings').upsert(
-    {
-      clinic_id: clinicId,
-      max_professionals: maxProf,
-      max_patients_per_professional: maxPatients,
-      ...aiDefaults,
-    },
-    { onConflict: 'clinic_id' },
-  );
+  if (error) {
+    throw new AppError({
+      code: 'CLINIC_SETTINGS_SYNC_FAILED',
+      message: error.message,
+      statusCode: 500,
+    });
+  }
 }

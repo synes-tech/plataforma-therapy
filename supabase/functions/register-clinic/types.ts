@@ -8,6 +8,7 @@ export interface RegisterClinicPayload {
   admin_email: string;
   admin_password: string;
   specialty?: string;
+  email_redirect_to?: string;
 }
 
 export interface RegisterClinicResponse {
@@ -16,4 +17,5 @@ export interface RegisterClinicResponse {
   message: string;
   trial_ends_at: string;
   subscription_status: 'trialing';
+  requires_email_confirmation: boolean;
 }

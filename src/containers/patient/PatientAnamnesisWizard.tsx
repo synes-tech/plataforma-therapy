@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ACOMPANHAMENTO_OPTIONS,
   EMPTY_ANAMNESIS_FORM,
   WIZARD_STEPS,
   type PatientAnamnesisForm,
 } from './patient-anamnesis.types';
 import { canAdvanceFromStep, validateAnamnesisStep } from './patient-anamnesis.validation';
 import { PatientPhotoUpload } from './PatientPhotoUpload';
+import { AcompanhamentoMultiField } from './AcompanhamentoMultiField';
+import { PatientAttachmentDropzone } from './attachments/PatientAttachmentDropzone';
+import { formatAttachmentSize } from './attachments/patient-attachment.utils';
 
 interface PatientAnamnesisWizardProps {
   formId: string;
-  onSubmit: (form: PatientAnamnesisForm, avatarFile: File | null) => void;
+  onSubmit: (form: PatientAnamnesisForm, avatarFile: File | null, attachmentFiles: File[]) => void;
   isSubmitting?: boolean;
 }
 
@@ -27,6 +29,7 @@ export function PatientAnamnesisWizard({ formId, onSubmit, isSubmitting }: Patie
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
 
   useEffect(() => {
     return () => {
@@ -49,18 +52,6 @@ export function PatientAnamnesisWizard({ formId, onSubmit, isSubmitting }: Patie
       const next = { ...e };
       delete next[key];
       return next;
-    });
-  }
-
-  function toggleAcompanhamento(option: string) {
-    setForm((f) => {
-      const has = f.acompanhamento_multi.includes(option);
-      return {
-        ...f,
-        acompanhamento_multi: has
-          ? f.acompanhamento_multi.filter((x) => x !== option)
-          : [...f.acompanhamento_multi, option],
-      };
     });
   }
 
@@ -87,7 +78,7 @@ export function PatientAnamnesisWizard({ formId, onSubmit, isSubmitting }: Patie
       setStep(1);
       return;
     }
-    onSubmit(form, avatarFile);
+    onSubmit(form, avatarFile, attachmentFiles);
   }
 
   return (
@@ -162,25 +153,50 @@ export function PatientAnamnesisWizard({ formId, onSubmit, isSubmitting }: Patie
             </Field>
             <div>
               <p className="mb-2 text-sm font-medium text-slate-200">Acompanhamento multidisciplinar</p>
-              <div className="flex flex-wrap gap-2">
-                {ACOMPANHAMENTO_OPTIONS.map((opt) => {
-                  const selected = form.acompanhamento_multi.includes(opt);
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => toggleAcompanhamento(opt)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                        selected
-                          ? 'bg-primary/40 text-white ring-1 ring-primary/50'
-                          : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-                      }`}
+              <AcompanhamentoMultiField
+                value={form.acompanhamento_multi}
+                onChange={(next) => patch('acompanhamento_multi', next)}
+                variant="wizard"
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-200">Documentos de referência</p>
+              <PatientAttachmentDropzone
+                disabled={isSubmitting}
+                variant="dark"
+                label="Anexar laudos, relatórios ou exames"
+                hint="Opcional no cadastro. PDF, Word ou TXT — serão vetorizados após criar o paciente."
+                onFilesSelected={(files) =>
+                  setAttachmentFiles((current) => {
+                    const names = new Set(current.map((file) => file.name));
+                    return [...current, ...files.filter((file) => !names.has(file.name))];
+                  })
+                }
+              />
+              {attachmentFiles.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {attachmentFiles.map((file) => (
+                    <li
+                      key={file.name}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
                     >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-slate-200">{file.name}</p>
+                        <p className="text-[11px] text-slate-500">{formatAttachmentSize(file.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAttachmentFiles((current) => current.filter((item) => item.name !== file.name))
+                        }
+                        className="text-xs text-slate-400 hover:text-slate-200"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <Field label="Observações clínicas iniciais">
               <textarea className={textareaClass} rows={2} value={form.clinical_observations} onChange={(e) => patch('clinical_observations', e.target.value)} />

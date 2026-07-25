@@ -26,13 +26,29 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173"]
+site_url = "https://www.unithery.com"
+additional_redirect_urls = [
+  "http://localhost:5173",
+  "http://localhost:5173/**",
+  "http://localhost:5173/auth/confirm",
+  "http://localhost:5173/reset-password",
+  "http://localhost:5173/login",
+  "https://www.unithery.com",
+  "https://www.unithery.com/**",
+  "https://www.unithery.com/auth/confirm",
+  "https://www.unithery.com/reset-password",
+  "https://www.unithery.com/login",
+  "https://unithery.com",
+  "https://unithery.com/**",
+  "https://unithery.com/auth/confirm",
+  "https://unithery.com/reset-password",
+  "https://unithery.com/login",
+]
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
+enable_confirmations = true
 
 [auth.mfa]
 max_enrolled_factors = 10
@@ -58,4 +74,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.register-family]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.sync-stripe-subscriptions]
+verify_jwt = false
+
+[functions.stripe-test-webhook]
+verify_jwt = false
+
+[functions.check-and-send-reminders]
+verify_jwt = false
+
+[functions.auth-send-email]
 verify_jwt = false

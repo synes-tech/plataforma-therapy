@@ -32,9 +32,9 @@ export function CalendarWeekSkeleton({
       role="status"
       aria-label={label}
     >
-      <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide">
-        <div className="flex min-w-[640px] md:min-w-0">
-          <div className="w-14 shrink-0 md:w-16" />
+      <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide md:overflow-visible">
+        <div className="flex w-full min-w-[640px] md:grid md:min-w-0 md:grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] lg:grid-cols-[4rem_repeat(7,minmax(0,1fr))]">
+          <div className="w-14 shrink-0 md:w-auto" aria-hidden />
           {weekDays.map((dayISO) => {
             const { weekday, day, isToday } = formatDayHeader(dayISO, todayISO);
             return (

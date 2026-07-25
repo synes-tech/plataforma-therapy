@@ -10,78 +10,70 @@ import {
   type PaywallPlanCard,
 } from './paywall.types';
 
-const trialingState: PaywallBillingState = {
+const freeState: PaywallBillingState = {
   requires_paywall: true,
   patient_count: 0,
   freemium_patient_limit: 1,
   account_type: 'solo',
   subscription_status: 'trialing',
-  trial_ends_at: '2026-07-01T00:00:00Z',
+  subscription_plan: 'free',
+  trial_ends_at: null,
+  trial_used: false,
 };
 
+const makePlan = (id: string, overrides: Partial<PaywallPlanCard> = {}): PaywallPlanCard => ({
+  id,
+  nome: `Plano ${id}`,
+  preco_mensal_cents: 10000,
+  preco_anual_mensal_cents: 8800,
+  descricao_curta: null,
+  destaque: null,
+  features: [],
+  recomendado: false,
+  ...overrides,
+});
+
 const samplePlans: PaywallPlanCard[] = [
-  {
-    id: 'consultorio',
-    nome: 'Consultório',
-    preco_mensal_cents: 14700,
-    descricao_curta: 'Autônomo',
-    destaque: null,
-    features: [],
-    recomendado: false,
-  },
-  {
-    id: 'starter',
-    nome: 'Starter',
-    preco_mensal_cents: 39700,
-    descricao_curta: 'Clínica',
-    destaque: null,
-    features: [],
-    recomendado: false,
-  },
-  {
-    id: 'professional',
-    nome: 'Pro',
-    preco_mensal_cents: 99700,
-    descricao_curta: 'Clínica',
-    destaque: null,
-    features: [],
-    recomendado: true,
-  },
+  makePlan('free', { preco_mensal_cents: 0, preco_anual_mensal_cents: null }),
+  makePlan('standard', { preco_mensal_cents: 23120, preco_anual_mensal_cents: 20346 }),
+  makePlan('advanced', { preco_mensal_cents: 46240, preco_anual_mensal_cents: 40691, recomendado: true }),
+  makePlan('premium', { preco_mensal_cents: 69360, preco_anual_mensal_cents: 61037 }),
+  makePlan('starter'),
+  makePlan('professional'),
 ];
 
-describe('paywall — caminho feliz', () => {
-  it('1º paciente passa (count=0)', () => {
-    expect(shouldBlockNewPatient({ ...trialingState, patient_count: 0 })).toBe(false);
+describe('paywall v2 — planos de produção', () => {
+  it('1º paciente passa no FREE (count=0)', () => {
+    expect(shouldBlockNewPatient({ ...freeState, patient_count: 0 })).toBe(false);
   });
 
-  it('2º paciente bloqueia (count>=1)', () => {
-    expect(shouldBlockNewPatient({ ...trialingState, patient_count: 1 })).toBe(true);
+  it('2º paciente bloqueia no FREE (count>=1)', () => {
+    expect(shouldBlockNewPatient({ ...freeState, patient_count: 1 })).toBe(true);
   });
 
-  it('IA bloqueia em trial sem cartão', () => {
-    expect(shouldBlockAiFeature(trialingState)).toBe(true);
-  });
-
-  it('IA libera quando assinatura validada', () => {
-    expect(shouldBlockAiFeature({ ...trialingState, requires_paywall: false })).toBe(false);
-  });
-
-  it('trial_active não exige paywall (via API)', () => {
+  it('paciente não bloqueia com assinatura ativa', () => {
     expect(
-      shouldBlockAiFeature({
-        ...trialingState,
+      shouldBlockNewPatient({
+        ...freeState,
         requires_paywall: false,
-        subscription_status: 'trial_active',
+        patient_count: 5,
+        subscription_plan: 'standard',
+        subscription_status: 'active',
       }),
     ).toBe(false);
   });
 
-  it('autônomo vê só Consultório', () => {
-    const visible = plansForAccountType(samplePlans, 'solo');
-    expect(visible.map((p) => p.id)).toEqual(['consultorio']);
+  it('IA nunca é pré-bloqueada no frontend (cota é do backend)', () => {
+    expect(shouldBlockAiFeature(freeState)).toBe(false);
+    expect(shouldBlockAiFeature({ ...freeState, requires_paywall: false })).toBe(false);
   });
 
-  it('clínica vê Starter e Pro', () => {
+  it('autônomo vê Standard, Advanced e Premium (sem FREE no catálogo)', () => {
+    const visible = plansForAccountType(samplePlans, 'solo');
+    expect(visible.map((p) => p.id)).toEqual(['standard', 'advanced', 'premium']);
+  });
+
+  it('clínica vê Starter e Professional', () => {
     const visible = plansForAccountType(samplePlans, 'corporate');
     expect(visible.map((p) => p.id)).toEqual(['starter', 'professional']);
   });

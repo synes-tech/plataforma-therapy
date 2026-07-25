@@ -18,9 +18,13 @@ describe('billing/format', () => {
     expect(getStatusMeta('pending').className).toContain('alert');
   });
 
-  it('resolves plan labels, prioritizing solo as Consultório', () => {
+  it('resolves plan labels (catálogo v2 + legado)', () => {
+    expect(planLabel('free')).toBe('Plano Free');
+    expect(planLabel('standard')).toBe('Plano Standard');
+    expect(planLabel('advanced')).toBe('Plano Advanced');
+    expect(planLabel('premium')).toBe('Plano Premium');
     expect(planLabel('starter')).toBe('Clínica Starter');
     expect(planLabel('professional')).toBe('Clínica Pro');
-    expect(planLabel('starter', true)).toBe('Consultório');
+    expect(planLabel('inicial')).toBe('Plano Standard (legado)');
   });
 });

@@ -1,0 +1,3 @@
+A Fonte da Verdade em Tempo Real (Webhooks): O Stripe é quem avisa a sua plataforma ativamente. Quando o cartão passa, ele envia um "sinal" (evento checkout.session.completed) para o seu backend. Se o cartão falhar na renovação mensal, ele envia outro sinal (invoice.payment_failed). O seu banco de dados é atualizado no mesmo milissegundo.
+
+A Malha de Segurança (Daily Cron Job): Como a internet pode falhar (o Stripe mandou o aviso, mas seu servidor reiniciou bem na hora), existe uma rotina de reconciliação. Uma vez por dia (geralmente de madrugada), um robô (Cron Job) varre os usuários ativos no seu banco e cruza com a API do Stripe para garantir que ninguém escapou do bloqueio se parou de pagar.

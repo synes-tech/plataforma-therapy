@@ -1,9 +1,18 @@
 /** Limites oficiais do catálogo `planos` — usado em testes e UI. */
+import { THERAPIST_PLANS, computeAudioMinutesLimit, isTherapistPlan } from './therapist-plans';
+
 export const OFFICIAL_PLAN_LIMITS = {
-  consultorio: { professionals: 1, patientsPerProf: 50 },
-  starter: { professionals: 3, patientsPerProf: 40 },
-  professional: { professionals: 10, patientsPerProf: 60 },
-  enterprise: { professionals: null, patientsPerProf: null },
+  free: { professionals: 1, patientsPerProf: 1, audioMinutes: THERAPIST_PLANS.free.audioMinutesPerMonth },
+  standard: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
+  advanced: { professionals: 1, patientsPerProf: 20, audioMinutes: THERAPIST_PLANS.advanced.audioMinutesPerMonth },
+  premium: { professionals: 1, patientsPerProf: 30, audioMinutes: THERAPIST_PLANS.premium.audioMinutesPerMonth },
+  // legado (contas migradas)
+  inicial: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
+  intermediario: { professionals: 1, patientsPerProf: 40, audioMinutes: computeAudioMinutesLimit(160, 60) },
+  consultorio: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
+  starter: { professionals: 3, patientsPerProf: 40, audioMinutes: computeAudioMinutesLimit(160, 60) },
+  professional: { professionals: 10, patientsPerProf: 60, audioMinutes: computeAudioMinutesLimit(240, 60) },
+  enterprise: { professionals: null, patientsPerProf: null, audioMinutes: null },
 } as const;
 
 export type OfficialPlanId = keyof typeof OFFICIAL_PLAN_LIMITS;
@@ -41,7 +50,10 @@ export function resolveEffectivePlanQuotas(
     max_ai_queries_per_month:
       quotas.max_ai_queries_per_month > 0 ? quotas.max_ai_queries_per_month : null,
     max_audio_minutes_per_month:
-      quotas.max_audio_minutes_per_month > 0 ? quotas.max_audio_minutes_per_month : null,
+      quotas.max_audio_minutes_per_month > 0
+        ? quotas.max_audio_minutes_per_month
+        : official?.audioMinutes ??
+          (isTherapistPlan(planId) ? THERAPIST_PLANS[planId].audioMinutesPerMonth : null),
   };
 }
 

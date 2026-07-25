@@ -11,6 +11,7 @@ export const RegisterClinicSchema = z
     admin_email: z.string().email(),
     admin_password: z.string().min(6).max(128),
     specialty: z.string().max(100).optional(),
+    email_redirect_to: z.string().url().optional(),
   })
   .superRefine((data, ctx) => {
     const isSolo = data.account_type === 'solo';

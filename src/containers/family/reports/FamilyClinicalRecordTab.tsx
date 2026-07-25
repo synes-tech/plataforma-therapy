@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ListPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
-import { ACOMPANHAMENTO_OPTIONS } from '../../patient/patient-anamnesis.types';
 import { ClinicalValue } from '../../patient/ClinicalRecordField';
 import { ClinicalFieldsGrid, ClinicalFieldsStack, ClinicalRecordSectionCard } from '../../patient/ClinicalRecordSectionCard';
 
@@ -109,9 +108,6 @@ export function FamilyClinicalRecordTab() {
           ) : (
             <p className="mt-1 text-sm text-charcoal-muted/60 italic">Nenhum selecionado</p>
           )}
-          <p className="mt-3 text-[10px] text-charcoal-muted/50">
-            Opções: {ACOMPANHAMENTO_OPTIONS.join(', ')}
-          </p>
         </div>
       </ClinicalRecordSectionCard>
 

@@ -3,6 +3,7 @@ import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 import type { AccountType } from '@features/register/account-type';
 import type { PlanId } from '@features/register/constants';
 import { isSoloPlan } from '@features/register/constants';
+import { formatBRL, THERAPIST_PLANS } from '@shared/lib/therapist-plans';
 
 interface Plan {
   id: PlanId;
@@ -11,20 +12,70 @@ interface Plan {
   highlight: string;
   features: string[];
   recommended?: boolean;
+  priceLabel?: string;
+  priceNote?: string;
 }
 
 const PLANS: Plan[] = [
   {
-    id: 'consultorio',
-    name: 'Consultório',
-    description: 'Para profissionais autônomos',
-    highlight: 'Ideal para quem atende sozinho',
+    id: 'free',
+    name: THERAPIST_PLANS.free.nome,
+    description: 'Comece sem pagar nada',
+    highlight: '1 paciente ativo · sem cartão',
+    priceLabel: 'Grátis',
+    priceNote: 'para sempre',
     features: [
-      '1 profissional (você)',
-      'Até 50 pacientes',
-      'Copiloto de IA incluso',
-      'Diário familiar integrado',
-      'Relatórios automáticos por áudio',
+      '1 paciente ativo',
+      '4 sessões por mês (50 min)',
+      'Copiloto de IA (20 interações/mês)',
+      'Diário familiar com áudios ilimitados',
+      'Portal da família incluso',
+    ],
+  },
+  {
+    id: 'standard',
+    name: THERAPIST_PLANS.standard.nome,
+    description: THERAPIST_PLANS.standard.descricao,
+    highlight: 'Até 10 pacientes ativos',
+    priceLabel: `${formatBRL(THERAPIST_PLANS.standard.monthlyCents)}/mês`,
+    priceNote: `ou ${formatBRL(THERAPIST_PLANS.standard.yearlyMonthlyCents ?? 0)}/mês no anual`,
+    features: [
+      'Até 10 pacientes ativos',
+      '40 sessões por mês (60 min)',
+      'Copiloto de IA (750 interações/mês)',
+      'Transcrição e relatórios',
+      'Módulos de +5 pacientes',
+    ],
+  },
+  {
+    id: 'advanced',
+    name: THERAPIST_PLANS.advanced.nome,
+    description: THERAPIST_PLANS.advanced.descricao,
+    highlight: 'Até 20 pacientes ativos',
+    recommended: true,
+    priceLabel: `${formatBRL(THERAPIST_PLANS.advanced.monthlyCents)}/mês`,
+    priceNote: `ou ${formatBRL(THERAPIST_PLANS.advanced.yearlyMonthlyCents ?? 0)}/mês no anual`,
+    features: [
+      'Até 20 pacientes ativos',
+      '80 sessões por mês (60 min)',
+      'Copiloto de IA (1.500 interações/mês)',
+      'Tudo do Standard',
+      'Módulos de +5 pacientes',
+    ],
+  },
+  {
+    id: 'premium',
+    name: THERAPIST_PLANS.premium.nome,
+    description: THERAPIST_PLANS.premium.descricao,
+    highlight: 'Até 30 pacientes ativos',
+    priceLabel: `${formatBRL(THERAPIST_PLANS.premium.monthlyCents)}/mês`,
+    priceNote: `ou ${formatBRL(THERAPIST_PLANS.premium.yearlyMonthlyCents ?? 0)}/mês no anual`,
+    features: [
+      'Até 30 pacientes ativos',
+      '120 sessões por mês (60 min)',
+      'Copiloto de IA (2.250 interações/mês)',
+      'Tudo do Advanced',
+      'Módulo Adicional com desconto',
     ],
   },
   {
@@ -267,10 +318,25 @@ function PlanCard({
     >
       {/* Plan header */}
       <div className="mb-3">
+        {plan.recommended && (
+          <span className="absolute -top-2.5 right-4 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            Recomendado
+          </span>
+        )}
         <h3 className="font-display text-sm font-bold text-charcoal">
           {plan.name}
         </h3>
         <p className="mt-0.5 text-[11px] text-charcoal-muted">{plan.description}</p>
+        {plan.priceLabel && (
+          <p className="mt-2 font-serif text-lg font-medium text-charcoal">
+            {plan.priceLabel}
+            {plan.priceNote && (
+              <span className="ml-1 font-sans text-[10px] font-normal text-charcoal-muted">
+                {plan.priceNote}
+              </span>
+            )}
+          </p>
+        )}
         <p className="mt-2 text-xs font-semibold text-charcoal">
           {plan.highlight}
         </p>

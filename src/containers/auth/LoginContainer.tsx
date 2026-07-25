@@ -1,10 +1,24 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
+import { AuthLoginModeToggle } from '@containers/auth/AuthLoginModeToggle';
+import type { AuthLoginMode } from '@containers/auth/AuthLoginModeToggle';
 import { useAuth } from '@shared/hooks/useAuth';
+import { useAuthStore } from '@shared/lib/auth-store';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 
+function resolvePostLoginPath(role: string | undefined): string {
+  return role === 'family' ? '/family/diary' : '/dashboard';
+}
+
+function loginModeFromSearch(params: URLSearchParams): AuthLoginMode {
+  return params.get('mode') === 'family' ? 'family' : 'therapist';
+}
+
 export default function LoginContainer() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const emailJustConfirmed = searchParams.get('confirmed') === '1';
+  const [loginMode, setLoginMode] = useState<AuthLoginMode>(() => loginModeFromSearch(searchParams));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +27,20 @@ export default function LoginContainer() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const isFamilyMode = loginMode === 'family';
+
+  function handleLoginModeChange(mode: AuthLoginMode) {
+    setLoginMode(mode);
+    setError(null);
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'family') {
+      next.set('mode', 'family');
+    } else {
+      next.delete('mode');
+    }
+    setSearchParams(next, { replace: true });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -20,12 +48,15 @@ export default function LoginContainer() {
 
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      const role = useAuthStore.getState().user?.role;
+      navigate(resolvePostLoginPath(role), { replace: true });
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message;
         if (msg === 'Invalid login credentials') {
           setError('Email ou senha incorretos.');
+        } else if (msg === 'Email not confirmed' || msg.toLowerCase().includes('email not confirmed')) {
+          setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.');
         } else if (msg.includes('Tempo limite')) {
           setError('Servidor demorou para responder. Tente novamente.');
         } else {
@@ -175,14 +206,29 @@ export default function LoginContainer() {
           </div>
 
           {/* Heading */}
-          <div className="mb-8 w-full">
+          <div className="mb-4 w-full">
             <h2 className="font-display text-2xl font-bold tracking-tight text-charcoal">
-              Boas-vindas de volta
+              {isFamilyMode ? 'Portal da família' : 'Boas-vindas de volta'}
             </h2>
             <p className="mt-2 text-sm text-charcoal-muted">
-              Acesse sua conta para continuar
+              {isFamilyMode
+                ? 'Entre com o e-mail e a senha que você cadastrou'
+                : 'Acesse sua conta para continuar'}
             </p>
           </div>
+
+          <AuthLoginModeToggle mode={loginMode} onChange={handleLoginModeChange} />
+
+          {emailJustConfirmed && !isFamilyMode && (
+            <div
+              role="status"
+              className="mb-5 flex w-full items-start gap-3 rounded-xl border border-mint/20 bg-mint/10 px-4 py-3"
+            >
+              <p className="text-sm text-mint-dark">
+                E-mail confirmado com sucesso! Agora é só entrar com sua senha.
+              </p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -228,12 +274,14 @@ export default function LoginContainer() {
                 >
                   Senha
                 </label>
-                <a
-                  href="/forgot-password"
-                  className="text-xs font-medium text-primary hover:text-primary-dark"
-                >
-                  Esqueceu a senha?
-                </a>
+                {!isFamilyMode && (
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-medium text-primary hover:text-primary-dark"
+                  >
+                    Esqueceu a senha?
+                  </Link>
+                )}
               </div>
               <div className="relative">
                 <input
@@ -269,42 +317,47 @@ export default function LoginContainer() {
             {/* Submit Button — com efeito de profundidade material */}
             <LoadingButton
               type="submit"
-              variant="dark"
+              variant={isFamilyMode ? 'primary' : 'dark'}
               fullWidth
               loading={isSubmitting}
               className="relative mt-2 h-12"
             >
-              Entrar
+              {isFamilyMode ? 'Entrar no portal' : 'Entrar'}
             </LoadingButton>
           </form>
 
-          {/* Separador */}
-          <div className="my-8 flex w-full items-center gap-3">
-            <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-xs text-charcoal-muted/50">ou</span>
-            <div className="h-px flex-1 bg-slate-100" />
-          </div>
-
-          {/* Footer: Link de cadastro */}
-          <p className="text-center text-sm text-charcoal-muted">
-            É clínica ou profissional autônomo?{' '}
-            <a
-              href="/register"
-              className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
-            >
-              Crie seu espaço
-            </a>
-          </p>
-
-          <p className="mt-3 text-center text-sm text-charcoal-muted">
-            Recebeu um convite de um terapeuta?{' '}
-            <a
-              href="/family/register"
-              className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
-            >
-              Acesso da família
-            </a>
-          </p>
+          {isFamilyMode ? (
+            <p className="mt-8 w-full text-center text-sm text-charcoal-muted">
+              Recebeu convite do terapeuta?{' '}
+              <Link
+                to="/family/register"
+                className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
+              >
+                Crie o seu acesso
+              </Link>
+            </p>
+          ) : (
+            <>
+              <p className="mt-8 w-full text-center text-sm text-charcoal-muted">
+                Não tem conta ainda?{' '}
+                <Link
+                  to="/register"
+                  className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
+                >
+                  Cadastre-se
+                </Link>
+              </p>
+              <p className="mt-3 w-full text-center text-sm text-charcoal-muted">
+                Recebeu convite do terapeuta?{' '}
+                <Link
+                  to="/family/register"
+                  className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
+                >
+                  Crie o seu acesso
+                </Link>
+              </p>
+            </>
+          )}
         </div>
 
         {/* Footer absoluto — apenas mobile */}

@@ -3,6 +3,7 @@ import { createServiceClient } from './supabase.ts';
 const AUDIO_BUCKET = 'audio-recordings';
 const AVATAR_BUCKET = 'pacientes-avatars';
 const FAMILY_AUDIO_BUCKET = 'family-diary-audio';
+const ATTACHMENTS_BUCKET = 'pacientes-anexos';
 
 async function removeStoragePaths(bucket: string, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
@@ -47,12 +48,20 @@ export async function hardDeletePatientData(patientId: string, clinicId: string)
     .map((r) => r.audio_note_url as string | null)
     .filter((p): p is string => Boolean(p));
 
+  const { data: attachmentRows } = await supabase
+    .from('patient_attachments')
+    .select('storage_path')
+    .eq('patient_id', patientId);
+
+  const attachmentPaths = (attachmentRows ?? []).map((r) => r.storage_path as string);
+
   await supabase.from('patient_embeddings').delete().eq('patient_id', patientId);
   await supabase.from('crisis_alerts').delete().eq('patient_id', patientId);
   await supabase.from('audio_transcriptions').delete().eq('patient_id', patientId);
   await supabase.from('session_notes').delete().eq('patient_id', patientId);
   await supabase.from('audio_recordings').delete().eq('patient_id', patientId);
   await supabase.from('ai_jobs').delete().eq('patient_id', patientId);
+  await supabase.from('patient_attachments').delete().eq('patient_id', patientId);
   await supabase.from('diary_entries').delete().eq('patient_id', patientId);
   await supabase.from('invites').delete().eq('patient_id', patientId);
   await supabase.from('agreements').delete().eq('patient_id', patientId);
@@ -74,5 +83,6 @@ export async function hardDeletePatientData(patientId: string, clinicId: string)
     removeStoragePaths(AUDIO_BUCKET, audioPaths),
     removeStoragePaths(AVATAR_BUCKET, avatarPaths),
     removeStoragePaths(FAMILY_AUDIO_BUCKET, familyAudioPaths),
+    removeStoragePaths(ATTACHMENTS_BUCKET, attachmentPaths),
   ]);
 }

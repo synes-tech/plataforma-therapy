@@ -7,6 +7,7 @@ import type { AccountType } from '@features/register/account-type';
 import type { PlanId } from '@features/register/constants';
 import { isSoloPlan } from '@features/register/constants';
 import {
+  formatPlanoPrice,
   formatPlanoPriceLabel,
   type PlanoCatalogItem,
 } from '@shared/lib/planos';
@@ -21,7 +22,7 @@ async function fetchPlanos(): Promise<PlanoCatalogItem[]> {
   const { data, error } = await supabase
     .from('planos')
     .select(
-      'id, nome, tipo_perfil, preco_mensal_cents, limite_profissionais, limite_pacientes_por_prof, descricao_curta, destaque, features, recomendado, sort_order',
+      'id, nome, tipo_perfil, preco_mensal_cents, preco_anual_mensal_cents, limite_profissionais, limite_pacientes_por_prof, descricao_curta, destaque, features, recomendado, sort_order',
     )
     .eq('ativo', true)
     .order('sort_order');
@@ -33,6 +34,7 @@ async function fetchPlanos(): Promise<PlanoCatalogItem[]> {
     nome: row.nome,
     tipo_perfil: row.tipo_perfil as 'autonomo' | 'clinica',
     preco_mensal_cents: row.preco_mensal_cents,
+    preco_anual_mensal_cents: row.preco_anual_mensal_cents ?? null,
     limite_profissionais: row.limite_profissionais,
     limite_pacientes_por_prof: row.limite_pacientes_por_prof,
     descricao_curta: row.descricao_curta,
@@ -96,7 +98,7 @@ export default function RegisterPlanSelector({
   const title = accountType === 'solo' ? 'Plano do consultório' : 'Planos para clínica';
   const subtitle =
     accountType === 'solo'
-      ? 'Profissional independente com até 50 pacientes ativos.'
+      ? 'Comece grátis com 1 paciente — ou assine e ganhe 14 dias grátis em qualquer plano.'
       : 'Escolha o plano que acompanha o crescimento da sua equipe.';
 
   return (
@@ -196,8 +198,13 @@ function PlanCard({
         <h3 className="font-display text-sm font-bold text-charcoal">{plan.nome}</h3>
         <p className="mt-0.5 text-[11px] text-charcoal-muted">{plan.descricao_curta}</p>
         <p className="mt-2 font-display text-lg font-bold text-charcoal">
-          {formatPlanoPriceLabel(plan.preco_mensal_cents)}
+          {formatPlanoPriceLabel(plan.preco_mensal_cents, plan.id)}
         </p>
+        {plan.preco_anual_mensal_cents ? (
+          <p className="mt-0.5 text-[11px] text-charcoal-muted">
+            ou {formatPlanoPrice(plan.preco_anual_mensal_cents)}/mês no anual (12% off)
+          </p>
+        ) : null}
         {plan.destaque && (
           <p className="mt-1 text-xs font-medium text-primary-dark">{plan.destaque}</p>
         )}

@@ -1,6 +1,8 @@
 /** Tipo de conta no onboarding — mapeia para planos e fluxo de cadastro */
 export type AccountType = 'corporate' | 'solo';
 
+// corporate/clínica permanece no tipo para reativar com PRODUCT_LAUNCH.soloProfessionalOnly = false
+
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   corporate: 'Sou uma Clínica',
   solo: 'Sou Profissional Autônomo',

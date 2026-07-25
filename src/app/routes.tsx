@@ -5,7 +5,11 @@ import { AppLayout } from '@shared/ui/AppLayout';
 import { FamilyLayout } from '@shared/ui/FamilyLayout';
 
 // Lazy-loaded containers
+const LandingPageContainer = lazy(() => import('@containers/landing/LandingPageContainer'));
 const LoginContainer = lazy(() => import('@containers/auth/LoginContainer'));
+const AuthConfirmContainer = lazy(() => import('@containers/auth/AuthConfirmContainer'));
+const ForgotPasswordContainer = lazy(() => import('@containers/auth/ForgotPasswordContainer'));
+const ResetPasswordContainer = lazy(() => import('@containers/auth/ResetPasswordContainer'));
 const RegisterClinicContainer = lazy(() => import('@containers/auth/RegisterClinicContainer'));
 const InviteContainer = lazy(() => import('@containers/auth/InviteContainer'));
 const DashboardContainer = lazy(() => import('@containers/dashboard/DashboardContainer'));
@@ -22,6 +26,8 @@ const SettingsHubContainer = lazy(() => import('@containers/settings/SettingsHub
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
 const SettingsPlanTab = lazy(() => import('@containers/settings/SettingsPlanTab'));
 const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
+const StripeTestPageContainer = lazy(() => import('@containers/billing/stripe-test/StripeTestPageContainer'));
+const CheckoutReturnContainer = lazy(() => import('@containers/billing/CheckoutReturnContainer'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
 
 /**
@@ -48,8 +54,23 @@ export function AppRoutes() {
     <Routes>
       {/* Public routes (no sidebar) */}
       <Route path="/login" element={<LoginContainer />} />
+      <Route path="/auth/confirm" element={<AuthConfirmContainer />} />
+      <Route path="/forgot-password" element={<ForgotPasswordContainer />} />
+      <Route path="/reset-password" element={<ResetPasswordContainer />} />
       <Route path="/register" element={<RegisterClinicContainer />} />
       <Route path="/family/register" element={<RegisterFamily />} />
+
+      {/* Rota oculta — sem link na navegação; acesso direto pela URL */}
+      <Route path="/unithery/teste" element={<StripeTestPageContainer />} />
+
+      <Route
+        path="/checkout/return"
+        element={
+          <ProtectedRoute>
+            <CheckoutReturnContainer />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Protected routes with persistent sidebar */}
       <Route
@@ -204,8 +225,8 @@ export function AppRoutes() {
         }
       />
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Landing page pública — porta de entrada da Unithery */}
+      <Route path="/" element={<LandingPageContainer />} />
 
       {/* 404 */}
       <Route

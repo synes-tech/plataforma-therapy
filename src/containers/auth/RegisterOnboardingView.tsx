@@ -1,7 +1,9 @@
 import { type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import type { AccountType } from '@features/register/account-type';
 import { ACCOUNT_TYPE_DESCRIPTIONS, ACCOUNT_TYPE_LABELS } from '@features/register/account-type';
+import { PRODUCT_LAUNCH } from '@features/register/product-launch';
 import { RegisterInput } from '@features/register/RegisterInput';
 import { PhoneInput } from '@features/register/PhoneInput';
 import { RegisterProgressBar } from '@features/register/RegisterProgressBar';
@@ -44,6 +46,7 @@ export function RegisterOnboardingView({
   onSubmit,
 }: RegisterOnboardingViewProps) {
   const isSolo = accountType === 'solo';
+  const showAccountTypeSelector = !PRODUCT_LAUNCH.soloProfessionalOnly;
   const showClinicStep = mobileStep === 1;
   const showAccessStep = mobileStep === 2;
 
@@ -69,10 +72,13 @@ export function RegisterOnboardingView({
           Crie sua conta
         </h1>
         <p className="mt-1.5 text-sm text-charcoal-muted">
-          Comece grátis — 14 dias para explorar o Unithery sem cartão.
+          {showAccountTypeSelector
+            ? 'Comece grátis — 14 dias para explorar o Unithery sem cartão.'
+            : 'Crie sua conta de terapeuta — 14 dias grátis, sem cartão.'}
         </p>
       </div>
 
+      {showAccountTypeSelector && (
       <div className="relative z-10 mx-auto mt-8 w-full max-w-2xl px-5">
         <p className="mb-3 text-center text-xs font-medium uppercase tracking-wide text-charcoal-muted">
           Tipo de conta
@@ -102,8 +108,9 @@ export function RegisterOnboardingView({
           })}
         </div>
       </div>
+      )}
 
-      <div className="relative z-10 shrink-0 pt-6">
+      <div className={`relative z-10 shrink-0 ${showAccountTypeSelector ? 'pt-6' : 'pt-8'}`}>
         <RegisterProgressBar currentStep={mobileStep} />
       </div>
 
@@ -248,12 +255,21 @@ export function RegisterOnboardingView({
 
         <p className="mx-auto mt-6 text-center text-sm text-charcoal-muted">
           Já tem uma conta?{' '}
-          <a
-            href="/login"
+          <Link
+            to="/login"
             className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 hover:text-primary"
           >
             Fazer login
-          </a>
+          </Link>
+        </p>
+        <p className="mx-auto mt-3 text-center text-sm text-charcoal-muted">
+          Recebeu convite do terapeuta?{' '}
+          <Link
+            to="/family/register"
+            className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 hover:text-primary"
+          >
+            Crie o seu acesso
+          </Link>
         </p>
       </form>
     </div>

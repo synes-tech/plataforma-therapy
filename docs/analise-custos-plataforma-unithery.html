@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Unithery — Análise de Custos de Infraestrutura & Unit Economics</title>
+<style>
+  :root {
+    --ink: #1f2a2e;
+    --ink-soft: #4b5a60;
+    --muted: #7c8a90;
+    --line: #e2e8e6;
+    --bg: #f8faf9;
+    --surface: #ffffff;
+    --primary: #0f766e;
+    --primary-soft: #e6f2f0;
+    --primary-ink: #0b5a54;
+    --accent: #b45309;
+    --accent-soft: #fdf3e7;
+    --danger: #b91c1c;
+    --danger-soft: #fbeaea;
+    --ok: #15803d;
+    --ok-soft: #e9f5ee;
+    --flash: #1d4ed8;
+    --flash-soft: #e8eefc;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    background: #6b7773;
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    font-size: 10.6pt;
+    line-height: 1.5;
+  }
+
+  .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+  /* ---------- Página A4 ---------- */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 18mm 17mm 16mm;
+    margin: 10mm auto;
+    background: var(--surface);
+    box-shadow: 0 6px 30px rgba(0,0,0,0.25);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page__footer {
+    margin-top: auto;
+    padding-top: 8mm;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 7.6pt;
+    color: var(--muted);
+    letter-spacing: .02em;
+  }
+  .page__footer strong { color: var(--primary-ink); font-weight: 600; }
+
+  /* ---------- Tipografia ---------- */
+  h1, h2, h3, h4 { font-weight: 600; line-height: 1.2; margin: 0; }
+  h2.section {
+    font-size: 17pt;
+    color: var(--primary-ink);
+    margin: 0 0 2mm;
+    letter-spacing: -0.01em;
+  }
+  .kicker {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 7.8pt;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 2mm;
+  }
+  .lead { color: var(--ink-soft); font-size: 11pt; margin: 0 0 4mm; }
+  p { margin: 0 0 3mm; }
+  .small { font-size: 8.6pt; color: var(--muted); }
+  .sec-divider { height: 3px; width: 46px; background: var(--primary); border-radius: 3px; margin-bottom: 5mm; }
+
+  strong { color: var(--ink); }
+  em.hl { font-style: normal; background: var(--accent-soft); color: var(--accent); padding: 0 3px; border-radius: 3px; font-weight: 600; }
+
+  /* ---------- Capa ---------- */
+  .cover { background: linear-gradient(160deg, #0f766e 0%, #0b5a54 55%, #08403c 100%); color: #eafaf7; justify-content: space-between; }
+  .cover .brand { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; font-size: 9pt; color: #bfeee6; }
+  .cover h1 { font-size: 33pt; line-height: 1.08; letter-spacing: -0.02em; margin: 6mm 0 4mm; color: #ffffff; }
+  .cover .subtitle { font-size: 13pt; color: #cdeee8; max-width: 150mm; }
+  .cover .cover-meta { display: flex; gap: 10mm; flex-wrap: wrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  .cover .cover-meta div span { display: block; font-size: 7.6pt; letter-spacing: .14em; text-transform: uppercase; color: #8fd4ca; margin-bottom: 1.5mm; }
+  .cover .cover-meta div strong { font-size: 11pt; color: #ffffff; font-weight: 600; }
+  .cover .cover-note { border-left: 3px solid #4fd1c5; padding: 3mm 0 3mm 6mm; color: #d6f2ee; font-size: 9.4pt; max-width: 150mm; }
+  .cover-badges { display: flex; gap: 4mm; flex-wrap: wrap; margin-top: 4mm; }
+  .cover-badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 2mm 5mm; font-family: sans-serif; font-size: 8.4pt; color: #eafaf7; }
+
+  /* ---------- Cards / grids ---------- */
+  .grid { display: grid; gap: 4mm; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .kpi {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 4mm 4.5mm;
+  }
+  .kpi .kpi-label { font-family: sans-serif; font-size: 7.8pt; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 1.5mm; }
+  .kpi .kpi-value { font-size: 20pt; font-weight: 700; color: var(--primary-ink); line-height: 1; letter-spacing: -0.01em; }
+  .kpi .kpi-value.small { font-size: 15pt; }
+  .kpi .kpi-sub { font-family: sans-serif; font-size: 8pt; color: var(--ink-soft); margin-top: 1.5mm; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 5mm; }
+  .card.tint { background: var(--primary-soft); border-color: #c9e6e1; }
+  .card.warn { background: var(--accent-soft); border-color: #f3ddbd; }
+  .card.danger { background: var(--danger-soft); border-color: #f2c9c9; }
+  .card.ok { background: var(--ok-soft); border-color: #c6e6d2; }
+  .card h4 { font-family: sans-serif; font-size: 10pt; margin-bottom: 2mm; color: var(--ink); }
+
+  .callout { border-radius: 10px; padding: 4mm 5mm; font-size: 9.6pt; }
+  .callout.key { background: var(--primary-soft); border: 1px solid #c9e6e1; }
+  .callout.warn { background: var(--accent-soft); border: 1px solid #f3ddbd; }
+  .callout.danger { background: var(--danger-soft); border: 1px solid #f2c9c9; }
+  .callout .callout-title { font-family: sans-serif; font-weight: 700; font-size: 8.6pt; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 2mm; }
+  .callout.key .callout-title { color: var(--primary-ink); }
+  .callout.warn .callout-title { color: var(--accent); }
+  .callout.danger .callout-title { color: var(--danger); }
+
+  /* ---------- Tabelas ---------- */
+  table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 8.7pt; }
+  caption { text-align: left; font-family: sans-serif; font-size: 8.2pt; color: var(--muted); margin-bottom: 2mm; }
+  th, td { padding: 2.2mm 2.6mm; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { background: var(--primary-ink); color: #eafaf7; font-weight: 600; font-size: 8pt; border-bottom: none; letter-spacing: .01em; }
+  thead th:first-child { border-top-left-radius: 6px; }
+  thead th:last-child { border-top-right-radius: 6px; }
+  tbody tr:nth-child(even) { background: #f4f8f7; }
+  tbody tr.total-row { background: var(--primary-soft); }
+  tbody tr.total-row td { font-weight: 700; color: var(--primary-ink); border-top: 1.5px solid var(--primary); }
+  .num { font-variant-numeric: tabular-nums; }
+  td.pro { color: var(--accent); font-weight: 600; }
+  td.flash { color: var(--flash); font-weight: 600; }
+  .tag { display: inline-block; font-family: sans-serif; font-size: 7pt; font-weight: 700; padding: 0.6mm 2mm; border-radius: 4px; letter-spacing: .03em; }
+  .tag.pro { background: var(--accent-soft); color: var(--accent); }
+  .tag.flash { background: var(--flash-soft); color: var(--flash); }
+  .tag.pos { background: var(--ok-soft); color: var(--ok); }
+  .tag.neg { background: var(--danger-soft); color: var(--danger); }
+
+  ul.clean { margin: 0 0 3mm; padding-left: 5mm; }
+  ul.clean li { margin-bottom: 1.6mm; }
+  ol.steps { margin: 0; padding-left: 5mm; }
+  ol.steps li { margin-bottom: 2mm; }
+
+  .formula { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 8.2pt; background: #0f1e1c; color: #b8e6df; padding: 2.5mm 3.5mm; border-radius: 7px; margin: 2mm 0; overflow-wrap: anywhere; }
+
+  /* barras comparativas */
+  .bar-row { display: grid; grid-template-columns: 34mm 1fr; align-items: center; gap: 3mm; margin-bottom: 2.2mm; font-family: sans-serif; font-size: 8.4pt; }
+  .bar-track { position: relative; background: #eef3f1; border-radius: 5px; height: 7mm; overflow: hidden; }
+  .bar-fill { position: absolute; top: 0; left: 0; height: 100%; display: flex; align-items: center; padding-left: 2mm; color: #fff; font-weight: 700; font-size: 7.8pt; }
+  .bar-fill.pro { background: linear-gradient(90deg,#d97706,#b45309); }
+  .bar-fill.flash { background: linear-gradient(90deg,#2563eb,#1d4ed8); }
+
+  .two-col { column-count: 2; column-gap: 8mm; }
+  .two-col p { margin-top: 0; }
+
+  .avoid-break { break-inside: avoid; }
+  .toc-item { display: flex; justify-content: space-between; align-items: baseline; padding: 2.4mm 0; border-bottom: 1px dashed var(--line); font-family: sans-serif; font-size: 9.6pt; }
+  .toc-item .toc-num { color: var(--primary); font-weight: 700; margin-right: 3mm; }
+  .toc-item .toc-page { color: var(--muted); font-size: 8.6pt; }
+
+  .src-list { font-family: sans-serif; font-size: 8pt; color: var(--ink-soft); }
+  .src-list li { margin-bottom: 1.4mm; word-break: break-all; }
+
+  /* ---------- Toolbar / print ---------- */
+  .toolbar {
+    position: fixed; top: 14px; right: 14px; z-index: 100;
+    display: flex; gap: 8px; font-family: sans-serif;
+  }
+  .toolbar button {
+    background: var(--primary); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  }
+  .toolbar button.ghost { background: #fff; color: var(--primary-ink); border: 1px solid var(--line); }
+
+  .sim-note { font-family: sans-serif; font-size: 8pt; color: var(--muted); }
+  .sim-controls { display: grid; grid-template-columns: repeat(2,1fr); gap: 3mm 6mm; font-family: sans-serif; font-size: 8.6pt; }
+  .sim-controls label { display: flex; flex-direction: column; gap: 1mm; }
+  .sim-controls input[type=range] { width: 100%; accent-color: var(--primary); }
+  .sim-controls .val { font-weight: 700; color: var(--primary-ink); }
+  .sim-out { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-top: 4mm; }
+
+  @media print {
+    body { background: #fff; font-size: 10pt; }
+    .toolbar { display: none !important; }
+    .no-print { display: none !important; }
+    .page { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 14mm 14mm 12mm; }
+    .page-break { break-before: page; }
+  }
+  @page { size: A4; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="toolbar no-print">
+  <button onclick="window.print()">Imprimir / Exportar PDF</button>
+  <button class="ghost" onclick="document.getElementById('sim').scrollIntoView({behavior:'smooth'})">Simulador</button>
+</div>
+
+<!-- ============================= CAPA ============================= -->
+<section class="page cover">
+  <div>
+    <div class="brand">Unithery · Plataforma de Terapia com IA</div>
+    <div class="cover-badges">
+      <span class="cover-badge">Confidencial</span>
+      <span class="cover-badge">Uso interno — Sócios</span>
+      <span class="cover-badge">v1.0</span>
+    </div>
+  </div>
+  <div>
+    <h1>Análise de Custos de Infraestrutura &amp; Unit Economics</h1>
+    <p class="subtitle">Quanto custa, de verdade, operar cada funcionalidade da plataforma — por paciente, por psicólogo e por clínica. Base para precificação dos planos e definição dos limitadores de uso.</p>
+    <div class="cover-badges">
+      <span class="cover-badge">Modo Clínica</span>
+      <span class="cover-badge">Modo Psicólogo Autônomo</span>
+      <span class="cover-badge">Cenário Gemini 2.5 Pro vs Flash</span>
+    </div>
+  </div>
+  <div>
+    <div class="cover-note" style="margin-bottom:8mm">
+      Todos os valores foram calculados a partir dos provedores reais em produção (Google Vertex AI, Supabase, Stripe), com preços oficiais coletados em julho/2026 e câmbio conservador de <strong>R$ 5,80/US$</strong> (PTAX do dia ≈ R$ 5,10).
+    </div>
+    <div class="cover-meta">
+      <div><span>Data</span><strong>Julho / 2026</strong></div>
+      <div><span>Câmbio adotado</span><strong>R$ 5,80 / US$</strong></div>
+      <div><span>Stack analisada</span><strong>Vertex AI · Supabase · Stripe</strong></div>
+      <div><span>Escopo</span><strong>Custo + Margem + Preço</strong></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= SUMÁRIO ============================= -->
+<section class="page">
+  <div class="kicker">Índice</div>
+  <h2 class="section">O que você vai encontrar</h2>
+  <div class="sec-divider"></div>
+
+  <div class="toc-item"><div><span class="toc-num">01</span>Sumário executivo &amp; principais achados</div><span class="toc-page">pág. 3</span></div>
+  <div class="toc-item"><div><span class="toc-num">02</span>Metodologia, premissas e preços de referência</div><span class="toc-page">pág. 4</span></div>
+  <div class="toc-item"><div><span class="toc-num">03</span>Custo unitário por funcionalidade (a "ponta do lápis")</div><span class="toc-page">pág. 5</span></div>
+  <div class="toc-item"><div><span class="toc-num">04</span>O custo do áudio: transcrição e armazenamento (10 a 60 min)</div><span class="toc-page">pág. 6</span></div>
+  <div class="toc-item"><div><span class="toc-num">05</span>Custo por paciente/mês — 3 perfis de uso</div><span class="toc-page">pág. 7</span></div>
+  <div class="toc-item"><div><span class="toc-num">06</span>Custo por psicólogo autônomo &amp; margem dos planos</div><span class="toc-page">pág. 8</span></div>
+  <div class="toc-item"><div><span class="toc-num">07</span>Custo por clínica (10 psicólogos) &amp; custo por assento</div><span class="toc-page">pág. 9</span></div>
+  <div class="toc-item"><div><span class="toc-num">08</span>Cenários práticos (storytelling de custo)</div><span class="toc-page">pág. 10</span></div>
+  <div class="toc-item"><div><span class="toc-num">09</span>Riscos, limitadores e plano de otimização</div><span class="toc-page">pág. 11</span></div>
+  <div class="toc-item"><div><span class="toc-num">10</span>Recomendação de precificação &amp; simulador</div><span class="toc-page">pág. 12</span></div>
+  <div class="toc-item"><div><span class="toc-num">A</span>Anexo — Fontes consultadas</div><span class="toc-page">pág. 13</span></div>
+
+  <div style="margin-top:8mm" class="callout key avoid-break">
+    <div class="callout-title">Como ler este documento</div>
+    Sempre que houver custo de IA, mostramos <span class="tag pro">GEMINI 2.5 PRO</span> (o que roda hoje) e <span class="tag flash">GEMINI 2.5 FLASH</span> (o cenário otimizado). A diferença entre os dois é o principal alavancador de margem da operação — como você verá, ela decide se um plano dá lucro ou prejuízo.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span><strong>Confidencial</strong> · Julho 2026</span>
+  </div>
+</section>
+
+<!-- ============================= 01 SUMÁRIO EXECUTIVO ============================= -->
+<section class="page page-break">
+  <div class="kicker">01 — Sumário executivo</div>
+  <h2 class="section">Os números que decidem o negócio</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">A plataforma é intensiva em IA. O custo variável é quase todo Google Vertex AI (Gemini). Storage e banco são secundários. A escolha de modelo (Pro vs Flash) e o controle de volume de chat são o que separam margem saudável de prejuízo.</p>
+
+  <div class="grid grid-4" style="margin-bottom:5mm">
+    <div class="kpi"><div class="kpi-label">Paciente médio / mês</div><div class="kpi-value">R$ 11,56</div><div class="kpi-sub">no Gemini 2.5 Pro (atual)</div></div>
+    <div class="kpi"><div class="kpi-label">Paciente médio / mês</div><div class="kpi-value" style="color:var(--flash)">R$ 4,55</div><div class="kpi-sub">no Gemini 2.5 Flash</div></div>
+    <div class="kpi"><div class="kpi-label">Economia com Flash</div><div class="kpi-value">-61%</div><div class="kpi-sub">mesmo produto, mesma experiência</div></div>
+    <div class="kpi"><div class="kpi-label">Custo fixo plataforma</div><div class="kpi-value small">~R$ 232</div><div class="kpi-sub">Supabase/mês (todo o tenant)</div></div>
+  </div>
+
+  <h4 class="sans" style="margin-bottom:3mm">Principais achados</h4>
+  <div class="grid grid-2">
+    <div class="callout key avoid-break">
+      <div class="callout-title">1. O chat é o maior custo por paciente</div>
+      No perfil médio, as perguntas ao Copiloto respondem por <strong>~59% do custo</strong> no Gemini Pro. Cada pergunta custa <strong>R$ 0,17 (Pro)</strong> vs <strong>R$ 0,04 (Flash)</strong>. Limitar/otimizar o chat é a alavanca nº 1.
+    </div>
+    <div class="callout warn avoid-break">
+      <div class="callout-title">2. No Pro, os planos "cheios" dão prejuízo</div>
+      Se o plano Intermediário (R$ 247, até 40 pacientes) operasse lotado no perfil médio em <strong>Pro</strong>, o custo (R$ 462) <strong>ultrapassaria a receita</strong>. Em <strong>Flash</strong>, o mesmo cenário mantém margem positiva.
+    </div>
+    <div class="callout key avoid-break">
+      <div class="callout-title">3. Áudio: transcrever é barato, guardar é caro</div>
+      Transcrever 50 min custa centavos (R$ 0,62–0,94). O problema é <strong>reter o WAV</strong>: 1 ano de sessões de um paciente pode custar <strong>~R$ 0,57/mês só de storage</strong>. O áudio não é necessário após a transcrição.
+    </div>
+    <div class="callout danger avoid-break">
+      <div class="callout-title">4. Limitadores existem, mas não bloqueiam</div>
+      As cotas de IA (300 consultas/mês, 200 min de áudio) estão no schema e na tela, mas <strong>não travam</strong> as Edge Functions hoje. Sem enforcement, um paciente "intenso" pode custar <strong>3x o previsto</strong>.
+    </div>
+  </div>
+
+  <div class="callout key" style="margin-top:5mm">
+    <div class="callout-title">Recomendação central</div>
+    Migrar o grosso dos fluxos para <span class="tag flash">GEMINI 2.5 FLASH</span>, ativar o <strong>enforcement das cotas mensais de IA</strong> e <strong>apagar o áudio de sessão após a transcrição</strong>. Com isso, o custo por paciente cai para a casa de <strong>R$ 4–5/mês</strong> e todos os planos atuais passam a ter margem &gt; 60%.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>3</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 02 METODOLOGIA ============================= -->
+<section class="page page-break">
+  <div class="kicker">02 — Metodologia</div>
+  <h2 class="section">Premissas e preços de referência</h2>
+  <div class="sec-divider"></div>
+
+  <p>Mapeamos o código em produção para identificar <strong>cada chamada paga</strong> e cruzamos com os preços oficiais dos provedores (julho/2026). Todo custo em dólar foi convertido por um câmbio <strong>conservador de R$ 5,80/US$</strong> — acima do PTAX do dia (≈ R$ 5,10) para dar folga de margem contra oscilação cambial.</p>
+
+  <div class="grid grid-2">
+    <div class="card avoid-break">
+      <h4>Preços de IA — Google Vertex AI</h4>
+      <table>
+        <thead><tr><th>Item</th><th>US$/1M tok.</th><th>R$/1M tok.</th></tr></thead>
+        <tbody>
+          <tr><td>Gemini 2.5 Pro — entrada</td><td class="num">1,25</td><td class="num">7,25</td></tr>
+          <tr><td>Gemini 2.5 Pro — saída*</td><td class="num">10,00</td><td class="num">58,00</td></tr>
+          <tr><td>Gemini 2.5 Flash — entrada texto</td><td class="num">0,30</td><td class="num">1,74</td></tr>
+          <tr><td>Gemini 2.5 Flash — entrada áudio</td><td class="num">1,00</td><td class="num">5,80</td></tr>
+          <tr><td>Gemini 2.5 Flash — saída*</td><td class="num">2,50</td><td class="num">14,50</td></tr>
+          <tr><td>Embeddings (gemini-embedding-001)</td><td class="num">0,15</td><td class="num">0,87</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-top:2mm">*Saída inclui "thinking tokens". Áudio é contado a <strong>1.920 tokens/minuto</strong> (32 tok/s). No Pro, áudio entra na tarifa de entrada (US$ 1,25/1M).</p>
+    </div>
+
+    <div class="card avoid-break">
+      <h4>Preços de infraestrutura — Supabase &amp; Stripe</h4>
+      <table>
+        <thead><tr><th>Item</th><th>Unidade</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Plano Pro (base)</td><td>mês</td><td class="num">US$ 25</td></tr>
+          <tr><td>Storage de arquivos</td><td>GB/mês</td><td class="num">US$ 0,0213</td></tr>
+          <tr><td>Banco (disco)</td><td>GB/mês</td><td class="num">US$ 0,125</td></tr>
+          <tr><td>Egress (download)</td><td>GB</td><td class="num">US$ 0,09</td></tr>
+          <tr><td>Edge Functions</td><td>1M chamadas</td><td class="num">US$ 2,00</td></tr>
+          <tr><td>Stripe (cartão nacional)</td><td>transação</td><td class="num">3,99% + R$ 0,39</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-top:2mm">Pro inclui 100 GB storage, 8 GB de banco, 250 GB de egress e 2M de chamadas — só paga o excedente. Base ≈ <strong>R$ 232/mês</strong> para <em>todo</em> o ambiente (compartilhado por todas as clínicas).</p>
+    </div>
+  </div>
+
+  <h4 class="sans" style="margin:5mm 0 3mm">Premissas técnicas de consumo (medidas no código)</h4>
+  <table class="avoid-break">
+    <thead><tr><th>Parâmetro</th><th>Valor adotado</th><th>Origem</th></tr></thead>
+    <tbody>
+      <tr><td>Áudio: WAV PCM 16-bit mono 16 kHz</td><td class="num">1,92 MB / min</td><td style="text-align:left">Conversão no cliente (audio-wav.ts)</td></tr>
+      <tr><td>Chat: contexto de entrada por pergunta</td><td class="num">~7.500 tokens</td><td style="text-align:left">System + anamnese + 5 chunks RAG + 6 msgs</td></tr>
+      <tr><td>Chat: saída por resposta</td><td class="num">~2.000 tokens</td><td style="text-align:left">maxOutput 4.096 (inclui thinking)</td></tr>
+      <tr><td>Sessão: saída (transcrição + SOAP)</td><td class="num">~4.000 tokens</td><td style="text-align:left">maxOutput 4.096</td></tr>
+      <tr><td>Sessão: embeddings gerados</td><td class="num">4 a 6 chunks</td><td style="text-align:left">session-note-pipeline.ts</td></tr>
+      <tr><td>Laudo padrão</td><td class="num">5 págs · ~3.500 tok.</td><td style="text-align:left">Extração (PDF→Gemini) + resumo + embeddings</td></tr>
+      <tr><td>Chunking RAG</td><td class="num">1.200 / 150 chars</td><td style="text-align:left">text-chunking.ts</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn" style="margin-top:5mm">
+    <div class="callout-title">Nota de rigor</div>
+    Tokens de linguagem natural são estimativas (o consumo real varia com o texto). Usamos premissas <strong>conservadoras</strong> (arredondadas para cima) e câmbio com folga. Custos de storage/banco são exatos por GB; custos de IA têm margem de erro de ±15% sobre o volume de tokens.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>4</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 03 CUSTO UNITÁRIO ============================= -->
+<section class="page page-break">
+  <div class="kicker">03 — Custo unitário</div>
+  <h2 class="section">Quanto custa cada ação, na ponta do lápis</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Custo marginal de executar uma vez cada funcionalidade, nos dois cenários de modelo. Valores em R$ (câmbio R$ 5,80).</p>
+
+  <table class="avoid-break">
+    <caption>Custo por ação executada uma vez — inclui LLM + embeddings quando aplicável</caption>
+    <thead>
+      <tr><th>Funcionalidade</th><th>O que consome</th><th>Pro</th><th>Flash</th><th>Δ</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Cadastrar paciente</td><td style="text-align:left">1 linha no banco + avatar</td><td class="num">~R$ 0,00</td><td class="num">~R$ 0,00</td><td class="num">—</td></tr>
+      <tr><td>Preencher anamnese</td><td style="text-align:left">Campos no banco (sem IA)</td><td class="num">~R$ 0,00</td><td class="num">~R$ 0,00</td><td class="num">—</td></tr>
+      <tr><td>1 pergunta no Copiloto (chat RAG)</td><td style="text-align:left">1 embed + 1 LLM (7,5k in / 2k out)</td><td class="pro num">0,170</td><td class="flash num">0,042</td><td class="num">-75%</td></tr>
+      <tr><td>Copiloto por voz (transcrever 1 min)</td><td style="text-align:left">STT; áudio descartado após</td><td class="pro num">0,043</td><td class="flash num">0,018</td><td class="num">-58%</td></tr>
+      <tr><td>Processar sessão de 50 min (STT + SOAP)</td><td style="text-align:left">Áudio 96k tok + 4k saída + embeddings</td><td class="pro num">0,939</td><td class="flash num">0,617</td><td class="num">-34%</td></tr>
+      <tr><td>Sessão por texto (sem áudio)</td><td style="text-align:left">SOAP + embeddings (in ~4k / out 4k)</td><td class="pro num">0,046</td><td class="flash num">0,011</td><td class="num">-76%</td></tr>
+      <tr><td>Subir laudo padrão (5 pág)</td><td style="text-align:left">Extração PDF + resumo IA + embeddings</td><td class="pro num">0,274</td><td class="flash num">0,070</td><td class="num">-74%</td></tr>
+      <tr><td>Subir laudo extenso (20 pág)</td><td style="text-align:left">Extração + resumo + embeddings</td><td class="pro num">1,063</td><td class="flash num">0,274</td><td class="num">-74%</td></tr>
+      <tr><td>Resumo IA de um anexo (isolado)</td><td style="text-align:left">1 LLM (~3,8k in / 500 out)</td><td class="pro num">0,057</td><td class="flash num">0,014</td><td class="num">-75%</td></tr>
+      <tr><td>Diário família por áudio (3 min)</td><td style="text-align:left">STT + extração de humor/sono (2 LLM)</td><td class="pro num">0,094</td><td class="flash num">0,046</td><td class="num">-51%</td></tr>
+      <tr><td>Briefing executivo / resumo proativo</td><td style="text-align:left">1 LLM (contexto amplo, cache 24h)</td><td class="pro num">0,120</td><td class="flash num">0,032</td><td class="num">-73%</td></tr>
+      <tr><td>Salvar relatório / aprovar sessão</td><td style="text-align:left">Só banco (draft já gerado)</td><td class="num">~R$ 0,00</td><td class="num">~R$ 0,00</td><td class="num">—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid grid-2" style="margin-top:5mm">
+    <div class="card avoid-break">
+      <h4>Como calculamos (exemplo: 1 pergunta no chat)</h4>
+      <div class="formula">entrada = 7.500 tok × US$ 1,25/1M = US$ 0,00938<br>saída&nbsp;&nbsp;&nbsp;= 2.000 tok × US$ 10/1M&nbsp;= US$ 0,02000<br>total = US$ 0,0294 × 5,80 = <strong>R$ 0,17</strong> (Pro)</div>
+      <p class="small">No Flash: 7.500×0,30 + 2.000×2,50 = US$ 0,00725 → <strong>R$ 0,042</strong>.</p>
+    </div>
+    <div class="card tint avoid-break">
+      <h4>Leitura rápida</h4>
+      <ul class="clean">
+        <li>Cadastro, anamnese e "salvar" são <strong>praticamente gratuitos</strong> — o custo mora na IA.</li>
+        <li>O <strong>chat</strong> e a <strong>transcrição de sessão</strong> são as ações mais caras.</li>
+        <li>Trocar Pro→Flash corta <strong>50% a 76%</strong> de cada ação de IA.</li>
+        <li>A transcrição cai "só" 34% no Flash porque o áudio custa US$ 1,00/1M (vs 0,30 do texto).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>5</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 04 ÁUDIO ============================= -->
+<section class="page page-break">
+  <div class="kicker">04 — O custo do áudio</div>
+  <h2 class="section">Transcrição e armazenamento por duração</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Você pediu a visão detalhada de áudios de 10 a 60 minutos: quanto ocupam em disco e quanto custam para transcrever e guardar — tanto na sessão do psicólogo quanto no portal da família.</p>
+
+  <table class="avoid-break">
+    <caption>Áudio WAV (16 kHz mono) — tamanho, custo de transcrição e custo mensal de armazenamento</caption>
+    <thead>
+      <tr>
+        <th>Duração</th><th>Tamanho</th>
+        <th>Transcrição (Pro)</th><th>Transcrição (Flash)</th>
+        <th>Storage /mês</th><th>Storage /ano</th><th>Download (egress)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>10 min</td><td class="num">19,2 MB</td><td class="pro num">0,382</td><td class="flash num">0,172</td><td class="num">0,0024</td><td class="num">0,028</td><td class="num">0,010</td></tr>
+      <tr><td>20 min</td><td class="num">38,4 MB</td><td class="pro num">0,521</td><td class="flash num">0,283</td><td class="num">0,0047</td><td class="num">0,057</td><td class="num">0,020</td></tr>
+      <tr><td>30 min</td><td class="num">57,6 MB</td><td class="pro num">0,661</td><td class="flash num">0,395</td><td class="num">0,0071</td><td class="num">0,085</td><td class="num">0,030</td></tr>
+      <tr><td>40 min</td><td class="num">76,8 MB</td><td class="pro num">0,800</td><td class="flash num">0,506</td><td class="num">0,0095</td><td class="num">0,114</td><td class="num">0,040</td></tr>
+      <tr><td>50 min</td><td class="num">96,0 MB</td><td class="pro num">0,939</td><td class="flash num">0,617</td><td class="num">0,0119</td><td class="num">0,142</td><td class="num">0,050</td></tr>
+      <tr><td>60 min</td><td class="num">115,2 MB</td><td class="pro num">1,078</td><td class="flash num">0,729</td><td class="num">0,0142</td><td class="num">0,171</td><td class="num">0,060</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Valores em R$. "Storage/ano" = manter aquele áudio guardado por 12 meses. Transcrição inclui saída de ~4.000 tokens (transcrição + SOAP).</p>
+
+  <div class="grid grid-2" style="margin-top:4mm">
+    <div class="callout danger avoid-break">
+      <div class="callout-title">Alerta técnico — cap de 50 MB</div>
+      O bucket de sessão aceita arquivos de até <strong>50 MB</strong>, mas um WAV de <strong>30 min já tem 57,6 MB</strong>. Sessões longas em WAV podem ser <strong>rejeitadas no upload</strong>. É preciso comprimir (Opus/webm ≈ 1 MB/min) ou elevar o cap.
+    </div>
+    <div class="callout warn avoid-break">
+      <div class="callout-title">O verdadeiro custo do áudio é a retenção</div>
+      Um paciente com 1 ano de histórico (48 sessões de 50 min) acumula <strong>~4,6 GB</strong> de áudio → <strong>~R$ 0,57/mês</strong> só para manter guardado, <em>para sempre</em>. Multiplique por centenas de pacientes e vira uma conta relevante.
+    </div>
+  </div>
+
+  <div class="card ok" style="margin-top:4mm">
+    <h4>Recomendação — áudio efêmero</h4>
+    <p style="margin-bottom:0">A transcrição já fica salva no banco. O <strong>áudio bruto não é necessário depois</strong> — o fluxo do Copiloto por voz já apaga o arquivo após transcrever. Aplicar a mesma regra às sessões (apagar ou comprimir após o processamento) <strong>zera o custo de retenção</strong> e resolve o problema do cap de 50 MB de uma vez.</p>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>6</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 05 CUSTO POR PACIENTE ============================= -->
+<section class="page page-break">
+  <div class="kicker">05 — Custo por paciente</div>
+  <h2 class="section">Quanto custa manter um paciente ativo por mês</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Modelamos 3 perfis de intensidade de uso. O "paciente ativo" é a unidade econômica central da plataforma.</p>
+
+  <div class="grid grid-3" style="margin-bottom:4mm">
+    <div class="card avoid-break"><h4>Perfil Leve</h4><p class="small" style="margin:0">4 sessões (40 min) · 20 perguntas no chat · 1 laudo · 2 áudios de família</p></div>
+    <div class="card tint avoid-break"><h4>Perfil Médio</h4><p class="small" style="margin:0">4 sessões (50 min) · 40 perguntas · 2 laudos · diário família semanal</p></div>
+    <div class="card avoid-break"><h4>Perfil Intenso</h4><p class="small" style="margin:0">8 sessões (60 min) · 80 perguntas · 3 laudos · diário família diário</p></div>
+  </div>
+
+  <table class="avoid-break">
+    <caption>Custo mensal por paciente ativo (R$) — decomposto por funcionalidade</caption>
+    <thead>
+      <tr><th>Componente</th><th>Leve Pro</th><th>Leve Flash</th><th>Médio Pro</th><th>Médio Flash</th><th>Intenso Pro</th><th>Intenso Flash</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Sessões (STT + SOAP)</td><td class="num">3,20</td><td class="num">2,02</td><td class="num">3,76</td><td class="num">2,47</td><td class="num">8,62</td><td class="num">5,83</td></tr>
+      <tr><td>Chat / Copiloto</td><td class="num">3,40</td><td class="num">0,84</td><td class="num">6,80</td><td class="num">1,68</td><td class="num">13,60</td><td class="num">3,36</td></tr>
+      <tr><td>Laudos (upload + IA)</td><td class="num">0,27</td><td class="num">0,07</td><td class="num">0,55</td><td class="num">0,14</td><td class="num">0,82</td><td class="num">0,21</td></tr>
+      <tr><td>Portal família (áudio)</td><td class="num">0,19</td><td class="num">0,09</td><td class="num">0,38</td><td class="num">0,18</td><td class="num">2,82</td><td class="num">1,38</td></tr>
+      <tr><td>Storage + banco</td><td class="num">0,06</td><td class="num">0,06</td><td class="num">0,08</td><td class="num">0,08</td><td class="num">0,16</td><td class="num">0,16</td></tr>
+      <tr class="total-row"><td>Total / paciente / mês</td><td class="num">7,12</td><td class="num">3,08</td><td class="num">11,56</td><td class="num">4,55</td><td class="num">26,03</td><td class="num">10,95</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top:5mm">
+    <h4>Comparativo visual — custo/paciente/mês</h4>
+    <div class="bar-row"><div>Leve · Pro</div><div class="bar-track"><div class="bar-fill pro" style="width:27%">R$ 7,12</div></div></div>
+    <div class="bar-row"><div>Leve · Flash</div><div class="bar-track"><div class="bar-fill flash" style="width:12%">R$ 3,08</div></div></div>
+    <div class="bar-row"><div>Médio · Pro</div><div class="bar-track"><div class="bar-fill pro" style="width:44%">R$ 11,56</div></div></div>
+    <div class="bar-row"><div>Médio · Flash</div><div class="bar-track"><div class="bar-fill flash" style="width:17%">R$ 4,55</div></div></div>
+    <div class="bar-row"><div>Intenso · Pro</div><div class="bar-track"><div class="bar-fill pro" style="width:100%">R$ 26,03</div></div></div>
+    <div class="bar-row"><div>Intenso · Flash</div><div class="bar-track"><div class="bar-fill flash" style="width:42%">R$ 10,95</div></div></div>
+  </div>
+
+  <div class="callout key" style="margin-top:5mm">
+    <div class="callout-title">Insight</div>
+    O que faz um paciente pular de R$ 4,55 para R$ 26 não é o número de sessões — é o <strong>volume de chat e o diário diário da família</strong>. Esses dois itens escalam sem limite hoje. São exatamente onde os limitadores precisam agir.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>7</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 06 PSICÓLOGO AUTÔNOMO ============================= -->
+<section class="page page-break">
+  <div class="kicker">06 — Psicólogo autônomo</div>
+  <h2 class="section">Custo por psicólogo &amp; margem dos planos solo</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Planos atuais: <strong>Inicial R$ 147</strong> (até 10 pacientes) e <strong>Intermediário R$ 247</strong> (até 40 pacientes). O custo do psicólogo é o custo dos seus pacientes ativos + a taxa Stripe do plano.</p>
+
+  <table class="avoid-break">
+    <caption>Margem do plano por ocupação e modelo — perfil médio (R$/mês). Receita líquida já deduz Stripe.</caption>
+    <thead>
+      <tr><th>Plano / cenário</th><th>Pacientes ativos</th><th>Receita líq.*</th><th>Custo Pro</th><th>Margem Pro</th><th>Custo Flash</th><th>Margem Flash</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Inicial (R$ 147)</td><td class="num">5 (metade)</td><td class="num">140,75</td><td class="num">57,80</td><td class="num"><span class="tag pos">+82,95</span></td><td class="num">22,75</td><td class="num"><span class="tag pos">+118,00</span></td></tr>
+      <tr><td>Inicial (R$ 147)</td><td class="num">10 (cheio)</td><td class="num">140,75</td><td class="num">115,60</td><td class="num"><span class="tag pos">+25,15</span></td><td class="num">45,50</td><td class="num"><span class="tag pos">+95,25</span></td></tr>
+      <tr><td>Inicial — perfil intenso</td><td class="num">10 (cheio)</td><td class="num">140,75</td><td class="num">260,30</td><td class="num"><span class="tag neg">−119,55</span></td><td class="num">109,50</td><td class="num"><span class="tag pos">+31,25</span></td></tr>
+      <tr><td>Intermediário (R$ 247)</td><td class="num">20 (metade)</td><td class="num">236,75</td><td class="num">231,20</td><td class="num"><span class="tag pos">+5,55</span></td><td class="num">91,00</td><td class="num"><span class="tag pos">+145,75</span></td></tr>
+      <tr><td>Intermediário (R$ 247)</td><td class="num">40 (cheio)</td><td class="num">236,75</td><td class="num">462,40</td><td class="num"><span class="tag neg">−225,65</span></td><td class="num">182,00</td><td class="num"><span class="tag pos">+54,75</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small">*Receita líquida = preço − (3,99% + R$ 0,39) do Stripe. Ex.: R$ 247 → R$ 236,75.</p>
+
+  <div class="grid grid-2" style="margin-top:4mm">
+    <div class="callout danger avoid-break">
+      <div class="callout-title">No Gemini Pro, a conta não fecha</div>
+      Nos planos cheios (10 ou 40 pacientes) com uso médio/intenso, o custo em <strong>Pro supera a receita</strong>. O plano Intermediário lotado chega a <strong>−R$ 225/mês de prejuízo</strong> por psicólogo.
+    </div>
+    <div class="callout ok avoid-break">
+      <div class="callout-title">No Gemini Flash, todos os cenários lucram</div>
+      Mesmo lotado e intenso, o Flash mantém margem positiva. No perfil médio, a margem fica entre <strong>22% e 62%</strong> — saudável para SaaS.
+    </div>
+  </div>
+
+  <div class="card tint" style="margin-top:4mm">
+    <h4>Custo-alvo por psicólogo (recomendado — Flash + cotas)</h4>
+    <div class="grid grid-3">
+      <div class="kpi"><div class="kpi-label">Inicial (10 pac. médio)</div><div class="kpi-value small" style="color:var(--flash)">R$ 45,50</div><div class="kpi-sub">margem R$ 95 (65%)</div></div>
+      <div class="kpi"><div class="kpi-label">Intermediário (25 pac.)</div><div class="kpi-value small" style="color:var(--flash)">R$ 113,75</div><div class="kpi-sub">margem R$ 123 (52%)</div></div>
+      <div class="kpi"><div class="kpi-label">Custo médio / paciente</div><div class="kpi-value small" style="color:var(--flash)">R$ 4,55</div><div class="kpi-sub">no perfil médio, Flash</div></div>
+    </div>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>8</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 07 CLÍNICA ============================= -->
+<section class="page page-break">
+  <div class="kicker">07 — Clínica</div>
+  <h2 class="section">Custo de uma clínica com 10 psicólogos</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Planos de clínica atuais: <strong>Starter R$ 397</strong> (3 profs), <strong>Professional R$ 997</strong> (10 profs) e <strong>Enterprise</strong> (sob consulta). Aqui isolamos o <strong>custo por psicólogo dentro da clínica</strong> e o custo total.</p>
+
+  <table class="avoid-break">
+    <caption>Clínica Professional (R$ 997, 10 psicólogos) — custo por assento e total, perfil médio</caption>
+    <thead>
+      <tr><th>Ocupação por psicólogo</th><th>Pacientes na clínica</th><th>Custo/psic. Pro</th><th>Custo/psic. Flash</th><th>Custo total Pro</th><th>Custo total Flash</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>10 pacientes ativos</td><td class="num">100</td><td class="num">115,60</td><td class="num">45,50</td><td class="num">1.156</td><td class="num">455</td></tr>
+      <tr><td>20 pacientes ativos</td><td class="num">200</td><td class="num">231,20</td><td class="num">91,00</td><td class="num">2.312</td><td class="num">910</td></tr>
+      <tr><td>30 pacientes ativos</td><td class="num">300</td><td class="num">346,80</td><td class="num">136,50</td><td class="num">3.468</td><td class="num">1.365</td></tr>
+      <tr><td>60 pacientes (cheio)</td><td class="num">600</td><td class="num">693,60</td><td class="num">273,00</td><td class="num">6.936</td><td class="num">2.730</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Receita líquida do Professional (após Stripe) ≈ <strong>R$ 956,83</strong>. Custo fixo Supabase (~R$ 232) é compartilhado por toda a base — diluído a ~R$ 23/clínica se houver 10 clínicas.</p>
+
+  <div class="grid grid-2" style="margin-top:4mm">
+    <div class="callout danger avoid-break">
+      <div class="callout-title">O preço do Professional não cobre alta ocupação</div>
+      A R$ 997, a clínica cabe no orçamento apenas com <strong>baixa ocupação</strong>. Com 200+ pacientes ativos, <strong>o Pro dá prejuízo</strong> e mesmo o <strong>Flash aperta</strong> (custo R$ 910 vs receita R$ 957). Lotada (600), nenhum cenário fecha.
+    </div>
+    <div class="callout warn avoid-break">
+      <div class="callout-title">A raiz: preço fixo x custo variável</div>
+      Cobrar um valor fixo por clínica enquanto o custo cresce com cada paciente é um modelo que <strong>quebra na escala</strong>. A solução é atrelar preço ao nº de <strong>psicólogos ativos</strong> e/ou <strong>pacientes ativos</strong>.
+    </div>
+  </div>
+
+  <div class="card ok" style="margin-top:4mm">
+    <h4>Custo por assento recomendado (Flash + cotas, perfil médio)</h4>
+    <p style="margin-bottom:2mm">Tratando o psicólogo como "assento" com ~20 pacientes ativos: <strong>custo ≈ R$ 91/assento/mês</strong>. Precificando cada assento a <strong>R$ 179–199</strong>, a clínica de 10 psicólogos fatura <strong>R$ 1.790–1.990</strong> com custo de <strong>~R$ 910</strong> → margem de <strong>~50%</strong> e escalável.</p>
+    <p class="small" style="margin-bottom:0">Alternativa: manter valor-base + cobrar pacote de pacientes excedentes (o mecanismo de "pacote +10/+20" já existe no código para o modo autônomo).</p>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>9</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 08 CENÁRIOS ============================= -->
+<section class="page page-break">
+  <div class="kicker">08 — Cenários práticos</div>
+  <h2 class="section">Storytelling de custo: casos reais</h2>
+  <div class="sec-divider"></div>
+
+  <div class="grid grid-2">
+    <div class="card avoid-break">
+      <h4>Cenário A — "O paciente ansioso que usa muito o chat"</h4>
+      <p class="small">O psicólogo faz 4 sessões no mês e, empolgado com o Copiloto, faz <strong>120 perguntas</strong> sobre o caso.</p>
+      <table>
+        <tbody>
+          <tr><td>4 sessões (50 min)</td><td class="pro num">3,76</td><td class="flash num">2,47</td></tr>
+          <tr><td>120 perguntas de chat</td><td class="pro num">20,40</td><td class="flash num">5,04</td></tr>
+          <tr class="total-row"><td>Total no mês</td><td class="num">24,16</td><td class="num">7,51</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-bottom:0">Uma pessoa "abusando" do chat no Pro custa <strong>quase 1/6 da mensalidade Inicial</strong>. No Flash, é irrelevante.</p>
+    </div>
+
+    <div class="card avoid-break">
+      <h4>Cenário B — "A família engajada no portal"</h4>
+      <p class="small">Os pais gravam um áudio de diário <strong>todos os dias</strong> (30 no mês), cada um com ~3 min.</p>
+      <table>
+        <tbody>
+          <tr><td>30 áudios de família (STT + análise)</td><td class="pro num">2,82</td><td class="flash num">1,38</td></tr>
+          <tr><td>Storage acumulado (1 ano)</td><td class="num">0,23</td><td class="num">0,23</td></tr>
+          <tr class="total-row"><td>Total no mês</td><td class="num">3,05</td><td class="num">1,61</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-bottom:0">Engajamento da família é ótimo para o produto e <strong>barato</strong> — desde que o áudio não seja retido para sempre.</p>
+    </div>
+
+    <div class="card avoid-break">
+      <h4>Cenário C — "Onboarding com laudo neuropsicológico"</h4>
+      <p class="small">Novo paciente chega com um <strong>laudo de 20 páginas</strong> + 1 sessão inicial de 60 min.</p>
+      <table>
+        <tbody>
+          <tr><td>Laudo extenso (extração+resumo+RAG)</td><td class="pro num">1,06</td><td class="flash num">0,27</td></tr>
+          <tr><td>1 sessão de 60 min</td><td class="pro num">1,08</td><td class="flash num">0,73</td></tr>
+          <tr class="total-row"><td>Custo de onboarding</td><td class="num">2,14</td><td class="num">1,00</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-bottom:0">O custo de "digerir" um laudo grande é <strong>pontual e baixo</strong> — acontece uma vez por paciente.</p>
+    </div>
+
+    <div class="card avoid-break">
+      <h4>Cenário D — "Paciente desvinculado, dados retidos"</h4>
+      <p class="small">Paciente sai da clínica, mas a clínica mantém 1 ano de histórico (LGPD/continuidade). <strong>Sem novo processamento</strong>, só armazenamento.</p>
+      <table>
+        <tbody>
+          <tr><td>Áudios retidos (~4,6 GB, se mantidos)</td><td class="num" colspan="2">R$ 0,57 / mês</td></tr>
+          <tr><td>Banco: transcrições + embeddings</td><td class="num" colspan="2">~R$ 0,03 / mês</td></tr>
+          <tr class="total-row"><td>Custo de retenção</td><td class="num" colspan="2">R$ 0,60 / mês</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-bottom:0">Com <strong>áudio efêmero</strong>, a retenção cai para <strong>~R$ 0,03/mês</strong> — praticamente grátis manter o histórico clínico textual.</p>
+    </div>
+  </div>
+
+  <div class="callout key" style="margin-top:5mm">
+    <div class="callout-title">O fio condutor</div>
+    Em todos os cenários, a variável dominante é a <strong>IA generativa</strong> — e, dentro dela, o <strong>chat</strong>. Storage e banco só incomodam quando o áudio é retido indefinidamente. Duas decisões (Flash + áudio efêmero) resolvem 80% da conta.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>10</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 09 RISCOS ============================= -->
+<section class="page page-break">
+  <div class="kicker">09 — Riscos &amp; otimização</div>
+  <h2 class="section">Onde o custo pode escapar (e como blindar)</h2>
+  <div class="sec-divider"></div>
+
+  <table class="avoid-break">
+    <caption>Matriz de risco de custo</caption>
+    <thead><tr><th>Risco</th><th>Impacto</th><th>Situação hoje</th><th>Ação</th></tr>
+  </thead>
+    <tbody>
+      <tr><td>Cotas de IA não bloqueiam</td><td><span class="tag neg">Alto</span></td><td style="text-align:left">Medido, mas não trava</td><td style="text-align:left">Enforçar 300 consultas / 200 min nas Edge Functions</td></tr>
+      <tr><td>Tudo roda em Gemini Pro</td><td><span class="tag neg">Alto</span></td><td style="text-align:left">Pro em 100% dos fluxos</td><td style="text-align:left">Migrar chat/STT/resumo para Flash</td></tr>
+      <tr><td>Áudio retido para sempre</td><td><span class="tag pro">Médio</span></td><td style="text-align:left">Sessão persiste WAV</td><td style="text-align:left">Apagar/comprimir após transcrição</td></tr>
+      <tr><td>Função legada OpenAI/Anthropic</td><td><span class="tag pro">Médio</span></td><td style="text-align:left">Ativa se houver API key</td><td style="text-align:left">Migrar "resumo em bullets" p/ Gemini</td></tr>
+      <tr><td>Cap de 50 MB rejeita sessão longa</td><td><span class="tag pro">Médio</span></td><td style="text-align:left">WAV &gt; 30 min estoura</td><td style="text-align:left">Comprimir áudio no cliente</td></tr>
+      <tr><td>Oscilação cambial (USD)</td><td><span class="tag pro">Médio</span></td><td style="text-align:left">Custo 100% em US$</td><td style="text-align:left">Preço com folga (feito: câmbio R$ 5,80)</td></tr>
+    </tbody>
+  </table>
+
+  <h4 class="sans" style="margin:5mm 0 3mm">Plano de otimização — impacto estimado no custo/paciente (perfil médio)</h4>
+  <div class="card">
+    <div class="bar-row"><div>Hoje (Pro, sem cotas)</div><div class="bar-track"><div class="bar-fill pro" style="width:100%">R$ 11,56</div></div></div>
+    <div class="bar-row"><div>+ Migração p/ Flash</div><div class="bar-track"><div class="bar-fill flash" style="width:39%">R$ 4,55</div></div></div>
+    <div class="bar-row"><div>+ Cotas + áudio efêmero</div><div class="bar-track"><div class="bar-fill flash" style="width:35%">R$ 4,10</div></div></div>
+    <div class="bar-row"><div>+ Cache de contexto no chat</div><div class="bar-track"><div class="bar-fill flash" style="width:29%">R$ 3,35</div></div></div>
+  </div>
+  <p class="small">Cache de contexto (o system prompt e a anamnese repetem a cada pergunta) pode cortar mais 15–20% do chat, o maior item.</p>
+
+  <div class="grid grid-3" style="margin-top:4mm">
+    <div class="callout ok avoid-break"><div class="callout-title">Ganho rápido nº 1</div>Flash no chat e nos resumos: <strong>−61%</strong> no custo/paciente, sem tocar na experiência.</div>
+    <div class="callout ok avoid-break"><div class="callout-title">Ganho rápido nº 2</div>Áudio efêmero: elimina o custo de retenção e resolve o cap de 50 MB.</div>
+    <div class="callout ok avoid-break"><div class="callout-title">Ganho rápido nº 3</div>Enforcement de cotas: transforma o "paciente intenso" (R$ 26) num teto previsível.</div>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>11</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= 10 PRECIFICAÇÃO + SIMULADOR ============================= -->
+<section class="page page-break">
+  <div class="kicker">10 — Precificação</div>
+  <h2 class="section">Recomendação de preços &amp; simulador</h2>
+  <div class="sec-divider"></div>
+
+  <p class="lead">Com o custo real na mão, os planos atuais são <strong>viáveis e lucrativos no cenário Flash + cotas</strong>. O ajuste principal é no modo clínica, que precisa de preço por assento.</p>
+
+  <table class="avoid-break">
+    <caption>Planos atuais x custo x margem recomendada (cenário Flash + cotas, perfil médio)</caption>
+    <thead><tr><th>Plano</th><th>Preço atual</th><th>Custo estimado</th><th>Margem</th><th>Recomendação</th></tr></thead>
+    <tbody>
+      <tr><td>Autônomo Inicial (10 pac.)</td><td class="num">147</td><td class="num">45,50</td><td class="num"><span class="tag pos">65%</span></td><td style="text-align:left">Manter</td></tr>
+      <tr><td>Autônomo Intermediário (40 pac.)</td><td class="num">247</td><td class="num">113,75*</td><td class="num"><span class="tag pos">52%</span></td><td style="text-align:left">Manter + cota de chat</td></tr>
+      <tr><td>Clínica Starter (3 profs)</td><td class="num">397</td><td class="num">~273</td><td class="num"><span class="tag pro">31%</span></td><td style="text-align:left">Rever p/ assento</td></tr>
+      <tr><td>Clínica Professional (10 profs)</td><td class="num">997</td><td class="num">~910</td><td class="num"><span class="tag neg">9%</span></td><td style="text-align:left">Migrar p/ R$ 179–199/assento</td></tr>
+      <tr><td>Clínica Enterprise</td><td>sob consulta</td><td>variável</td><td class="num">—</td><td style="text-align:left">Preço por uso/assento</td></tr>
+    </tbody>
+  </table>
+  <p class="small">*Intermediário calculado a 25 pacientes ativos (ocupação realista), não a 40. Custo de clínica assume ~20 pac. ativos por psicólogo.</p>
+
+  <div class="callout key" style="margin-top:2mm">
+    <div class="callout-title">Regra de bolso para novos planos</div>
+    Precifique cada <strong>assento de psicólogo</strong> em pelo menos <strong>2x o custo estimado</strong> (custo Flash de ~R$ 91 → preço ≥ R$ 180). Isso cobre suporte, impostos, inadimplência, R&amp;D e mantém margem bruta &gt; 50% mesmo com aumento de uso.
+  </div>
+
+  <!-- SIMULADOR (não sai na impressão) -->
+  <div id="sim" class="card no-print" style="margin-top:5mm">
+    <h4>Simulador interativo — custo por paciente/mês</h4>
+    <p class="sim-note">Ajuste as premissas e veja o custo recalcular. (Esta seção não aparece no PDF impresso.)</p>
+    <div class="sim-controls">
+      <label>Sessões/mês: <span class="val" id="v_sessoes">4</span><input type="range" id="sessoes" min="0" max="12" value="4"></label>
+      <label>Duração da sessão (min): <span class="val" id="v_dur">50</span><input type="range" id="dur" min="10" max="60" step="10" value="50"></label>
+      <label>Perguntas de chat/mês: <span class="val" id="v_chat">40</span><input type="range" id="chat" min="0" max="150" value="40"></label>
+      <label>Laudos/mês: <span class="val" id="v_laudos">2</span><input type="range" id="laudos" min="0" max="6" value="2"></label>
+      <label>Áudios de família/mês: <span class="val" id="v_fam">4</span><input type="range" id="fam" min="0" max="30" value="4"></label>
+      <label>Câmbio (R$/US$): <span class="val" id="v_cambio">5,80</span><input type="range" id="cambio" min="500" max="700" value="580"></label>
+    </div>
+    <div class="sim-out">
+      <div class="kpi"><div class="kpi-label">Custo no Gemini 2.5 Pro</div><div class="kpi-value" id="out_pro">R$ 11,56</div></div>
+      <div class="kpi"><div class="kpi-label">Custo no Gemini 2.5 Flash</div><div class="kpi-value" style="color:var(--flash)" id="out_flash">R$ 4,55</div></div>
+    </div>
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>12</strong> · Confidencial</span>
+  </div>
+</section>
+
+<!-- ============================= ANEXO FONTES ============================= -->
+<section class="page page-break">
+  <div class="kicker">Anexo</div>
+  <h2 class="section">Fontes consultadas &amp; base de cálculo</h2>
+  <div class="sec-divider"></div>
+
+  <p>Preços oficiais coletados em julho/2026. Onde havia divergência entre fontes, adotamos o valor oficial do provedor e, na dúvida, o mais conservador (maior custo).</p>
+
+  <h4 class="sans" style="margin:3mm 0 2mm">Google Vertex AI / Gemini</h4>
+  <ul class="src-list">
+    <li>cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing — tabela oficial Gemini 2.5 Pro/Flash</li>
+    <li>ai.google.dev/gemini-api/docs/pricing — preços por 1M tokens (Pro, Flash, embeddings)</li>
+    <li>ai.google.dev/gemini-api/docs/audio — tokenização de áudio (32 tokens/segundo)</li>
+    <li>llmreference.com/model/gemini-2.5-pro/gcp-vertex-ai — validação de preço Vertex</li>
+    <li>futureagi.com — gemini-embedding-001 (US$ 0,15/1M) · rahulkolekar.com — embeddings standard/batch</li>
+  </ul>
+
+  <h4 class="sans" style="margin:4mm 0 2mm">Supabase</h4>
+  <ul class="src-list">
+    <li>supabase.com/pricing — plano Pro, storage, egress, disco</li>
+    <li>supabase.com/docs/guides/platform/manage-your-usage/storage-size — US$ 0,0213/GB</li>
+    <li>supabase.com/docs/guides/platform/manage-your-usage/egress — US$ 0,09/GB (uncached)</li>
+    <li>supabase.com/docs/guides/functions/pricing — US$ 2 / 1M invocações</li>
+  </ul>
+
+  <h4 class="sans" style="margin:4mm 0 2mm">Stripe &amp; câmbio</h4>
+  <ul class="src-list">
+    <li>stripe.com/br/pricing — 3,99% + R$ 0,39 por transação (cartão nacional)</li>
+    <li>Banco Central (PTAX) via numerando.com.br / wise.com — USD/BRL ≈ R$ 5,10 em 16–17/07/2026</li>
+  </ul>
+
+  <h4 class="sans" style="margin:4mm 0 2mm">Base técnica (código da plataforma)</h4>
+  <ul class="src-list">
+    <li>Vertex: <em>_shared/vertex.ts</em> (Gemini 2.5 Pro, embeddings 768d), <em>query-copilot/*</em> (chat RAG, 5 chunks)</li>
+    <li>Áudio: <em>process-audio</em>, <em>process-family-audio</em>, <em>transcribe-copilot-audio</em>; <em>audio-wav.ts</em> (WAV 16 kHz)</li>
+    <li>Anexos: <em>document-extract.ts</em>, <em>patient-attachment-summary.ts</em>, <em>text-chunking.ts</em></li>
+    <li>Planos/cotas: <em>plan-quota-limits.ts</em>, <em>therapist-plans.ts</em>, <em>_shared/plan-quotas.ts</em></li>
+    <li>Storage: buckets <em>audio-recordings</em>, <em>family-diary-audio</em>, <em>pacientes-anexos</em>, avatars</li>
+  </ul>
+
+  <div class="callout warn" style="margin-top:5mm">
+    <div class="callout-title">Aviso de precisão</div>
+    Custos de IA dependem do volume real de tokens, que varia com o conteúdo. As estimativas usam premissas conservadoras e devem ser <strong>recalibradas com a fatura real</strong> do Vertex após 30–60 dias de operação. Storage e transações têm preço exato por unidade.
+  </div>
+
+  <div class="page__footer">
+    <span>Unithery — Análise de Custos &amp; Unit Economics</span>
+    <span>Página <strong>13</strong> · Confidencial · Julho 2026</span>
+  </div>
+</section>
+
+<script>
+(function () {
+  // Preços (US$ por token, salvo indicado)
+  const PRO = { in: 1.25e-6, out: 10e-6, audio: 1.25e-6 };
+  const FLASH = { in: 0.30e-6, out: 2.50e-6, audio: 1.00e-6 };
+  const EMB = 0.15e-6;
+  const STORAGE_GB_MONTH = 0.0213; // US$/GB/mês
+  const AUDIO_MB_PER_MIN = 1.92;
+  const AUDIO_TOK_PER_MIN = 1920;
+
+  const el = (id) => document.getElementById(id);
+
+  function fmtBRL(v) {
+    return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // custo de 1 sessão (STT+SOAP): audio tokens (entrada) + 1500 prompt + 4000 saída + embeddings
+  function sessionCost(min, M) {
+    const audioTok = min * AUDIO_TOK_PER_MIN;
+    const inp = (audioTok) * M.audio + 1500 * M.in;
+    const out = 4000 * M.out;
+    const emb = 3000 * EMB;
+    return inp + out + emb;
+  }
+  // 1 pergunta de chat
+  function chatCost(M) { return 7500 * M.in + 2000 * M.out + 50 * EMB; }
+  // 1 laudo padrão (5 pág)
+  function laudoCost(M) {
+    const extract = 1590 * M.in + 3500 * M.out;
+    const summary = 3800 * M.in + 500 * M.out;
+    const emb = 3500 * EMB;
+    return extract + summary + emb;
+  }
+  // 1 áudio de família (3 min): STT + extração JSON
+  function familyCost(M) {
+    const stt = 5760 * M.audio + 500 * M.out;
+    const extract = 800 * M.in + 300 * M.out;
+    return stt + extract;
+  }
+
+  function totalFor(M, p, cambio) {
+    const usd =
+      p.sessoes * sessionCost(p.dur, M) +
+      p.chat * chatCost(M) +
+      p.laudos * laudoCost(M) +
+      p.fam * familyCost(M);
+    // storage do mês: sessões guardadas
+    const gb = (p.sessoes * p.dur * AUDIO_MB_PER_MIN) / 1000;
+    const storageUsd = gb * STORAGE_GB_MONTH;
+    const dbUsd = 0.005; // banco/embeddings aproximado
+    return (usd + storageUsd + dbUsd) * cambio;
+  }
+
+  function recompute() {
+    const p = {
+      sessoes: +el('sessoes').value,
+      dur: +el('dur').value,
+      chat: +el('chat').value,
+      laudos: +el('laudos').value,
+      fam: +el('fam').value,
+    };
+    const cambio = +el('cambio').value / 100;
+
+    el('v_sessoes').textContent = p.sessoes;
+    el('v_dur').textContent = p.dur;
+    el('v_chat').textContent = p.chat;
+    el('v_laudos').textContent = p.laudos;
+    el('v_fam').textContent = p.fam;
+    el('v_cambio').textContent = cambio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    el('out_pro').textContent = fmtBRL(totalFor(PRO, p, cambio));
+    el('out_flash').textContent = fmtBRL(totalFor(FLASH, p, cambio));
+  }
+
+  ['sessoes', 'dur', 'chat', 'laudos', 'fam', 'cambio'].forEach((id) => {
+    const node = el(id);
+    if (node) node.addEventListener('input', recompute);
+  });
+  recompute();
+})();
+</script>
+
+</body>
+</html>

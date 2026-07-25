@@ -37,11 +37,12 @@ Clínicas de terapia multidisciplinar e terapeutas autônomos (Psicólogos, Psic
 │  • Visualiza relatórios agregados de produtividade              │
 │  • Gerencia assinatura e billing                                │
 ├─────────────────────────────────────────────────────────────────┤
-│  CAMADA 2B: CONSULTÓRIO (Plano Consultório — Solo)              │
+│  CAMADA 2B: TERAPEUTA AUTÔNOMO (Solo)                           │
 │  • Profissional autônomo que atende sozinho                     │
 │  • NÃO TEM tela de gestão de profissionais                     │
 │  • Ao logar, vai direto para tela de PACIENTES                 │
-│  • Limite padrão: 50 pacientes (extensível)                    │
+│  • Plano Inicial: 10 pacientes · Intermediário: 40 pacientes   │
+│  • Upsell: pacotes +10 ou +20 (compras ilimitadas, acumulam)   │
 │  • Mesmo copiloto IA e diário familiar                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  CAMADA 3: PROFISSIONAL (Terapeuta)                             │

@@ -5,10 +5,16 @@ import { describe, it, expect } from 'vitest';
 import { isQuotaExceeded, OFFICIAL_PLAN_LIMITS } from './plan-quota-limits';
 
 describe('plan quota boundaries (crítico)', () => {
-  it('bloqueia o 51º paciente no Consultório Autônomo (limite 50)', () => {
-    const { patientsPerProf } = OFFICIAL_PLAN_LIMITS.consultorio;
-    expect(isQuotaExceeded(49, patientsPerProf)).toBe(false);
-    expect(isQuotaExceeded(50, patientsPerProf)).toBe(true);
+  it('bloqueia o 11º paciente no Plano Inicial (limite 10)', () => {
+    const { patientsPerProf } = OFFICIAL_PLAN_LIMITS.inicial;
+    expect(isQuotaExceeded(9, patientsPerProf)).toBe(false);
+    expect(isQuotaExceeded(10, patientsPerProf)).toBe(true);
+  });
+
+  it('bloqueia o 41º paciente no Plano Intermediário (limite 40)', () => {
+    const { patientsPerProf } = OFFICIAL_PLAN_LIMITS.intermediario;
+    expect(isQuotaExceeded(39, patientsPerProf)).toBe(false);
+    expect(isQuotaExceeded(40, patientsPerProf)).toBe(true);
   });
 
   it('bloqueia o 4º profissional no Clínica Starter (limite 3)', () => {

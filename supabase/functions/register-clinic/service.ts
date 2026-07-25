@@ -1,4 +1,8 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import {
+  buildSignupConfirmRedirect,
+  sendSignupConfirmationEmail,
+} from '../_shared/auth-signup-confirmation.ts';
 import { AppError, ConflictError } from '../_shared/errors.ts';
 import { applyPlanoToClinicSettings } from '../_shared/plan-quotas.ts';
 import { computeTrialEndsAt, defaultTrialPlanId } from '../_shared/trial.ts';
@@ -38,7 +42,8 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: payload.admin_email,
     password: payload.admin_password,
-    email_confirm: true,
+    email_confirm: false,
+    user_metadata: { full_name: payload.admin_name },
     app_metadata: { role: userRole },
   });
 
@@ -90,7 +95,7 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     status: 'trialing',
     started_at: new Date().toISOString(),
     ends_at: trialEndsIso,
-    metadata: { trial_days: 14, onboarding: 'phase1_plg' },
+    metadata: { onboarding: 'free_plan_entry', stripe_trial_on_first_checkout: 14 },
   });
 
   if (isSoloProfessional) {
@@ -151,11 +156,34 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     },
   });
 
+  const confirmRedirect = payload.email_redirect_to
+    ?? buildSignupConfirmRedirect(Deno.env.get('PUBLIC_APP_URL') ?? 'https://www.unithery.com');
+
+  try {
+    await sendSignupConfirmationEmail(payload.admin_email, confirmRedirect);
+  } catch (emailErr) {
+    await supabase.from('clinics').delete().eq('id', clinic.id);
+    if (isSoloProfessional) {
+      await supabase.from('professionals').delete().eq('user_id', userId);
+    } else {
+      await supabase.from('clinic_admins').delete().eq('user_id', userId);
+    }
+    await supabase.auth.admin.deleteUser(userId);
+    throw new AppError({
+      code: 'CONFIRMATION_EMAIL_FAILED',
+      message: emailErr instanceof Error
+        ? emailErr.message
+        : 'Não foi possível enviar o e-mail de confirmação.',
+      statusCode: 500,
+    });
+  }
+
   return {
     clinic_id: clinic.id,
     admin_user_id: userId,
-    message: 'Conta criada com sucesso! Bem-vindo ao Unithery.',
+    message: 'Conta criada! Verifique seu e-mail para confirmar o cadastro.',
     trial_ends_at: trialEndsIso,
     subscription_status: 'trialing',
+    requires_email_confirmation: true,
   };
 }

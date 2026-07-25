@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase.ts';
 import { AppError } from './errors.ts';
+import { isBillingExemptEmail, isClinicBillingExempt } from './billing-exempt.ts';
 
 /** 1 paciente gratuito durante trial sem cartão */
 export const FREEMIUM_PATIENT_LIMIT = 1;
@@ -7,9 +8,11 @@ export const FREEMIUM_PATIENT_LIMIT = 1;
 export interface ClinicBillingGate {
   subscription_status: string;
   payment_method_on_file: boolean;
+  billing_exempt?: boolean;
 }
 
 export function requiresPaywall(billing: ClinicBillingGate): boolean {
+  if (billing.billing_exempt) return false;
   if (billing.payment_method_on_file) return false;
   if (billing.subscription_status === 'active') return false;
   if (billing.subscription_status === 'trial_active') return false;
@@ -21,7 +24,7 @@ export async function getClinicBillingGate(clinicId: string): Promise<ClinicBill
 
   const { data, error } = await supabase
     .from('clinics')
-    .select('subscription_status, payment_method_on_file')
+    .select('subscription_status, payment_method_on_file, billing_exempt, email')
     .eq('id', clinicId)
     .is('deleted_at', null)
     .single();
@@ -34,9 +37,13 @@ export async function getClinicBillingGate(clinicId: string): Promise<ClinicBill
     });
   }
 
+  const billingExempt =
+    data.billing_exempt === true || isBillingExemptEmail(data.email as string);
+
   return {
     subscription_status: data.subscription_status as string,
     payment_method_on_file: Boolean(data.payment_method_on_file),
+    billing_exempt: billingExempt,
   };
 }
 
@@ -150,22 +157,80 @@ export async function assertCanCreatePatientPaywall(
   clinicId: string,
   professionalId: string,
 ): Promise<void> {
+  if (await isClinicBillingExempt(clinicId)) return;
+
   const billing = await getClinicBillingGate(clinicId);
   if (!requiresPaywall(billing)) return;
 
   const patientCount = await countActivePatientsForProfessional(professionalId);
   if (patientCount >= FREEMIUM_PATIENT_LIMIT) {
     throw paymentRequired(
-      'Desbloqueie o poder total da Unithery. Inicie seus 14 dias grátis agora.',
+      'Seu plano FREE permite 1 paciente ativo. Assine um plano e ganhe 14 dias grátis para desbloquear mais pacientes.',
     );
   }
 }
 
-export async function assertCanUseAiPaywall(clinicId: string): Promise<void> {
-  const billing = await getClinicBillingGate(clinicId);
-  if (requiresPaywall(billing)) {
-    throw paymentRequired(
-      'Desbloqueie o poder total da Unithery. Inicie seus 14 dias grátis agora.',
-    );
+export interface AiQuotaState {
+  unlimited: boolean;
+  used: number | null;
+  limit: number | null;
+  warn: boolean;
+  blocked: boolean;
+}
+
+export async function getAiInteractionQuota(clinicId: string): Promise<AiQuotaState> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('check_ai_interaction_quota', {
+    p_clinic_id: clinicId,
+  });
+
+  if (error || !data || (data as Record<string, unknown>).error) {
+    throw new AppError({
+      code: 'AI_QUOTA_CHECK_FAILED',
+      message: 'Falha ao verificar cota de IA',
+      statusCode: 500,
+    });
+  }
+
+  return data as unknown as AiQuotaState;
+}
+
+export async function recordAiUsage(
+  clinicId: string,
+  userId: string | null = null,
+  feature = 'copilot',
+): Promise<void> {
+  const supabase = createServiceClient();
+  await supabase.from('ai_usage_events').insert({
+    clinic_id: clinicId,
+    user_id: userId,
+    feature,
+  });
+}
+
+/**
+ * Gate de IA v2 (planos de produção): controle por cota mensal de interações.
+ * Todos os planos (inclusive FREE, com 20/mês) têm acesso à IA dentro da cota.
+ * Registra 1 interação por chamada, exceto quando `record: false`.
+ */
+export async function assertCanUseAiPaywall(
+  clinicId: string,
+  options: { record?: boolean; userId?: string | null; feature?: string } = {},
+): Promise<void> {
+  if (await isClinicBillingExempt(clinicId)) return;
+
+  const quota = await getAiInteractionQuota(clinicId);
+
+  if (quota.blocked) {
+    throw new AppError({
+      code: 'AI_QUOTA_EXCEEDED',
+      message: `Você atingiu o limite de ${quota.limit} interações de IA neste mês. Faça upgrade de plano ou contrate um Módulo Adicional para continuar.`,
+      statusCode: 402,
+      details: { used: quota.used, limit: quota.limit },
+    });
+  }
+
+  if (options.record !== false) {
+    await recordAiUsage(clinicId, options.userId ?? null, options.feature ?? 'copilot');
   }
 }

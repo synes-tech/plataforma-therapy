@@ -1,5 +1,5 @@
 /**
- * QA — limites de plano (paciente 51 autônomo, profissional 4 starter)
+ * QA — limites de plano (paciente 11 autônomo, profissional 4 starter)
  * Uso: node scripts/test-plan-quotas.mjs
  */
 import { execSync } from 'child_process';
@@ -29,14 +29,20 @@ async function main() {
   console.log('\n=== QA: Limites de planos ===\n');
 
   const planos = await supabaseQuery(
-    'SELECT id, limite_profissionais, limite_pacientes_por_prof FROM planos ORDER BY sort_order',
+    'SELECT id, limite_profissionais, limite_pacientes_por_prof, ativo FROM planos ORDER BY sort_order',
   );
-  check('Tabela planos seed', planos.length === 4, `${planos.length} planos`);
+  check('Tabela planos seed', planos.length >= 5, `${planos.length} planos`);
 
-  const consultorio = planos.find((r) => r.id === 'consultorio');
+  const inicial = planos.find((r) => r.id === 'inicial');
   check(
-    'Consultório: 1 prof / 50 pac',
-    consultorio?.limite_profissionais === 1 && consultorio?.limite_pacientes_por_prof === 50,
+    'Inicial: 1 prof / 10 pac',
+    inicial?.limite_profissionais === 1 && inicial?.limite_pacientes_por_prof === 10,
+  );
+
+  const intermediario = planos.find((r) => r.id === 'intermediario');
+  check(
+    'Intermediário: 1 prof / 40 pac',
+    intermediario?.limite_profissionais === 1 && intermediario?.limite_pacientes_por_prof === 40,
   );
 
   const starter = planos.find((r) => r.id === 'starter');
@@ -51,36 +57,41 @@ async function main() {
     pro?.limite_profissionais === 10 && pro?.limite_pacientes_por_prof === 60,
   );
 
-  // Fronteira lógica (independente de dados reais)
-  const autonomoAt51 = 50 >= consultorio.limite_pacientes_por_prof;
-  check('Fronteira: 50 pacientes bloqueia o 51º (autônomo)', autonomoAt51);
+  const autonomoAt11 = 10 >= inicial.limite_pacientes_por_prof;
+  check('Fronteira: 10 pacientes bloqueia o 11º (Plano Inicial)', autonomoAt11);
+  const intermediarioAt41 = 40 >= intermediario.limite_pacientes_por_prof;
+  check('Fronteira: 40 pacientes bloqueia o 41º (Plano Intermediário)', intermediarioAt41);
   const starterAt4 = 3 >= starter.limite_profissionais;
   check('Fronteira: 3 profissionais bloqueia o 4º (starter)', starterAt4);
 
   const soloClinics = await supabaseQuery(
-    "SELECT c.id, cs.max_patients_per_professional FROM clinics c JOIN clinic_settings cs ON cs.clinic_id = c.id WHERE c.subscription_plan = 'consultorio' AND c.deleted_at IS NULL LIMIT 1",
+    "SELECT c.id, cs.max_patients_per_professional FROM clinics c JOIN clinic_settings cs ON cs.clinic_id = c.id WHERE c.subscription_plan IN ('inicial', 'intermediario') AND c.deleted_at IS NULL LIMIT 1",
   );
 
   if (soloClinics[0]) {
     const clinicId = soloClinics[0].id;
     const profs = await supabaseQuery(
-      `SELECT id FROM professionals WHERE clinic_id = '${clinicId}' AND deleted_at IS NULL LIMIT 1`,
+      `SELECT id, patient_quota_bonus FROM professionals WHERE clinic_id = '${clinicId}' AND deleted_at IS NULL LIMIT 1`,
     );
     if (profs[0]) {
       const counts = await supabaseQuery(
         `SELECT count(*)::int AS n FROM patients WHERE professional_id = '${profs[0].id}' AND deleted_at IS NULL`,
       );
       const n = counts[0].n;
-      const atLimit = n >= soloClinics[0].max_patients_per_professional;
-      console.log(`\n  ℹ Clínica consultório: ${n}/${soloClinics[0].max_patients_per_professional} pacientes`);
+      const bonus = Number(profs[0].patient_quota_bonus ?? 0);
+      const effectiveLimit = soloClinics[0].max_patients_per_professional + bonus;
+      const atLimit = n >= effectiveLimit;
+      console.log(
+        `\n  ℹ Clínica solo: ${n}/${effectiveLimit} pacientes (base ${soloClinics[0].max_patients_per_professional} + bônus ${bonus})`,
+      );
       if (atLimit) {
         console.log('  → Próximo POST create-patient deve retornar QUOTA_EXCEEDED (403)');
       } else {
-        console.log(`  → Faltam ${soloClinics[0].max_patients_per_professional - n} pacientes para testar bloqueio E2E`);
+        console.log(`  → Faltam ${effectiveLimit - n} pacientes para testar bloqueio E2E`);
       }
     }
   } else {
-    console.log('  ⚠ Nenhuma clínica consultório para teste de fronteira E2E');
+    console.log('  ⚠ Nenhuma clínica solo (inicial/intermediario) para teste de fronteira E2E');
   }
 
   const corpClinics = await supabaseQuery(

@@ -32,6 +32,7 @@ FUNCTIONS=(
   "start-schedule-session"
   "complete-schedule-session"
   "create-schedule"
+  "send-session-reminder"
   "reschedule-session"
   "list-agreements"
   "toggle-agreement"
@@ -57,6 +58,12 @@ FUNCTIONS=(
   "get-archived-patients"
   "get-plan-control-state"
   "purchase-addon-bypass"
+  "purchase-patient-quota-pack"
+  "cancel-subscription"
+  "stripe-test-create-checkout"
+  "stripe-test-create-portal"
+  "stripe-test-public-config"
+  "stripe-test-webhook"
   "delete-saved-recommendation"
   "get-paywall-state"
   "process-checkout-bypass"
@@ -83,6 +90,7 @@ FUNCTIONS=(
   "get-patient-sessions"
   "upload-patient-avatar"
   "upload-professional-avatar"
+  "auth-send-email"
 )
 
 echo "Deploying ${#FUNCTIONS[@]} Edge Functions..."

@@ -10,6 +10,10 @@ interface StandardModalProps {
   footer?: React.ReactNode;
   /** Max width of the desktop dialog. Defaults to a balanced 'lg'. */
   size?: 'md' | 'lg' | 'xl' | '2xl';
+  /** When false, clicking the backdrop does not close the modal. Default: true. */
+  closeOnBackdropClick?: boolean;
+  /** When false, pressing Escape does not close the modal. Default: true. */
+  closeOnEscape?: boolean;
 }
 
 const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
@@ -27,9 +31,18 @@ const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
  * - Mobile (< 768px): bottom sheet deslizante com "puxador".
  *
  * Acessibilidade: role="dialog", aria-modal, foco inicial, fechar com Esc,
- * bloqueio de scroll do body e clique no backdrop para fechar.
+ * bloqueio de scroll do body e clique no backdrop para fechar (configurável).
  */
-export function StandardModal({ isOpen, onClose, title, children, footer, size = 'lg' }: StandardModalProps) {
+export function StandardModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'lg',
+  closeOnBackdropClick = true,
+  closeOnEscape = true,
+}: StandardModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -38,7 +51,7 @@ export function StandardModal({ isOpen, onClose, title, children, footer, size =
     if (!isOpen) return;
 
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && closeOnEscape) onClose();
     }
 
     document.addEventListener('keydown', handleKey);
@@ -49,7 +62,7 @@ export function StandardModal({ isOpen, onClose, title, children, footer, size =
       document.removeEventListener('keydown', handleKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeOnEscape]);
 
   // Foco inicial no diálogo ao abrir
   useEffect(() => {
@@ -61,7 +74,7 @@ export function StandardModal({ isOpen, onClose, title, children, footer, size =
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-slate-900/40 p-0 backdrop-blur-sm transition-opacity md:items-center md:p-4"
-      onClick={onClose}
+      onClick={closeOnBackdropClick ? onClose : undefined}
       role="presentation"
     >
       <div

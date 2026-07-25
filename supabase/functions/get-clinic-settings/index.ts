@@ -5,6 +5,7 @@ import { authenticateRequest, requireClinicOwner } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { resolveClinicId, resolveOwnerName, getMonthlyAiUsage } from '../_shared/clinic.ts';
 import { AppError } from '../_shared/errors.ts';
+import { isBillingExemptEmail } from '../_shared/billing-exempt.ts';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
@@ -19,7 +20,7 @@ serve(async (req: Request) => {
 
     const { data: clinic, error: clinicError } = await supabase
       .from('clinics')
-      .select('id, name, document, email, phone, subscription_plan, status, is_solo_professional, created_at')
+      .select('id, name, document, email, phone, subscription_plan, status, is_solo_professional, created_at, billing_exempt')
       .eq('id', clinicId)
       .is('deleted_at', null)
       .single();
@@ -112,7 +113,7 @@ serve(async (req: Request) => {
         .is('deleted_at', null),
       supabase
         .from('professionals')
-        .select('id')
+        .select('id, patient_quota_bonus')
         .eq('clinic_id', clinicId)
         .eq('user_id', user.id)
         .is('deleted_at', null)
@@ -143,6 +144,9 @@ serve(async (req: Request) => {
       ownerActivePatients = count ?? 0;
     }
 
+    const billingExempt =
+      clinic.billing_exempt === true || isBillingExemptEmail(clinic.email as string);
+
     return successResponse({
       admin_name: ownerName,
       owner_profile: ownerProfile,
@@ -156,14 +160,23 @@ serve(async (req: Request) => {
         status: clinic.status,
         is_solo_professional: clinic.is_solo_professional,
         created_at: clinic.created_at,
+        billing_exempt: billingExempt,
       },
-      quotas: {
-        max_professionals: settings?.max_professionals ?? 0,
-        max_patients_per_professional: settings?.max_patients_per_professional ?? 0,
-        max_family_members_per_patient: settings?.max_family_members_per_patient ?? 0,
-        max_ai_queries_per_month: settings?.max_ai_queries_per_month ?? 0,
-        max_audio_minutes_per_month: settings?.max_audio_minutes_per_month ?? 0,
-      },
+      quotas: billingExempt
+        ? {
+            max_professionals: null,
+            max_patients_per_professional: null,
+            max_family_members_per_patient: null,
+            max_ai_queries_per_month: null,
+            max_audio_minutes_per_month: null,
+          }
+        : {
+            max_professionals: settings?.max_professionals ?? 0,
+            max_patients_per_professional: settings?.max_patients_per_professional ?? 0,
+            max_family_members_per_patient: settings?.max_family_members_per_patient ?? 0,
+            max_ai_queries_per_month: settings?.max_ai_queries_per_month ?? 0,
+            max_audio_minutes_per_month: settings?.max_audio_minutes_per_month ?? 0,
+          },
       ai_usage: {
         ai_reports_this_month: usage.ai_reports,
         audio_minutes_this_month: usage.audio_minutes,
@@ -173,6 +186,7 @@ serve(async (req: Request) => {
         active_patients_clinic_total: clinicActivePatients ?? 0,
         active_patients_owner_count: ownerActivePatients,
         owner_is_professional: Boolean(ownerProfessional?.id),
+        patient_quota_bonus: Number(ownerProfessional?.patient_quota_bonus ?? 0),
         backup_licenses: Number(clinicBackup?.quantidade_backup_pacientes ?? 0),
         backup_archived_count: archivedPatients ?? 0,
       },

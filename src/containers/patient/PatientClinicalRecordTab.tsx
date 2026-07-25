@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LoadingButton } from '@containers/loading';
-import {
-  ACOMPANHAMENTO_OPTIONS,
-  type PatientAnamnesisForm,
-} from './patient-anamnesis.types';
+import type { PatientAnamnesisForm } from './patient-anamnesis.types';
 import { validateClinicalRecordForm } from './patient-anamnesis.validation';
 import { uploadPatientAvatarFile } from './patient-avatar.upload';
 import { Toast } from './Toast';
@@ -14,6 +11,8 @@ import {
   ClinicalFieldsStack,
 } from './ClinicalRecordSectionCard';
 import { ClinicalRecordHero, ClinicalRecordEditFab } from './ClinicalRecordHero';
+import { AcompanhamentoMultiField } from './AcompanhamentoMultiField';
+import { PatientAttachmentsPanel } from './attachments/PatientAttachmentsPanel';
 
 interface PatientClinicalRecordTabProps {
   patientId: string;
@@ -98,14 +97,6 @@ export function PatientClinicalRecordTab({
 
   function patch<K extends keyof PatientAnamnesisForm>(key: K, value: PatientAnamnesisForm[K]) {
     onChange({ ...form, [key]: value });
-  }
-
-  function toggleAcompanhamento(option: string) {
-    const has = form.acompanhamento_multi.includes(option);
-    patch(
-      'acompanhamento_multi',
-      has ? form.acompanhamento_multi.filter((x) => x !== option) : [...form.acompanhamento_multi, option],
-    );
   }
 
   function startEdit() {
@@ -297,25 +288,11 @@ export function PatientClinicalRecordTab({
                   }
                 />
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {ACOMPANHAMENTO_OPTIONS.map((opt) => {
-                    const selected = form.acompanhamento_multi.includes(opt);
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => toggleAcompanhamento(opt)}
-                        className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${
-                          selected
-                            ? 'bg-primary text-white'
-                            : 'border border-slate-200 bg-white text-charcoal-muted hover:border-primary/30'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
+                <AcompanhamentoMultiField
+                  value={form.acompanhamento_multi}
+                  onChange={(next) => patch('acompanhamento_multi', next)}
+                  variant="clinical"
+                />
               )}
             </ClinicalFieldGroup>
 
@@ -412,6 +389,8 @@ export function PatientClinicalRecordTab({
             </ClinicalFieldGroup>
           </ClinicalFieldsStack>
         </ClinicalRecordSectionCard>
+
+        <PatientAttachmentsPanel patientId={patientId} showHeader />
       </div>
 
       {editing && (

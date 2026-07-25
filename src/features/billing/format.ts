@@ -38,13 +38,18 @@ export function getStatusMeta(status: InvoiceStatus): StatusMeta {
 }
 
 export const PLAN_LABEL_MAP: Record<string, string> = {
-  consultorio: 'Consultório',
+  free: 'Plano Free',
+  standard: 'Plano Standard',
+  advanced: 'Plano Advanced',
+  premium: 'Plano Premium',
+  inicial: 'Plano Standard (legado)',
+  intermediario: 'Plano Advanced (legado)',
+  consultorio: 'Plano Standard (legado)',
   starter: 'Clínica Starter',
   professional: 'Clínica Pro',
   enterprise: 'Enterprise',
 };
 
-export function planLabel(plan: string, isSolo = false): string {
-  if (isSolo) return 'Consultório';
+export function planLabel(plan: string, _isSolo = false): string {
   return PLAN_LABEL_MAP[plan] ?? plan;
 }

@@ -37,10 +37,12 @@ export async function verifyPatientAccess(
     if (!professional) {
       throw new ForbiddenError('Você não tem acesso a este paciente');
     }
-  } else if (caller.role === 'clinic_admin') {
+  } else   if (caller.role === 'clinic_admin') {
     if (caller.clinic_id !== patient.clinic_id) {
       throw new ForbiddenError('Paciente não pertence à sua clínica');
     }
+  } else if (caller.role === 'family') {
+    throw new ForbiddenError('Família não tem acesso a este recurso');
   }
 
   return {

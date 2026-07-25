@@ -11,6 +11,8 @@ import {
 } from './calendar-week.utils';
 import { WEEK_HOUR_HEIGHT_PX, WEEK_HOUR_START } from './calendar-week.types';
 
+const WEEK_GRID_COLS = 'grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] md:grid-cols-[4rem_repeat(7,minmax(0,1fr))]';
+
 interface CalendarWeekGridProps {
   weekDays: string[];
   events: LayoutedWeekEvent[];
@@ -43,12 +45,12 @@ export function CalendarWeekGrid({
   }, [events, weekDays]);
 
   return (
-    <div className="relative rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+    <div className="relative w-full rounded-2xl border border-slate-200/80 bg-white shadow-sm">
       <LoadingOverlay show={showRefetchOverlay} label="Atualizando agenda..." />
 
-      <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide">
-        <div className="flex min-w-[640px] md:min-w-0">
-          <div className="w-14 shrink-0 md:w-16" />
+      <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide md:overflow-visible">
+        <div className={`flex w-full min-w-[640px] md:grid md:min-w-0 ${WEEK_GRID_COLS}`}>
+          <div className="w-14 shrink-0 md:w-auto" aria-hidden />
           {weekDays.map((dayISO) => {
             const { weekday, day, isToday } = formatDayHeader(dayISO, todayISO);
             return (
@@ -72,9 +74,9 @@ export function CalendarWeekGrid({
         </div>
       </div>
 
-      <div className="max-h-[70vh] overflow-y-auto overflow-x-auto">
-        <div className="flex min-w-[640px] md:min-w-0">
-          <div className="relative w-14 shrink-0 md:w-16" style={{ height: gridHeight }}>
+      <div className="max-h-[70vh] overflow-y-auto overflow-x-auto md:overflow-x-hidden">
+        <div className={`flex w-full min-w-[640px] md:grid md:min-w-0 ${WEEK_GRID_COLS}`}>
+          <div className="relative w-14 shrink-0 md:w-auto" style={{ height: gridHeight }}>
             {hours.slice(0, -1).map((hour) => (
               <div
                 key={hour}
@@ -86,7 +88,7 @@ export function CalendarWeekGrid({
             ))}
           </div>
 
-          <div className="flex flex-1 snap-x snap-mandatory overflow-x-auto md:overflow-visible">
+          <div className="flex flex-1 snap-x snap-mandatory overflow-x-auto md:contents md:overflow-visible">
             {weekDays.map((dayISO) => {
               const isToday = dayISO === todayISO;
               const dayEvents = eventsByDay.get(dayISO) ?? [];

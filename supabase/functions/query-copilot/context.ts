@@ -128,9 +128,14 @@ export async function prepareCopilotContext(
     .slice(0, 5);
 
   const ragContext = reranked
-    .map((chunk, i) =>
-      `[Fonte ${i + 1} | ${chunk.document_type} | ${chunk.created_at.split('T')[0]}]\n${anonymizeForLLM(chunk.content)}`
-    )
+    .map((chunk, i) => {
+      const fileName =
+        chunk.document_type === 'patient_attachment' &&
+        typeof chunk.metadata?.file_name === 'string'
+          ? ` | ${chunk.metadata.file_name}`
+          : '';
+      return `[Fonte ${i + 1} | ${chunk.document_type}${fileName} | ${chunk.created_at.split('T')[0]}]\n${anonymizeForLLM(chunk.content)}`;
+    })
     .join('\n\n---\n\n');
 
   const diaryEntries = (recentDiariesResult.data ?? []) as DiaryEntryRow[];

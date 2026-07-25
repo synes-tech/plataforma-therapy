@@ -7,7 +7,7 @@ import type { ProcessCheckoutBypassPayload, ProcessCheckoutBypassResponse } from
 
 const BYPASS_DELAY_MS = 1500;
 
-const SOLO_PLANS = new Set(['consultorio']);
+const SOLO_PLANS = new Set(['inicial', 'intermediario', 'consultorio']);
 const CORPORATE_PLANS = new Set(['starter', 'professional', 'enterprise']);
 
 function assertPlanAllowedForAccount(

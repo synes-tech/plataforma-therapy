@@ -188,10 +188,10 @@ export default function RegisterFamily() {
             {/* Título */}
             <div className="mb-4 shrink-0 text-center sm:mb-5 lg:text-left [@media(max-height:640px)]:mb-3">
               <h1 className="font-serif text-xl font-medium tracking-tight text-charcoal sm:text-2xl lg:font-display lg:text-2xl lg:font-bold [@media(max-height:640px)]:text-lg">
-                Portal da Família
+                Recebeu convite do terapeuta?
               </h1>
               <p className="mt-1 text-xs text-charcoal-muted sm:mt-1.5 sm:text-sm [@media(max-height:640px)]:text-[0.7rem]">
-                Crie sua conta com o código que o terapeuta enviou.
+                Crie o seu acesso com o código que ele enviou.
               </p>
             </div>
 
@@ -234,10 +234,10 @@ export default function RegisterFamily() {
                       </p>
                     </div>
                     <Link
-                      to="/login"
+                      to="/login?mode=family"
                       className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-charcoal text-sm font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98]"
                     >
-                      Clicar aqui para logar
+                      Ir para o login
                     </Link>
                   </div>
                 ) : (
@@ -326,7 +326,7 @@ export default function RegisterFamily() {
             <p className="mt-4 shrink-0 text-center text-xs text-charcoal-muted sm:mt-5 sm:text-sm [@media(max-height:640px)]:mt-3">
               Já tem conta?{' '}
               <Link
-                to="/login"
+                to="/login?mode=family"
                 className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 hover:text-primary"
               >
                 Entrar

@@ -437,3 +437,33 @@ export async function vertexAudioToStructured<T>(
   ];
   return vertexJSON<T>(parts, { ...opts, responseSchema });
 }
+
+// ============================================================
+// Documento (PDF/Word) → texto bruto (inlineData)
+// ============================================================
+export async function vertexExtractDocumentText(
+  bytes: Uint8Array,
+  mimeType: string,
+  fileName: string,
+  opts: GenerateOptions = {},
+): Promise<VertexGenerateResult> {
+  const prompt =
+    `Extraia todo o texto legível deste documento (${fileName}). ` +
+    'Preserve a ordem original. Retorne apenas o texto extraído, sem comentários.';
+
+  return generateContent(
+    [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType, data: encodeBase64(bytes) } },
+      ],
+    }],
+    {
+      temperature: 0,
+      maxOutputTokens: 8192,
+      thinkingBudget: 256,
+      ...opts,
+    },
+  );
+}
