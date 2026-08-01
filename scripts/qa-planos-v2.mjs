@@ -31,13 +31,13 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 const STRIPE_SK = process.env.STRIPE_TEST_SECRET_KEY;
-const CRON_SECRET = process.env.CRON_SECRET || 'unithery-cron-sync-20260716';
+const CRON_SECRET = process.env.CRON_SECRET;
 
 const TEST_CLINIC_ID = 'f62d0dce-f5ad-4f30-ae32-4d7429827b17';
 const TEST_USER_EMAIL = 'joao@teste.com';
 
-if (!SUPABASE_URL || !SERVICE_KEY || !DATABASE_URL || !STRIPE_SK) {
-  console.error('Env obrigatória ausente (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, STRIPE_TEST_SECRET_KEY).');
+if (!SUPABASE_URL || !SERVICE_KEY || !DATABASE_URL || !STRIPE_SK || !CRON_SECRET) {
+  console.error('Env obrigatória ausente (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, STRIPE_TEST_SECRET_KEY, CRON_SECRET).');
   process.exit(1);
 }
 

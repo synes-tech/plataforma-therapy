@@ -19,6 +19,7 @@ interface DailySession {
   completed_at?: string | null;
   session_note_id?: string | null;
   title: string | null;
+  billing_status?: string | null;
   patient: { id: string; name: string; birth_date: string | null; foto_url?: string | null } | null;
   contact: Contact | null;
 }
@@ -88,6 +89,10 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
   const [newTime, setNewTime] = useState(formatTime(session.scheduled_at));
   const [newDate, setNewDate] = useState(date);
   const [reminderSent, setReminderSent] = useState(false);
+  const [reminderPanelOpen, setReminderPanelOpen] = useState(false);
+  const [reminderMode, setReminderMode] = useState<'now' | 'at'>('now');
+  const [reminderDate, setReminderDate] = useState(date);
+  const [reminderTime, setReminderTime] = useState('09:00');
 
   const name = session.patient?.name ?? session.title ?? 'Sessão';
   const meta = STATUS_META[session.status] ?? { label: session.status, className: 'bg-slate-100 text-slate-500' };
@@ -126,11 +131,30 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
   });
 
   const reminderMutation = useMutation({
-    mutationFn: () =>
-      callFunction<{ sent_to: string; contact_name: string }>('send-session-reminder', {
-        session_id: session.id,
-      }),
-    onSuccess: () => setReminderSent(true),
+    mutationFn: () => {
+      if (reminderMode === 'at') {
+        const iso = `${reminderDate}T${reminderTime}:00-03:00`;
+        return callFunction<{ sent_to: string; contact_name: string; mode: string; send_at?: string }>(
+          'send-session-reminder',
+          {
+            session_id: session.id,
+            mode: 'at',
+            send_at: new Date(iso).toISOString(),
+          },
+        );
+      }
+      return callFunction<{ sent_to: string; contact_name: string; mode: string }>(
+        'send-session-reminder',
+        {
+          session_id: session.id,
+          mode: 'now',
+        },
+      );
+    },
+    onSuccess: () => {
+      setReminderSent(true);
+      setReminderPanelOpen(false);
+    },
   });
 
   const canSendReminder =
@@ -158,7 +182,14 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
             <span className="text-xs text-charcoal-muted capitalize">{session.title ?? 'Atendimento'}</span>
           </span>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.className}`}>{meta.label}</span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.className}`}>{meta.label}</span>
+          {session.billing_status === 'PENDENTE_CONFIRMACAO' && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+              Cobrança pendente
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Ações rápidas */}
@@ -210,11 +241,11 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
 
         <button
           type="button"
-          onClick={() => reminderMutation.mutate()}
+          onClick={() => setReminderPanelOpen((open) => !open)}
           disabled={!canSendReminder || reminderSent || reminderMutation.isPending}
           title={
             !contact?.email
-              ? 'Cadastre um responsável com e-mail para enviar lembrete'
+              ? 'Cadastre e-mail de contato no paciente para enviar lembrete'
               : undefined
           }
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-charcoal-muted transition-colors hover:bg-slate-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-charcoal-muted/40 data-[sent=true]:text-emerald-600"
@@ -223,13 +254,84 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
-          {reminderMutation.isPending
-            ? 'Enviando…'
-            : reminderSent
-              ? 'Lembrete enviado'
-              : 'Enviar lembrete'}
+          {reminderSent ? 'Lembrete enviado' : 'Enviar lembrete'}
         </button>
       </div>
+
+      {reminderPanelOpen && !reminderSent && (
+        <div className="mt-3 ml-[3.25rem] space-y-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <p className="text-xs font-medium text-charcoal">Como deseja enviar o lembrete por e-mail?</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setReminderMode('now')}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                reminderMode === 'now'
+                  ? 'bg-primary text-white'
+                  : 'border border-slate-200 bg-white text-charcoal-muted hover:border-primary/30'
+              }`}
+            >
+              Enviar agora
+            </button>
+            <button
+              type="button"
+              onClick={() => setReminderMode('at')}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                reminderMode === 'at'
+                  ? 'bg-primary text-white'
+                  : 'border border-slate-200 bg-white text-charcoal-muted hover:border-primary/30'
+              }`}
+            >
+              Agendar horário
+            </button>
+          </div>
+
+          {reminderMode === 'at' && (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="text-xs text-charcoal-muted">
+                Data
+                <input
+                  type="date"
+                  value={reminderDate}
+                  onChange={(e) => setReminderDate(e.target.value)}
+                  className="mt-1 block rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-charcoal focus:border-blue-400 focus:outline-none"
+                />
+              </label>
+              <label className="text-xs text-charcoal-muted">
+                Horário
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  className="mt-1 block rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-charcoal focus:border-blue-400 focus:outline-none"
+                />
+              </label>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => reminderMutation.mutate()}
+              disabled={reminderMutation.isPending}
+              className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            >
+              {reminderMutation.isPending
+                ? 'Processando…'
+                : reminderMode === 'at'
+                  ? 'Agendar lembrete'
+                  : 'Confirmar envio'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setReminderPanelOpen(false)}
+              className="rounded-lg px-3 py-2 text-sm text-charcoal-muted hover:bg-white"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {reminderMutation.isError && (
         <p className="mt-2 pl-[3.25rem] text-xs text-error">

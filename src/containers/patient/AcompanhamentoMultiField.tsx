@@ -18,22 +18,16 @@ interface AcompanhamentoMultiFieldProps {
   variant?: AcompanhamentoMultiFieldVariant;
 }
 
-function chipClasses(selected: boolean, variant: AcompanhamentoMultiFieldVariant): string {
-  if (variant === 'wizard') {
-    return selected
-      ? 'bg-primary/40 text-white ring-1 ring-primary/50'
-      : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200';
-  }
-
+function chipClasses(selected: boolean): string {
   return selected
-    ? 'bg-primary text-white'
-    : 'border border-slate-200 bg-white text-charcoal-muted hover:border-primary/30';
+    ? 'bg-primary-50 text-primary ring-1 ring-primary/30'
+    : 'border border-slate-200 bg-white text-charcoal-muted hover:border-primary/30 hover:bg-primary/[0.03]';
 }
 
 export function AcompanhamentoMultiField({
   value,
   onChange,
-  variant = 'clinical',
+  variant: _variant = 'clinical',
 }: AcompanhamentoMultiFieldProps) {
   const [outroDraft, setOutroDraft] = useState('');
   const [outroOpen, setOutroOpen] = useState(false);
@@ -48,14 +42,10 @@ export function AcompanhamentoMultiField({
   }
 
   const outroInputClass =
-    variant === 'wizard'
-      ? 'h-9 min-w-[10rem] flex-1 rounded-lg border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-slate-500 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20'
-      : 'h-9 min-w-[10rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10';
+    'h-9 min-w-[10rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10';
 
   const addButtonClass =
-    variant === 'wizard'
-      ? 'shrink-0 rounded-lg bg-primary/30 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary/45 disabled:opacity-40'
-      : 'shrink-0 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+    'shrink-0 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
 
   return (
     <div className="space-y-3">
@@ -67,7 +57,7 @@ export function AcompanhamentoMultiField({
               key={option}
               type="button"
               onClick={() => onChange(togglePresetAcompanhamento(value, option))}
-              className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(selected, variant)}`}
+              className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(selected)}`}
             >
               {option}
             </button>
@@ -79,7 +69,7 @@ export function AcompanhamentoMultiField({
             key={custom}
             type="button"
             onClick={() => onChange(removeAcompanhamento(value, custom))}
-            className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(true, variant)}`}
+            className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(true)}`}
             title="Remover tratamento personalizado"
           >
             {custom}
@@ -92,7 +82,7 @@ export function AcompanhamentoMultiField({
         <button
           type="button"
           onClick={() => setOutroOpen((open) => !open)}
-          className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(outroOpen, variant)}`}
+          className={`min-h-[44px] rounded-full px-4 py-2 text-xs font-medium transition-all ${chipClasses(outroOpen)}`}
           aria-expanded={outroOpen}
         >
           {ACOMPANHAMENTO_OTHER_LABEL}
@@ -128,13 +118,7 @@ export function AcompanhamentoMultiField({
       </div>
 
       {outroOpen && (
-        <p
-          className={
-            variant === 'wizard'
-              ? 'text-[11px] text-slate-500'
-              : 'text-[11px] text-charcoal-muted/70'
-          }
-        >
+        <p className="text-[11px] text-charcoal-muted/70">
           Digite o tipo de tratamento e pressione Enter ou toque em Adicionar. Você pode incluir vários.
         </p>
       )}

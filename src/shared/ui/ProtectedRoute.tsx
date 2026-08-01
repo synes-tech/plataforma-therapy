@@ -1,16 +1,22 @@
 import { Navigate } from 'react-router-dom';
 import { PageLoader } from '@containers/loading';
 import { useAuth } from '@shared/hooks/useAuth';
-import { isClinicOwner } from '@shared/lib/roles';
+import { canAccessFinance, isClinicOwner } from '@shared/lib/roles';
 import type { UserRole } from '@shared/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
   ownerOnly?: boolean;
+  financeOnly?: boolean;
 }
 
-export function ProtectedRoute({ children, allowedRoles, ownerOnly }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  allowedRoles,
+  ownerOnly,
+  financeOnly,
+}: ProtectedRouteProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
@@ -22,6 +28,10 @@ export function ProtectedRoute({ children, allowedRoles, ownerOnly }: ProtectedR
   }
 
   if (ownerOnly && !isClinicOwner(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (financeOnly && !canAccessFinance(user)) {
     return <Navigate to="/dashboard" replace />;
   }
 

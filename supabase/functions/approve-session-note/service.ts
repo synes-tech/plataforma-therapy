@@ -2,6 +2,7 @@ import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ForbiddenError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import { formatClinicalReportText } from '../_shared/session-note-format.ts';
+import { buildPaymentPrompt } from '../_shared/financeiro.ts';
 import type { ApproveSessionNotePayload, ApproveSessionNoteResponse } from './types.ts';
 
 export async function approveSessionNote(
@@ -168,6 +169,26 @@ export async function approveSessionNote(
       : 'Relatório enviado para a família como gerado'
     : 'Relatório salvo no prontuário (uso interno)';
 
+  let payment_prompt: ApproveSessionNoteResponse['payment_prompt'] = null;
+  if (scheduleCompleted && scheduleId && note.clinic_id) {
+    try {
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('name')
+        .eq('id', note.patient_id)
+        .maybeSingle();
+      payment_prompt = await buildPaymentPrompt({
+        clinicId: note.clinic_id as string,
+        scheduleId: scheduleId as string,
+        patientId: note.patient_id as string,
+        patientName: (patient?.name as string) || 'Paciente',
+        professionalId: professional.id as string,
+      });
+    } catch (err) {
+      console.error('[approve-session-note] payment_prompt failed', err);
+    }
+  }
+
   return {
     id: note.id,
     status: 'approved',
@@ -177,5 +198,6 @@ export async function approveSessionNote(
     approved_at: now,
     schedule_completed: scheduleCompleted,
     message,
+    payment_prompt,
   };
 }

@@ -1,1 +1,1 @@
-export type SettingsHubTab = 'profile' | 'plan' | 'invoices';
+export type SettingsHubTab = 'profile' | 'plan';

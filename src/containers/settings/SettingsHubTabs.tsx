@@ -5,7 +5,6 @@ import type { SettingsHubTab } from './settings-hub.types';
 const TABS: { id: SettingsHubTab; label: string; to: string }[] = [
   { id: 'profile', label: 'Perfil', to: '/settings' },
   { id: 'plan', label: 'Plano', to: '/settings/plan' },
-  { id: 'invoices', label: 'Faturas', to: '/settings/invoices' },
 ];
 
 interface SettingsHubTabsProps {

@@ -19,6 +19,8 @@ import { buildArtifactSaveToast } from './patient-copilot-family-share.utils';
 import type { AiArtifactType, CopilotMessage } from './patient-copilot.types';
 import { usePatientCopilotSavedArtifacts } from './usePatientCopilotSavedArtifacts';
 import { useCopilotAudioInput } from './useCopilotAudioInput';
+import { useCopilotStreamReveal } from './useCopilotStreamReveal';
+import { useStickyChatScroll } from './useStickyChatScroll';
 import { Toast } from '../Toast';
 
 export interface PatientCopilotChatProps {
@@ -59,8 +61,25 @@ export function PatientCopilotChat({
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const activeAssistantIdRef = useRef<string | null>(null);
   const fingerprintCacheRef = useRef(new Map<string, string>());
   const firstName = patientFirstName(patientName);
+  const { containerRef, onScroll } = useStickyChatScroll(messages);
+
+  const applyReveal = useCallback((nextVisible: string) => {
+    const assistantId = activeAssistantIdRef.current;
+    if (!assistantId) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === assistantId ? { ...m, content: nextVisible, streaming: true } : m)),
+    );
+  }, []);
+
+  const {
+    start: startReveal,
+    pushChunk: pushRevealChunk,
+    finish: finishReveal,
+    reset: resetReveal,
+  } = useCopilotStreamReveal(applyReveal, 42);
 
   const audioInput = useCopilotAudioInput({
     patientId,
@@ -81,6 +100,8 @@ export function PatientCopilotChat({
   useEffect(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    activeAssistantIdRef.current = null;
+    resetReveal();
     setMessages([]);
     setInput('');
     setIsStreaming(false);
@@ -91,17 +112,14 @@ export function PatientCopilotChat({
     setPendingSave(null);
     setToast(null);
     fingerprintCacheRef.current.clear();
-  }, [patientId]);
+  }, [patientId, resetReveal]);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      resetReveal();
     };
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [resetReveal]);
 
   useEffect(() => {
     if (!assistantSyncKey) {
@@ -180,6 +198,8 @@ export function PatientCopilotChat({
     const conversationHistory = buildConversationHistory(historySnapshot);
     const controller = new AbortController();
     abortRef.current = controller;
+    activeAssistantIdRef.current = assistantId;
+    startReveal();
     setIsStreaming(true);
 
     await callFunctionStream(
@@ -192,16 +212,12 @@ export function PatientCopilotChat({
       },
       {
         onChunk: (text) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + text } : m)),
-          );
+          pushRevealChunk(text);
         },
-        onRetry: () => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: '', streaming: true } : m)),
-          );
-        },
+        // Legado: backend não deve mais emitir retry. Se emitir, ignoramos (não apagar).
+        onRetry: () => undefined,
         onDone: (meta: CopilotStreamMeta) => {
+          finishReveal(meta.answer);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -218,14 +234,17 @@ export function PatientCopilotChat({
           );
           setIsStreaming(false);
           abortRef.current = null;
+          activeAssistantIdRef.current = null;
         },
         onError: (err: Error & { code?: string }) => {
           if (controller.signal.aborted) return;
+          resetReveal();
           if (err.code === 'PAYMENT_REQUIRED') {
             onPaymentRequired?.();
             setMessages((prev) => prev.filter((m) => m.id !== assistantId));
             setIsStreaming(false);
             abortRef.current = null;
+            activeAssistantIdRef.current = null;
             return;
           }
           setMessages((prev) =>
@@ -237,6 +256,7 @@ export function PatientCopilotChat({
           );
           setIsStreaming(false);
           abortRef.current = null;
+          activeAssistantIdRef.current = null;
         },
       },
       controller.signal,
@@ -273,7 +293,11 @@ export function PatientCopilotChat({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-white">
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+      <div
+        ref={containerRef}
+        onScroll={onScroll}
+        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+      >
         <LoadingOverlay show={isLoadingArtifacts} label="Preparando copiloto..." />
         <LoadingOverlay show={audioInput.state === 'transcribing'} label="Transcrevendo seu áudio..." />
 

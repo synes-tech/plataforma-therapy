@@ -8,26 +8,34 @@ import { fetchSessionNoteContent, useAudioJobWatcher } from '@features/audio-rec
 type RecorderState = 'idle' | 'recording' | 'uploading' | 'processing' | 'review' | 'error';
 
 interface SoapContent {
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
+  clinical_synthesis?: string;
+  patient_reports?: string;
+  clinical_observations?: string;
+  management_next_steps?: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
 }
 
 interface StudioRecorderProps {
   patientId: string;
   patientName: string;
-  /** Habilita a etapa de revisão SOAP (desktop). No mobile fica desligado. */
+  /** Habilita a etapa de revisão do relatório (desktop). No mobile fica desligado. */
   enableReview?: boolean;
   /** Chamado quando o relatório é salvo/aprovado, para atualizar a fila. */
   onSaved?: () => void;
 }
 
-const SOAP_SECTIONS: Array<{ key: keyof SoapContent; label: string }> = [
-  { key: 'subjective', label: 'Subjetivo' },
-  { key: 'objective', label: 'Objetivo' },
-  { key: 'assessment', label: 'Avaliação' },
-  { key: 'plan', label: 'Plano' },
+const REPORT_SECTIONS: Array<{
+  key: keyof SoapContent;
+  legacyKey: keyof SoapContent;
+  label: string;
+}> = [
+  { key: 'clinical_synthesis', legacyKey: 'objective', label: 'Síntese da Sessão' },
+  { key: 'patient_reports', legacyKey: 'subjective', label: 'Relatos e Conteúdo Trazido' },
+  { key: 'clinical_observations', legacyKey: 'assessment', label: 'Observações e Hipóteses' },
+  { key: 'management_next_steps', legacyKey: 'plan', label: 'Manejo e Próximos Passos' },
 ];
 
 function formatTime(seconds: number): string {
@@ -290,10 +298,10 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
         </div>
       )}
 
-      {/* ESQUELETO SOAP (placeholder) */}
+      {/* Esqueleto do prontuário (placeholder) */}
       {(state === 'idle' || state === 'processing' || state === 'uploading') && (
         <div className="mt-2 space-y-3 border-t border-slate-100 pt-6">
-          {SOAP_SECTIONS.map((s) => (
+          {REPORT_SECTIONS.map((s) => (
             <div key={s.key}>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">{s.label}</p>
               <p className="mt-1 text-sm text-slate-300">O texto gerado aparecerá aqui...</p>
@@ -302,7 +310,7 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
         </div>
       )}
 
-      {/* REVISÃO SOAP (editável) */}
+      {/* Revisão do prontuário psicológico (editável) */}
       {state === 'review' && soap && (
         <div className="space-y-4">
           <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
@@ -312,11 +320,11 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
             </p>
           </div>
 
-          {SOAP_SECTIONS.map((s) => (
+          {REPORT_SECTIONS.map((s) => (
             <div key={s.key}>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{s.label}</label>
               <textarea
-                value={soap[s.key]}
+                value={soap[s.key] || soap[s.legacyKey] || ''}
                 onChange={(e) => setSoap((prev) => (prev ? { ...prev, [s.key]: e.target.value } : prev))}
                 rows={3}
                 className="mt-1.5 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-charcoal outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"

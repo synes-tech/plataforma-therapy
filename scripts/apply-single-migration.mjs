@@ -12,8 +12,11 @@ if (!file) {
 }
 
 const filePath = path.join(__dirname, '..', 'supabase', 'migrations', file);
-const DATABASE_URL = process.env.DATABASE_URL ||
-  'postgresql://postgres:123bd-therapy.ai123@db.yfzhjdfvaosezyjvbyid.supabase.co:5432/postgres';
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('❌ DATABASE_URL ausente. Configure no .env antes de rodar este script.');
+  process.exit(1);
+}
 
 async function run() {
   const client = new pg.Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });

@@ -72,16 +72,31 @@ async function fetchSessionsForRange(
 
   const patientIds = [...new Set(scheduleRows.map((r) => r.patient_id).filter(Boolean))] as string[];
 
-  const patientMap = new Map<string, { id: string; name: string; birth_date: string | null; foto_url: string | null }>();
+  type PatientRow = {
+    id: string;
+    name: string;
+    birth_date: string | null;
+    foto_url: string | null;
+    contact_scope: string | null;
+    email_paciente: string | null;
+    telefone_paciente: string | null;
+    email_responsavel: string | null;
+    telefone_responsavel: string | null;
+    nome_responsavel: string | null;
+  };
+
+  const patientMap = new Map<string, PatientRow>();
   if (patientIds.length > 0) {
     const { data: patients } = await supabase
       .from('patients')
-      .select('id, name, birth_date, foto_url')
+      .select(
+        'id, name, birth_date, foto_url, contact_scope, email_paciente, telefone_paciente, email_responsavel, telefone_responsavel, nome_responsavel',
+      )
       .in('id', patientIds);
-    (patients ?? []).forEach((p) => patientMap.set(p.id, p));
+    (patients ?? []).forEach((p) => patientMap.set(p.id, p as PatientRow));
   }
 
-  const contactMap = new Map<string, { name: string; phone: string | null; email: string | null }>();
+  const familyMap = new Map<string, { name: string; phone: string | null; email: string | null }>();
   if (patientIds.length > 0) {
     const { data: fams } = await supabase
       .from('family_members')
@@ -89,15 +104,69 @@ async function fetchSessionsForRange(
       .in('patient_id', patientIds)
       .is('deleted_at', null);
     (fams ?? []).forEach((f) => {
-      if (f.patient_id && !contactMap.has(f.patient_id)) {
-        contactMap.set(f.patient_id, { name: f.name, phone: f.phone, email: f.email });
+      if (f.patient_id && !familyMap.has(f.patient_id)) {
+        familyMap.set(f.patient_id, { name: f.name, phone: f.phone, email: f.email });
       }
+    });
+  }
+
+  function resolveContact(patient: PatientRow | null): { name: string; phone: string | null; email: string | null } | null {
+    if (!patient) return null;
+    const family = familyMap.get(patient.id) ?? null;
+    const scope = patient.contact_scope;
+    if (scope === 'patient' || scope === 'both') {
+      if (patient.email_paciente || patient.telefone_paciente) {
+        return {
+          name: patient.name,
+          email: patient.email_paciente,
+          phone: patient.telefone_paciente ?? (scope === 'both' ? patient.telefone_responsavel : null),
+        };
+      }
+    }
+    if (scope === 'responsible' || scope === 'both') {
+      if (patient.email_responsavel || patient.telefone_responsavel) {
+        return {
+          name: patient.nome_responsavel?.trim() || 'Responsável',
+          email: patient.email_responsavel,
+          phone: patient.telefone_responsavel,
+        };
+      }
+    }
+    if (!scope) {
+      if (patient.email_paciente || patient.telefone_paciente) {
+        return {
+          name: patient.name,
+          email: patient.email_paciente,
+          phone: patient.telefone_paciente,
+        };
+      }
+      if (patient.email_responsavel || patient.telefone_responsavel) {
+        return {
+          name: patient.nome_responsavel?.trim() || 'Responsável',
+          email: patient.email_responsavel,
+          phone: patient.telefone_responsavel,
+        };
+      }
+    }
+    return family;
+  }
+
+  const scheduleIds = scheduleRows.map((r) => r.id);
+  const billingMap = new Map<string, string>();
+  if (scheduleIds.length > 0) {
+    const { data: billingRows } = await supabase
+      .from('financeiro_sessoes_cobranca')
+      .select('schedule_id, status_cobranca')
+      .in('schedule_id', scheduleIds)
+      .is('deleted_at', null);
+    (billingRows ?? []).forEach((b) => {
+      if (b.schedule_id) billingMap.set(b.schedule_id as string, b.status_cobranca as string);
     });
   }
 
   return scheduleRows.map((r) => {
     const patient = r.patient_id ? patientMap.get(r.patient_id) ?? null : null;
-    const contact = r.patient_id ? contactMap.get(r.patient_id) ?? null : null;
+    const contact = resolveContact(patient);
     const effectiveStatus = resolveEffectiveScheduleStatus(
       idsToMarkNotCompleted.includes(r.id) ? { ...r, status: 'not_completed' } : r,
     );
@@ -110,6 +179,7 @@ async function fetchSessionsForRange(
       completed_at: r.completed_at,
       session_note_id: r.session_note_id,
       title: r.title,
+      billing_status: billingMap.get(r.id) ?? null,
       patient: patient
         ? { id: patient.id, name: patient.name, birth_date: patient.birth_date, foto_url: patient.foto_url ?? null }
         : null,

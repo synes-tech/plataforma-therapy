@@ -1,7 +1,12 @@
 import { createServiceClient } from './supabase.ts';
 import { vertexEmbed, EMBED_MODEL } from './vertex.ts';
 import type { SessionInputMode } from './session-report-prompts.ts';
-import { buildSummaryMarkdown, type StructuredSessionReport } from './session-report-prompts.ts';
+import {
+  buildSummaryMarkdown,
+  mapPsychReportToLegacySoap,
+  normalizeStructuredSessionReport,
+  type StructuredSessionReport,
+} from './session-report-prompts.ts';
 
 export interface PersistSessionDraftParams {
   patient_id: string;
@@ -27,18 +32,27 @@ export async function persistSessionDraft(
   params: PersistSessionDraftParams,
 ): Promise<PersistSessionDraftResult> {
   const supabase = createServiceClient();
-  const transcription = params.structured.transcription ?? '';
+  const structured = normalizeStructuredSessionReport(params.structured);
+  const transcription = structured.transcription ?? '';
   const summaryMarkdown =
-    params.structured.summary_markdown?.trim() || buildSummaryMarkdown(params.structured);
+    structured.summary_markdown?.trim() || buildSummaryMarkdown(structured);
+  const legacy = mapPsychReportToLegacySoap(structured);
 
   const content = {
-    subjective: params.structured.subjective,
-    objective: params.structured.objective,
-    assessment: params.structured.assessment,
-    plan: params.structured.plan,
+    // Prontuário psicológico (fonte principal)
+    clinical_synthesis: structured.clinical_synthesis,
+    patient_reports: structured.patient_reports,
+    clinical_observations: structured.clinical_observations,
+    management_next_steps: structured.management_next_steps,
     summary_markdown: summaryMarkdown,
     transcription,
+    // Compatibilidade legado SOAP (mapeado)
+    subjective: legacy.subjective,
+    objective: legacy.objective,
+    assessment: legacy.assessment,
+    plan: legacy.plan,
     input_mode: params.input_mode,
+    report_format: 'psych_practice_v1',
     ...(params.anotacoes_texto?.trim()
       ? { therapist_annotations: params.anotacoes_texto.trim() }
       : {}),
@@ -70,10 +84,10 @@ export async function persistSessionDraft(
   }
 
   const chunks = [
-    `Relato subjetivo: ${params.structured.subjective}`,
-    `Observação objetiva: ${params.structured.objective}`,
-    `Avaliação clínica: ${params.structured.assessment}`,
-    `Plano terapêutico: ${params.structured.plan}`,
+    `Síntese da sessão: ${structured.clinical_synthesis}`,
+    `Relatos e conteúdo trazido: ${structured.patient_reports}`,
+    `Observações e hipóteses: ${structured.clinical_observations}`,
+    `Manejo e próximos passos: ${structured.management_next_steps}`,
     params.anotacoes_texto?.trim()
       ? `Anotações do terapeuta: ${params.anotacoes_texto.trim().slice(0, 2000)}`
       : null,
@@ -93,8 +107,14 @@ export async function persistSessionDraft(
       embedding: JSON.stringify(embeddings[idx]),
       metadata: {
         session_note_id: sessionNote.id,
-        section: ['subjective', 'objective', 'assessment', 'plan', 'annotations', 'transcription'][idx] ??
-          'other',
+        section: [
+          'clinical_synthesis',
+          'patient_reports',
+          'clinical_observations',
+          'management_next_steps',
+          'annotations',
+          'transcription',
+        ][idx] ?? 'other',
         input_mode: params.input_mode,
         created_at: new Date().toISOString(),
         word_count: chunk.split(/\s+/).filter(Boolean).length,

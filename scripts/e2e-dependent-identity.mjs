@@ -11,9 +11,11 @@ import pg from 'pg';
 const URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_ANON_KEY;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const DB =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres:123bd-therapy.ai123@db.yfzhjdfvaosezyjvbyid.supabase.co:5432/postgres';
+const DB = process.env.DATABASE_URL;
+if (!DB) {
+  console.error('❌ DATABASE_URL ausente. Configure no .env antes de rodar este script.');
+  process.exit(1);
+}
 
 const RESP_CPF = '11144477735';
 const OWN_CPF = '52998224725';

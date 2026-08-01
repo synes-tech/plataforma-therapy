@@ -79,20 +79,26 @@ describe('Sessão Dual — payloads (3 cenários QA)', () => {
 });
 
 describe('Sessão Dual — prompts IA', () => {
-  it('prompt áudio puro não menciona anotações', () => {
-    expect(buildAudioSoapPrompt(null)).toContain('ÁUDIO');
-    expect(buildAudioSoapPrompt(null)).not.toContain('ANOTAÇÕES TEXTUAIS');
+  it('prompt áudio puro não menciona anotações e abandona SOAP', () => {
+    const prompt = buildAudioSoapPrompt(null);
+    expect(prompt).toContain('ÁUDIO');
+    expect(prompt).not.toContain('ANOTAÇÕES TEXTUAIS');
+    expect(prompt).toContain('Síntese da Sessão');
+    expect(prompt).toContain('Observações e Hipóteses');
+    expect(prompt).not.toContain('formato SOAP');
   });
 
   it('prompt dual menciona anotações', () => {
     const prompt = buildAudioSoapPrompt('Nota complementar');
     expect(prompt).toContain('ANOTAÇÕES TEXTUAIS');
     expect(prompt).toContain('Nota complementar');
+    expect(prompt).toContain('Observação da IA');
   });
 
   it('prompt text-only usa anotações', () => {
     const prompt = buildTextOnlySoapPrompt('Sessão registrada por texto.');
     expect(prompt).toContain('APENAS por anotações textuais');
     expect(prompt).toContain('Sessão registrada por texto.');
+    expect(prompt).toContain('Manejo e Próximos Passos');
   });
 });

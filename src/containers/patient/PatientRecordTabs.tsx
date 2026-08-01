@@ -6,6 +6,7 @@ const TABS: { id: PatientRecordTab; label: string }[] = [
   { id: 'overview', label: 'Histórico de Sessões' },
   { id: 'checkins', label: 'Check-ins' },
   { id: 'clinical', label: 'Ficha Clínica' },
+  { id: 'financeiro', label: 'Financeiro' },
   { id: 'documents', label: 'Documentos Salvos' },
 ];
 

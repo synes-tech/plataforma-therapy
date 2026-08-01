@@ -1,4 +1,9 @@
 export interface SessionSoapContent {
+  clinical_synthesis?: string;
+  patient_reports?: string;
+  clinical_observations?: string;
+  management_next_steps?: string;
+  /** Legado SOAP — sessões antigas. */
   subjective: string;
   objective: string;
   assessment: string;
@@ -7,6 +12,7 @@ export interface SessionSoapContent {
   clinical_raw_text?: string;
   family_text?: string;
   transcription?: string;
+  report_format?: string;
 }
 
 export interface PatientSessionRecord {

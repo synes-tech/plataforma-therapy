@@ -5,7 +5,7 @@ import {
 } from '../_shared/vertex.ts';
 import {
   buildAudioSoapPrompt,
-  buildSummaryMarkdown,
+  normalizeStructuredSessionReport,
   resolveSessionInputMode,
   SOAP_RESPONSE_SCHEMA,
   type StructuredSessionReport,
@@ -32,7 +32,7 @@ async function transcribeAndStructure(
   const bytes = new Uint8Array(await fileData.arrayBuffer());
   const prompt = buildAudioSoapPrompt(annotations);
 
-  const { data: structured, tokens } = await vertexAudioToStructured<StructuredSessionReport>(
+  const { data: rawStructured, tokens } = await vertexAudioToStructured<StructuredSessionReport>(
     bytes,
     mimeType,
     prompt,
@@ -40,6 +40,7 @@ async function transcribeAndStructure(
     { temperature: 0.1, maxOutputTokens: 4096 },
   );
 
+  const structured = normalizeStructuredSessionReport(rawStructured);
   return { structured, tokensUsed: tokens, latencyMs: Date.now() - startTime, model: CHAT_MODEL };
 }
 
@@ -90,7 +91,6 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
     );
 
     const transcription = structured.transcription ?? '';
-    const summaryMarkdown = structured.summary_markdown?.trim() || buildSummaryMarkdown(structured);
 
     const { data: transcriptionRecord } = await supabase
       .from('audio_transcriptions')
@@ -118,7 +118,7 @@ export async function processAudio(input: ProcessAudioInput): Promise<ProcessAud
       schedule_id: recording.schedule_id,
       audio_recording_id: input.audio_recording_id,
       transcription_id: transcriptionRecord!.id,
-      structured: { ...structured, summary_markdown: summaryMarkdown },
+      structured,
       anotacoes_texto: mergedAnnotations,
       input_mode: inputMode,
       llm_model: model,

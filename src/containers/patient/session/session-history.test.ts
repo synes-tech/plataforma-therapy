@@ -12,12 +12,12 @@ describe('soapToSummaryMarkdown', () => {
       objective: 'B',
       assessment: 'C',
       plan: 'D',
-      summary_markdown: '## Subjetivo\nTexto custom',
+      summary_markdown: '## Síntese da Sessão\nTexto custom',
     };
-    expect(soapToSummaryMarkdown(soap)).toBe('## Subjetivo\nTexto custom');
+    expect(soapToSummaryMarkdown(soap)).toBe('## Síntese da Sessão\nTexto custom');
   });
 
-  it('gera markdown a partir do SOAP legado', () => {
+  it('gera markdown do prontuário psicológico a partir do legado SOAP', () => {
     const soap: SessionSoapContent = {
       subjective: 'Paciente colaborativo',
       objective: 'Boa atenção',
@@ -25,9 +25,11 @@ describe('soapToSummaryMarkdown', () => {
       plan: 'Manter rotina',
     };
     const md = soapToSummaryMarkdown(soap);
-    expect(md).toContain('## Subjetivo');
+    expect(md).toContain('## Síntese da Sessão');
+    expect(md).toContain('Boa atenção');
+    expect(md).toContain('## Relatos e Conteúdo Trazido');
     expect(md).toContain('Paciente colaborativo');
-    expect(md).toContain('## Plano');
+    expect(md).toContain('## Manejo e Próximos Passos');
     expect(md).toContain('Manter rotina');
   });
 });

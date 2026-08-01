@@ -1,4 +1,10 @@
-export type PatientRecordTab = 'copilot' | 'overview' | 'checkins' | 'clinical' | 'documents';
+export type PatientRecordTab =
+  | 'copilot'
+  | 'overview'
+  | 'checkins'
+  | 'clinical'
+  | 'documents'
+  | 'financeiro';
 
 export interface PatientInfo {
   id: string;

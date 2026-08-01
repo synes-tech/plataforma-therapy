@@ -57,10 +57,8 @@ export function PatientPhotoUpload({
       }
     >
       {!isHero && (
-      <p
-        className={`mb-3 text-sm font-medium ${isWizard ? 'text-slate-200' : 'text-charcoal'}`}
-      >
-        Foto de perfil <span className={isWizard ? 'text-slate-500' : 'text-charcoal-muted'}>(opcional)</span>
+      <p className="mb-3 text-sm font-medium text-charcoal">
+        Foto de perfil <span className="text-charcoal-muted">(opcional)</span>
       </p>
       )}
 
@@ -118,9 +116,9 @@ export function PatientPhotoUpload({
       </div>
 
       <p
-        className={`mt-3 max-w-[16rem] text-center text-xs ${
-          isWizard ? 'text-slate-500' : 'text-charcoal-muted'
-        } ${isHero ? '' : 'sm:text-left'}`}
+        className={`mt-3 max-w-[16rem] text-center text-xs text-charcoal-muted ${
+          isHero ? '' : 'sm:text-left'
+        }`}
       >
         {isHero ? 'Toque para alterar a foto' : 'Clique ou arraste · PNG, JPG ou WebP · máx. 5 MB'}
       </p>

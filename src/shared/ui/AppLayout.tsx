@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
-import { isClinicOwner } from '@shared/lib/roles';
+import { canAccessFinance, isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
@@ -25,6 +25,7 @@ interface NavItemConfig {
   icon: React.ReactNode;
   roles: string[];
   ownerOnly?: boolean;
+  financeOnly?: boolean;
 }
 
 /** Camadas de fundo — gradiente, textura e formas orgânicas (igual ao Login). */
@@ -107,6 +108,17 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
+    label: 'Financeiro',
+    href: '/financeiro',
+    roles: ['professional', 'master'],
+    financeOnly: true,
+    icon: (
+      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     label: 'Diário',
     href: '/diary',
     roles: ['family'],
@@ -117,7 +129,18 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Controle Geral',
+    label: 'Gestão da Assinatura',
+    href: '/assinatura',
+    roles: ['master', 'clinic_admin', 'professional'],
+    ownerOnly: true,
+    icon: (
+      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Perfil/Configurações',
     href: '/settings',
     roles: ['master', 'clinic_admin', 'professional'],
     ownerOnly: true,
@@ -140,9 +163,11 @@ function SidebarNav({
   onNavigate?: () => void;
 }) {
   const owner = isClinicOwner(user);
+  const finance = canAccessFinance(user);
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!user || !item.roles.includes(user.role)) return false;
     if (item.ownerOnly && !owner) return false;
+    if (item.financeOnly && !finance) return false;
     return true;
   });
 
@@ -201,10 +226,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   function isActive(path: string) {
-    if (path === '/settings') {
-      return location.pathname === '/settings' || location.pathname.startsWith('/settings/');
+    if (path === '/assinatura') {
+      return location.pathname === '/assinatura' || location.pathname.startsWith('/assinatura/');
     }
-    return location.pathname === path;
+    if (path === '/settings') {
+      return location.pathname === '/settings';
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   }
 
   const displayName =

@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoadingButton } from '@containers/loading';
+import {
+  getReportSectionValue,
+  PSYCH_REPORT_SECTIONS,
+  type SessionReportContentFields,
+} from '@containers/patient/session/session-report-sections';
 import { supabase } from '@shared/lib/supabase';
 
 interface SessionNote {
   id: string;
   status: string;
-  content: {
-    subjective: string;
-    objective: string;
-    assessment: string;
-    plan: string;
-  };
+  content: SessionReportContentFields;
   ai_generated: boolean;
   created_at: string;
 }
@@ -80,6 +80,7 @@ export function SessionNoteReview({ patientId }: SessionNoteReviewProps) {
 function NoteCard({ note, patientId }: { note: SessionNote; patientId: string }) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
+  const synthesis = getReportSectionValue(note.content, PSYCH_REPORT_SECTIONS[0]);
 
   const approveMutation = useMutation({
     mutationFn: async () => {
@@ -126,15 +127,23 @@ function NoteCard({ note, patientId }: { note: SessionNote; patientId: string })
       </div>
 
       <div className="px-4 py-4 sm:px-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">Subjetivo</p>
-        <p className="mt-1 text-sm leading-relaxed text-charcoal line-clamp-3">{note.content.subjective}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">
+          {PSYCH_REPORT_SECTIONS[0].label}
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-charcoal line-clamp-3">
+          {synthesis || 'Relatório gerado — abra para revisar os blocos clínicos.'}
+        </p>
       </div>
 
       {isExpanded && (
         <div className="space-y-4 border-t border-slate-100 px-4 py-4 sm:px-5">
-          <SOAPSection label="Objetivo" content={note.content.objective} />
-          <SOAPSection label="Avaliação" content={note.content.assessment} />
-          <SOAPSection label="Plano" content={note.content.plan} />
+          {PSYCH_REPORT_SECTIONS.slice(1).map((section) => (
+            <ReportSection
+              key={section.key}
+              label={section.label}
+              content={getReportSectionValue(note.content, section)}
+            />
+          ))}
         </div>
       )}
 
@@ -161,11 +170,13 @@ function NoteCard({ note, patientId }: { note: SessionNote; patientId: string })
   );
 }
 
-function SOAPSection({ label, content }: { label: string; content: string }) {
+function ReportSection({ label, content }: { label: string; content: string }) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
-      <p className="mt-1 text-sm leading-relaxed text-charcoal">{content}</p>
+      <p className="mt-1 text-sm leading-relaxed text-charcoal">
+        {content || 'Não relatado nesta sessão.'}
+      </p>
     </div>
   );
 }

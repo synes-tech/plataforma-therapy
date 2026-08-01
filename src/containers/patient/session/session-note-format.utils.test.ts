@@ -9,20 +9,20 @@ describe('formatSessionNoteForEditing', () => {
     expect(
       formatSessionNoteForEditing({
         lapidated_text: 'Texto lapidado pelo terapeuta',
-        subjective: 'Original',
+        patient_reports: 'Original',
       }),
     ).toBe('Texto lapidado pelo terapeuta');
   });
 
-  it('monta seções SOAP quando não há lapidação', () => {
+  it('monta seções do prontuário psicológico (com fallback legado SOAP)', () => {
     const text = formatSessionNoteForEditing({
       subjective: 'Relato da mãe',
       plan: 'Praticar respiração',
     });
 
-    expect(text).toContain('Subjetivo');
+    expect(text).toContain('Relatos e Conteúdo Trazido');
     expect(text).toContain('Relato da mãe');
-    expect(text).toContain('Plano');
+    expect(text).toContain('Manejo e Próximos Passos');
     expect(text).toContain('Praticar respiração');
   });
 });

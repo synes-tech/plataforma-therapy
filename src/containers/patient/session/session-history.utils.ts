@@ -1,6 +1,10 @@
 import type { SessionSoapContent } from './session-history.types';
+import {
+  getReportSectionValue,
+  PSYCH_REPORT_SECTIONS,
+} from './session-report-sections';
 
-/** Gera markdown estruturado a partir do SOAP (notas legadas sem summary_markdown). */
+/** Gera markdown estruturado a partir do prontuário (ou legado SOAP). */
 export function soapToSummaryMarkdown(soap: SessionSoapContent): string {
   if (soap.clinical_raw_text?.trim()) {
     return soap.clinical_raw_text.trim();
@@ -10,19 +14,10 @@ export function soapToSummaryMarkdown(soap: SessionSoapContent): string {
     return soap.summary_markdown.trim();
   }
 
-  return [
-    '## Subjetivo',
-    soap.subjective || 'Não relatado nesta sessão.',
-    '',
-    '## Objetivo',
-    soap.objective || 'Não relatado nesta sessão.',
-    '',
-    '## Avaliação',
-    soap.assessment || 'Não relatado nesta sessão.',
-    '',
-    '## Plano',
-    soap.plan || 'Não relatado nesta sessão.',
-  ].join('\n');
+  return PSYCH_REPORT_SECTIONS.map((section) => {
+    const value = getReportSectionValue(soap, section) || section.emptyFallback;
+    return `## ${section.label}\n${value}`;
+  }).join('\n\n');
 }
 
 export function formatSessionDuration(seconds: number | null): string {

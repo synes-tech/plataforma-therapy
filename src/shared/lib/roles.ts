@@ -13,3 +13,10 @@ export function isClinicOwner(user: Pick<AuthenticatedUser, 'role' | 'is_solo'> 
     (user.role === 'professional' && user.is_solo)
   );
 }
+
+/** MVP Financeiro: psicólogo autônomo (e master para suporte). */
+export function canAccessFinance(user: Pick<AuthenticatedUser, 'role' | 'is_solo'> | null): boolean {
+  if (!user) return false;
+  if (user.role === 'master') return true;
+  return user.role === 'professional' && user.is_solo;
+}

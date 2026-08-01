@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ValidationError, ForbiddenError } from '../_shared/errors.ts';
+import { buildPaymentPrompt } from '../_shared/financeiro.ts';
 
 /**
  * complete-schedule-session
@@ -48,7 +49,7 @@ serve(async (req: Request) => {
 
     const { data: schedule, error: scheduleError } = await supabase
       .from('therapist_schedule')
-      .select('id, patient_id, status, professional_id')
+      .select('id, patient_id, status, professional_id, clinic_id')
       .eq('id', scheduleId)
       .eq('professional_id', professional.id)
       .is('deleted_at', null)
@@ -113,12 +114,33 @@ serve(async (req: Request) => {
       session_note_id: sessionNoteId,
     });
 
+    let payment_prompt = null;
+    if (schedule.patient_id && schedule.clinic_id) {
+      try {
+        const { data: patient } = await supabase
+          .from('patients')
+          .select('name')
+          .eq('id', schedule.patient_id)
+          .maybeSingle();
+        payment_prompt = await buildPaymentPrompt({
+          clinicId: schedule.clinic_id as string,
+          scheduleId,
+          patientId: schedule.patient_id as string,
+          patientName: (patient?.name as string) || 'Paciente',
+          professionalId: professional.id as string,
+        });
+      } catch (err) {
+        console.error('[complete-schedule-session] payment_prompt failed', err);
+      }
+    }
+
     return successResponse(
       {
         schedule_id: scheduleId,
         session_note_id: sessionNoteId,
         status: 'completed',
         completed_at: now,
+        payment_prompt,
       },
       req,
       200,

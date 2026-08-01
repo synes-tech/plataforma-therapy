@@ -30,13 +30,25 @@ const SESSION_SELECT = `
 
 function normalizeSoapContent(raw: unknown): SessionSoapContent {
   const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const clinical_synthesis = String(obj.clinical_synthesis ?? obj.objective ?? '');
+  const patient_reports = String(obj.patient_reports ?? obj.subjective ?? '');
+  const clinical_observations = String(obj.clinical_observations ?? obj.assessment ?? '');
+  const management_next_steps = String(obj.management_next_steps ?? obj.plan ?? '');
+
   return {
-    subjective: String(obj.subjective ?? ''),
-    objective: String(obj.objective ?? ''),
-    assessment: String(obj.assessment ?? ''),
-    plan: String(obj.plan ?? ''),
+    clinical_synthesis,
+    patient_reports,
+    clinical_observations,
+    management_next_steps,
+    subjective: String(obj.subjective ?? patient_reports),
+    objective: String(obj.objective ?? clinical_synthesis),
+    assessment: String(obj.assessment ?? clinical_observations),
+    plan: String(obj.plan ?? management_next_steps),
     summary_markdown: obj.summary_markdown ? String(obj.summary_markdown) : undefined,
+    clinical_raw_text: obj.clinical_raw_text ? String(obj.clinical_raw_text) : undefined,
+    family_text: obj.family_text ? String(obj.family_text) : undefined,
     transcription: obj.transcription ? String(obj.transcription) : undefined,
+    report_format: obj.report_format ? String(obj.report_format) : undefined,
   };
 }
 

@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { callFunction } from '@shared/lib/api';
-import { normalizeCpf } from '@shared/lib/cpf';
+import { formatCpfDisplay, normalizeCpf } from '@shared/lib/cpf';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { LoadingButton } from '@containers/loading';
 import { usePaywall } from '@containers/paywall';
 import { UpgradePlanModal } from '@containers/billing/UpgradePlanModal';
-import { PatientAnamnesisWizard } from './PatientAnamnesisWizard';
+import {
+  PatientAnamnesisWizard,
+  type PatientAnamnesisWizardHandle,
+} from './PatientAnamnesisWizard';
 import {
   PATIENT_CREATE_PROGRESS_STEPS,
   PatientCreateProgressOverlay,
@@ -60,6 +63,11 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
   const [pendingMatches, setPendingMatches] = useState<VerifyPatientCpfMatch[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  /** Evita reabrir o wizard automaticamente ao tocar em "Alterar" identidade. */
+  const [suppressWizardAutoOpen, setSuppressWizardAutoOpen] = useState(false);
+  const [wizardMounted, setWizardMounted] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardCanAdvance, setWizardCanAdvance] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -68,6 +76,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
   const [createProgressStep, setCreateProgressStep] = useState(0);
   const [createProgressComplete, setCreateProgressComplete] = useState(false);
   const progressTimerRef = useRef<number | null>(null);
+  const wizardRef = useRef<PatientAnamnesisWizardHandle>(null);
 
   const stopProgressCycle = useCallback(() => {
     if (progressTimerRef.current !== null) {
@@ -95,6 +104,10 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     setPendingMatches([]);
     setPickerOpen(false);
     setShowWizard(false);
+    setSuppressWizardAutoOpen(false);
+    setWizardMounted(false);
+    setWizardStep(1);
+    setWizardCanAdvance(false);
     setCreateError(null);
     setUpgradeMessage(null);
     setUpgradeOpen(false);
@@ -118,6 +131,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     if (digits.length === 0) {
       setLookupPhase('idle');
       setShowWizard(false);
+      setSuppressWizardAutoOpen(false);
       setMatch(null);
       setPendingMatches([]);
       return;
@@ -125,6 +139,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     if (digits.length < 11) {
       setLookupPhase('typing');
       setShowWizard(false);
+      setSuppressWizardAutoOpen(false);
       setMatch(null);
       setPendingMatches([]);
       return;
@@ -132,6 +147,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     if (!shouldTriggerCpfLookup(lookupCpf)) {
       setLookupPhase('invalid');
       setShowWizard(false);
+      setSuppressWizardAutoOpen(false);
       setMatch(null);
       setPendingMatches([]);
       return;
@@ -152,7 +168,10 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
           setMatch(null);
           setPendingMatches([]);
           setLookupPhase('not_found');
-          setShowWizard(true);
+          if (!suppressWizardAutoOpen) {
+            setShowWizard(true);
+            setWizardMounted(true);
+          }
           return;
         }
 
@@ -170,7 +189,10 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
           setMatch(null);
           setPendingMatches([]);
           setLookupPhase('not_found');
-          setShowWizard(true);
+          if (!suppressWizardAutoOpen) {
+            setShowWizard(true);
+            setWizardMounted(true);
+          }
           return;
         }
         setMatch(single);
@@ -188,7 +210,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     return () => {
       cancelled = true;
     };
-  }, [lookupCpf, isOpen]);
+  }, [lookupCpf, isOpen, suppressWizardAutoOpen]);
 
   function handleIdentityModeChange(mode: PatientCreateIdentity['mode']) {
     setIdentity({
@@ -202,7 +224,25 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     setPendingMatches([]);
     setPickerOpen(false);
     setShowWizard(false);
+    setSuppressWizardAutoOpen(false);
+    setWizardMounted(false);
+    setWizardStep(1);
+    setWizardCanAdvance(false);
     setCreateError(null);
+  }
+
+  function handleEditIdentity() {
+    setShowWizard(false);
+    setSuppressWizardAutoOpen(true);
+    setCreateError(null);
+  }
+
+  function handleResumeWizard() {
+    if (lookupPhase !== 'not_found') return;
+    if (identity.mode === 'dependent' && identity.nomeResponsavel.trim().length < 2) return;
+    setSuppressWizardAutoOpen(false);
+    setShowWizard(true);
+    setWizardMounted(true);
   }
 
   function handlePickerSelect(selected: VerifyPatientCpfMatch) {
@@ -214,7 +254,9 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
   function handleRegisterNewDependent() {
     setPickerOpen(false);
     setMatch(null);
+    setSuppressWizardAutoOpen(false);
     setShowWizard(true);
+    setWizardMounted(true);
     setLookupPhase('not_found');
   }
 
@@ -334,42 +376,92 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
   const dependentReady =
     identity.mode === 'dependent' && identity.nomeResponsavel.trim().length >= 2;
 
-  const showFooterSubmit =
+  const wizardActive =
     showWizard &&
     lookupPhase === 'not_found' &&
     (identity.mode === 'own_cpf' || dependentReady);
+
+  const isLastWizardStep = wizardStep >= 6;
+
+  const identityCpfDisplay = formatCpfDisplay(lookupCpf);
+  const identitySummary =
+    identity.mode === 'own_cpf'
+      ? `CPF ${identityCpfDisplay}`
+      : `${identity.nomeResponsavel.trim() || 'Responsável'} · CPF ${identityCpfDisplay}`;
+
+  function handleWizardNext() {
+    if (isLastWizardStep) return;
+    wizardRef.current?.goNext();
+  }
+
+  function handleWizardBack() {
+    if (wizardStep <= 1) {
+      handleEditIdentity();
+      return;
+    }
+    wizardRef.current?.goBack();
+  }
+
+  const ghostBtnClass =
+    'inline-flex h-11 w-full items-center justify-center rounded-xl border border-transparent px-5 text-sm font-medium text-charcoal-muted transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto';
+
+  const outlineBtnClass =
+    'inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto';
 
   return (
     <>
       <StandardModal
         isOpen={isOpen}
         onClose={onClose}
-        title="Cadastrar paciente"
+        title={wizardActive ? 'Cadastrar paciente' : 'Identificar paciente'}
         size="xl"
         closeOnBackdropClick={false}
         closeOnEscape={false}
         footer={
-          <>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={onClose}
               disabled={isCreating}
-              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-charcoal-muted transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
+              className={`${ghostBtnClass} order-last sm:order-none`}
             >
               Cancelar
             </button>
-            {showFooterSubmit && (
-            <LoadingButton
-              type="submit"
-              form={CREATE_FORM_ID}
-              loading={isCreating}
-              fullWidth
-              className="md:w-auto"
-            >
-              Concluir cadastro
-            </LoadingButton>
-            )}
-          </>
+
+            {wizardActive ? (
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={handleWizardBack}
+                  disabled={isCreating}
+                  className={`${outlineBtnClass} order-2 sm:order-none`}
+                >
+                  Voltar
+                </button>
+                {isLastWizardStep ? (
+                  <LoadingButton
+                    type="submit"
+                    form={CREATE_FORM_ID}
+                    loading={isCreating}
+                    fullWidth
+                    className="order-1 md:w-auto sm:order-none"
+                  >
+                    Concluir cadastro
+                  </LoadingButton>
+                ) : (
+                  <LoadingButton
+                    type="button"
+                    onClick={handleWizardNext}
+                    disabled={!wizardCanAdvance || isCreating}
+                    fullWidth
+                    className="order-1 md:w-auto sm:order-none"
+                  >
+                    Avançar
+                  </LoadingButton>
+                )}
+              </div>
+            ) : null}
+          </div>
         }
       >
         <div className="relative">
@@ -379,89 +471,122 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
             complete={createProgressComplete}
           />
 
-        {createError && (
-          <div
-            role="alert"
-            className="mb-4 rounded-xl border border-error/20 bg-error-light px-4 py-3 text-sm text-error"
-          >
-            {createError}
-          </div>
-        )}
-
-        <div className="space-y-5">
-          <PatientIdentityToggle
-            mode={identity.mode}
-            onChange={handleIdentityModeChange}
-            disabled={isBusy}
-          />
-
-          {identity.mode === 'own_cpf' ? (
-            <PatientCpfField
-              value={identity.cpfPaciente}
-              onChange={(value) =>
-                setIdentity((prev) => ({ ...prev, cpfPaciente: value }))
-              }
-              loading={lookupPhase === 'searching'}
-              error={cpfErrorMessage(lookupPhase)}
-              disabled={isBusy}
-            />
-          ) : (
-            <PatientResponsibleFields
-              nomeResponsavel={identity.nomeResponsavel}
-              cpfResponsavel={identity.cpfResponsavel}
-              onNomeChange={(value) =>
-                setIdentity((prev) => ({ ...prev, nomeResponsavel: value }))
-              }
-              onCpfChange={(value) =>
-                setIdentity((prev) => ({ ...prev, cpfResponsavel: value }))
-              }
-              cpfLoading={lookupPhase === 'searching'}
-              cpfError={cpfErrorMessage(lookupPhase)}
-              disabled={isBusy}
-            />
-          )}
-
-          {lookupPhase === 'found_backup' && match && (
-            <PatientReactivationCard
-              match={match}
-              onReactivate={handleReactivate}
-              isReactivating={reactivateMutation.isPending}
-            />
-          )}
-
-          {lookupPhase === 'found_active' && match && (
-            <PatientAlreadyActiveCard
-              match={match}
-              onViewRecord={handleViewActiveRecord}
-              onRegisterAnother={
-                identity.mode === 'dependent' ? handleRegisterNewDependent : undefined
-              }
-            />
-          )}
-
-          <div
-            className={`grid transition-all duration-300 ease-out ${
-              showWizard ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-            }`}
-          >
-            <div className="overflow-hidden">
-              {showWizard && (
-                <div className="animate-fade-in border-t border-slate-100 pt-5">
-                  <p className="mb-4 text-sm text-charcoal-muted">
-                    {identity.mode === 'own_cpf'
-                      ? 'CPF não encontrado — complete a ficha para cadastrar um novo paciente.'
-                      : 'Responsável não vinculado a este paciente — complete a ficha do dependente.'}
-                  </p>
-                  <PatientAnamnesisWizard
-                    formId={CREATE_FORM_ID}
-                    isSubmitting={isCreating}
-                    onSubmit={handleCreateSubmit}
-                  />
-                </div>
-              )}
+          {createError && (
+            <div
+              role="alert"
+              className="mb-4 rounded-xl border border-error/20 bg-error-light px-4 py-3 text-sm text-error"
+            >
+              {createError}
             </div>
-          </div>
-        </div>
+          )}
+
+          {!wizardActive && (
+            <div className="mx-auto max-w-lg space-y-5">
+              <div className="rounded-2xl border border-slate-100 bg-[#F8FAF9]/60 px-4 py-5 sm:px-5">
+                <p className="mb-4 text-sm leading-relaxed text-charcoal-muted">
+                  Informe o CPF para verificar se o paciente já existe na plataforma. Em seguida,
+                  você preenche a ficha em etapas.
+                </p>
+
+                <div className="space-y-5">
+                  <PatientIdentityToggle
+                    mode={identity.mode}
+                    onChange={handleIdentityModeChange}
+                    disabled={isBusy}
+                  />
+
+                  {identity.mode === 'own_cpf' ? (
+                    <PatientCpfField
+                      value={identity.cpfPaciente}
+                      onChange={(value) => {
+                        setSuppressWizardAutoOpen(false);
+                        setIdentity((prev) => ({ ...prev, cpfPaciente: value }));
+                      }}
+                      loading={lookupPhase === 'searching'}
+                      error={cpfErrorMessage(lookupPhase)}
+                      disabled={isBusy}
+                    />
+                  ) : (
+                    <PatientResponsibleFields
+                      nomeResponsavel={identity.nomeResponsavel}
+                      cpfResponsavel={identity.cpfResponsavel}
+                      onNomeChange={(value) =>
+                        setIdentity((prev) => ({ ...prev, nomeResponsavel: value }))
+                      }
+                      onCpfChange={(value) => {
+                        setSuppressWizardAutoOpen(false);
+                        setIdentity((prev) => ({ ...prev, cpfResponsavel: value }));
+                      }}
+                      cpfLoading={lookupPhase === 'searching'}
+                      cpfError={cpfErrorMessage(lookupPhase)}
+                      disabled={isBusy}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {lookupPhase === 'found_backup' && match && (
+                <PatientReactivationCard
+                  match={match}
+                  onReactivate={handleReactivate}
+                  isReactivating={reactivateMutation.isPending}
+                />
+              )}
+
+              {lookupPhase === 'found_active' && match && (
+                <PatientAlreadyActiveCard
+                  match={match}
+                  onViewRecord={handleViewActiveRecord}
+                  onRegisterAnother={
+                    identity.mode === 'dependent' ? handleRegisterNewDependent : undefined
+                  }
+                />
+              )}
+
+              {lookupPhase === 'searching' && (
+                <p className="text-center text-xs text-charcoal-muted">Verificando CPF…</p>
+              )}
+
+              {suppressWizardAutoOpen &&
+                lookupPhase === 'not_found' &&
+                (identity.mode === 'own_cpf' || dependentReady) && (
+                  <LoadingButton type="button" onClick={handleResumeWizard} fullWidth>
+                    Continuar cadastro
+                  </LoadingButton>
+                )}
+            </div>
+          )}
+
+          {wizardMounted && (
+            <div className={wizardActive ? 'space-y-4' : 'hidden'} aria-hidden={!wizardActive}>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-charcoal-muted">
+                    Identidade validada
+                  </p>
+                  <p className="truncate text-sm font-medium text-charcoal">{identitySummary}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEditIdentity}
+                  disabled={isCreating}
+                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary-50 disabled:opacity-50"
+                >
+                  Alterar
+                </button>
+              </div>
+
+              <PatientAnamnesisWizard
+                key={`${identity.mode}-${normalizeCpf(lookupCpf)}`}
+                ref={wizardRef}
+                formId={CREATE_FORM_ID}
+                isSubmitting={isCreating}
+                onSubmit={handleCreateSubmit}
+                onStepChange={setWizardStep}
+                onCanAdvanceChange={setWizardCanAdvance}
+              />
+            </div>
+          )}
         </div>
 
         <UpgradePlanModal

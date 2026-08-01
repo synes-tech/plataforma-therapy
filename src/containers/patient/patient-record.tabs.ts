@@ -5,6 +5,7 @@ export const TAB_PATH: Record<PatientRecordTab, string> = {
   overview: 'overview',
   checkins: 'checkins',
   clinical: 'clinical',
+  financeiro: 'financeiro',
   documents: 'documents',
 };
 
@@ -13,6 +14,7 @@ const PATH_TO_TAB: Record<string, PatientRecordTab> = {
   overview: 'overview',
   checkins: 'checkins',
   clinical: 'clinical',
+  financeiro: 'financeiro',
   documents: 'documents',
   'saved-recommendations': 'documents',
   'crisis-control': 'checkins',

@@ -12,10 +12,15 @@ export interface ReportItem {
   patient_name: string;
   status: 'draft' | 'approved' | 'archived';
   content: {
-    subjective: string;
-    objective: string;
-    assessment: string;
-    plan: string;
+    clinical_synthesis?: string;
+    patient_reports?: string;
+    clinical_observations?: string;
+    management_next_steps?: string;
+    subjective?: string;
+    objective?: string;
+    assessment?: string;
+    plan?: string;
+    summary_markdown?: string;
   };
   ai_generated: boolean;
   created_at: string;

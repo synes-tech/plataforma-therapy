@@ -5,6 +5,7 @@ import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError } from '../_shared/errors.ts';
 import { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
+import { notifySessionScheduled } from '../_shared/session-email-jobs.ts';
 
 /**
  * create-schedule
@@ -51,7 +52,7 @@ serve(async (req: Request) => {
     // Get professional record
     const { data: professional } = await supabase
       .from('professionals')
-      .select('id, clinic_id')
+      .select('id, clinic_id, name')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .single();
@@ -165,6 +166,23 @@ serve(async (req: Request) => {
       metadata: { patient_id, scheduled_at, duration_minutes },
     });
 
+    // Confirmação por e-mail + enfileira lembrete 24h (best-effort; não bloqueia o agendamento)
+    let emailNotify: { confirmation_sent: number; reminder_24h_queued: number } | null = null;
+    try {
+      emailNotify = await notifySessionScheduled({
+        supabase,
+        scheduleId: created.id,
+        patientId: patient_id,
+        clinicId: professional.clinic_id,
+        professionalId: professional.id,
+        professionalName: (professional.name as string) || 'terapeuta',
+        scheduledAtIso: scheduled_at,
+        durationMinutes: duration_minutes,
+      });
+    } catch (emailErr) {
+      console.error('[create-schedule] session email notify failed', emailErr);
+    }
+
     // Aviso soft: recomendação de 4 sessões/paciente/mês excedida
     const quotaWarning =
       quotaState && !quotaState.error && quotaState.warn_patient
@@ -178,7 +196,11 @@ serve(async (req: Request) => {
           }
         : null;
 
-    return successResponse({ ...created, quota_warning: quotaWarning }, req, 201);
+    return successResponse(
+      { ...created, quota_warning: quotaWarning, email_notify: emailNotify },
+      req,
+      201,
+    );
   } catch (error) {
     return errorResponse(error, req);
   }

@@ -3,10 +3,15 @@ export interface ReportSummaryInput {
 }
 
 export interface SoapContent {
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
+  clinical_synthesis?: string;
+  patient_reports?: string;
+  clinical_observations?: string;
+  management_next_steps?: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  summary_markdown?: string;
 }
 
 export interface ReportSummaryOutput {

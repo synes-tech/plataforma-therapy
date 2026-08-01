@@ -1,14 +1,10 @@
-export interface SessionNoteSoapContent {
-  subjective?: string;
-  objective?: string;
-  assessment?: string;
-  plan?: string;
-  summary_markdown?: string;
-  lapidated_text?: string;
-  clinical_raw_text?: string;
-  family_text?: string;
-  transcription?: string;
-}
+import {
+  getReportSectionValue,
+  PSYCH_REPORT_SECTIONS,
+  type SessionReportContentFields,
+} from './session-report-sections';
+
+export type SessionNoteSoapContent = SessionReportContentFields;
 
 /** Texto completo do relatório clínico (rascunho ou versão bruta aprovada). */
 export function formatSessionNoteForEditing(content: SessionNoteSoapContent): string {
@@ -24,16 +20,10 @@ export function formatSessionNoteForEditing(content: SessionNoteSoapContent): st
     return content.summary_markdown.trim();
   }
 
-  const sections: Array<{ label: string; value?: string }> = [
-    { label: 'Subjetivo', value: content.subjective },
-    { label: 'Objetivo', value: content.objective },
-    { label: 'Avaliação', value: content.assessment },
-    { label: 'Plano', value: content.plan },
-  ];
-
-  const parts = sections
-    .filter((section) => section.value?.trim())
-    .map((section) => `${section.label}\n${section.value!.trim()}`);
+  const parts = PSYCH_REPORT_SECTIONS.map((section) => {
+    const value = getReportSectionValue(content, section);
+    return value ? `${section.label}\n${value}` : null;
+  }).filter((part): part is string => !!part);
 
   if (parts.length > 0) {
     return parts.join('\n\n');

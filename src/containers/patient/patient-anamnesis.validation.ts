@@ -6,6 +6,12 @@ export interface StepValidationResult {
   errors: Record<string, string>;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
 export function validateAnamnesisStep(step: number, form: PatientAnamnesisForm): StepValidationResult {
   const errors: Record<string, string> = {};
 
@@ -18,6 +24,38 @@ export function validateAnamnesisStep(step: number, form: PatientAnamnesisForm):
     }
     if (parseDiagnoses(form.diagnoses).length === 0) {
       errors.diagnoses = 'Informe ao menos um diagnóstico.';
+    }
+  }
+
+  if (step === 5) {
+    if (!form.contact_scope) {
+      errors.contact_scope = 'Selecione quem terá informações de contato.';
+    } else {
+      if (form.contact_scope === 'patient' || form.contact_scope === 'both') {
+        if (!form.email_paciente.trim()) {
+          errors.email_paciente = 'Informe o e-mail do paciente.';
+        } else if (!isValidEmail(form.email_paciente)) {
+          errors.email_paciente = 'E-mail do paciente inválido.';
+        }
+      }
+      if (form.contact_scope === 'responsible' || form.contact_scope === 'both') {
+        if (!form.email_responsavel.trim()) {
+          errors.email_responsavel = 'Informe o e-mail do responsável.';
+        } else if (!isValidEmail(form.email_responsavel)) {
+          errors.email_responsavel = 'E-mail do responsável inválido.';
+        }
+      }
+    }
+  }
+
+  if (step === 6) {
+    if (!form.financeiro_modelo) {
+      errors.financeiro_modelo = 'Selecione o modelo comercial (avulso, pacote ou social).';
+    } else if (form.financeiro_modelo === 'pacote') {
+      const qtd = Number(form.financeiro_pacote_qtd);
+      if (!Number.isFinite(qtd) || qtd < 1) {
+        errors.financeiro_pacote_qtd = 'Informe a quantidade de sessões do pacote.';
+      }
     }
   }
 

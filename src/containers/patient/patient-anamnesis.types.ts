@@ -1,3 +1,5 @@
+export type PatientContactScope = 'patient' | 'responsible' | 'both';
+
 export interface PatientAnamnesisForm {
   name: string;
   nome_social: string;
@@ -13,6 +15,17 @@ export interface PatientAnamnesisForm {
   objetivos_terapeuticos: string;
   hiperfocos_interesses: string;
   informacoes_adicionais: string;
+  contact_scope: PatientContactScope | '';
+  email_paciente: string;
+  telefone_paciente: string;
+  email_responsavel: string;
+  telefone_responsavel: string;
+  financeiro_modelo: 'avulso' | 'pacote' | 'social' | '';
+  financeiro_valor_sessao: string;
+  financeiro_pacote_qtd: string;
+  financeiro_pacote_valor: string;
+  financeiro_registrar_pacote_pago: boolean;
+  financeiro_observacoes: string;
 }
 
 export const EMPTY_ANAMNESIS_FORM: PatientAnamnesisForm = {
@@ -30,6 +43,17 @@ export const EMPTY_ANAMNESIS_FORM: PatientAnamnesisForm = {
   objetivos_terapeuticos: '',
   hiperfocos_interesses: '',
   informacoes_adicionais: '',
+  contact_scope: '',
+  email_paciente: '',
+  telefone_paciente: '',
+  email_responsavel: '',
+  telefone_responsavel: '',
+  financeiro_modelo: '',
+  financeiro_valor_sessao: '150,00',
+  financeiro_pacote_qtd: '4',
+  financeiro_pacote_valor: '600,00',
+  financeiro_registrar_pacote_pago: false,
+  financeiro_observacoes: '',
 };
 
 export const WIZARD_STEPS = [
@@ -37,7 +61,27 @@ export const WIZARD_STEPS = [
   { id: 2, label: 'Contexto Clínico' },
   { id: 3, label: 'Dinâmica Familiar' },
   { id: 4, label: 'Parametrização IA' },
+  { id: 5, label: 'Contato' },
+  { id: 6, label: 'Comercial' },
 ] as const;
+
+export const CONTACT_SCOPE_OPTIONS: { value: PatientContactScope; label: string; hint: string }[] = [
+  {
+    value: 'responsible',
+    label: 'Somente responsável',
+    hint: 'E-mail e telefone do responsável',
+  },
+  {
+    value: 'patient',
+    label: 'Somente paciente',
+    hint: 'E-mail e telefone do paciente',
+  },
+  {
+    value: 'both',
+    label: 'Ambos',
+    hint: 'Contatos do paciente e do responsável',
+  },
+];
 
 export const ACOMPANHAMENTO_OPTIONS = [
   'Psicologia',
@@ -113,6 +157,17 @@ export function patientInfoToForm(p: PatientInfoLike): PatientAnamnesisForm {
     objetivos_terapeuticos: p.objetivos_terapeuticos ?? '',
     hiperfocos_interesses: p.hiperfocos_interesses ?? '',
     informacoes_adicionais: p.informacoes_adicionais ?? '',
+    contact_scope: '',
+    email_paciente: '',
+    telefone_paciente: '',
+    email_responsavel: '',
+    telefone_responsavel: '',
+    financeiro_modelo: '',
+    financeiro_valor_sessao: '150,00',
+    financeiro_pacote_qtd: '4',
+    financeiro_pacote_valor: '600,00',
+    financeiro_registrar_pacote_pago: false,
+    financeiro_observacoes: '',
   };
 }
 

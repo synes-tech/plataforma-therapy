@@ -3,38 +3,33 @@ import { AppError } from '../_shared/errors.ts';
 import { assertCanUseAiPaywall } from '../_shared/paywall.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { QueryCopilotPayload, QueryCopilotResponse } from './types.ts';
-import { validateOutput } from './guardrails.ts';
-import { prepareCopilotContext, type CopilotPreparedContext } from './context.ts';
-import { vertexChat, vertexChatStream, CHAT_MODEL, type ChatMessage } from '../_shared/vertex.ts';
+import { enforceSafeOutput } from './guardrails.ts';
+import { prepareCopilotContext } from './context.ts';
+import { vertexChat, vertexChatStream, CHAT_MODEL } from '../_shared/vertex.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 const LLM_OPTS = {
-  temperature: 0.3,
+  temperature: 0.25,
   maxOutputTokens: 4096,
-  thinkingBudget: 1024,
+  /** Menor thinking → resposta mais rápida sem regeneração visível. */
+  thinkingBudget: 256,
 } as const;
-
-const MAX_GUARDRAIL_RETRIES = 2;
-
-const GUARDRAIL_RETRY_SUFFIX = `
-
-ATENÇÃO CRÍTICA: Sua resposta anterior foi REJEITADA pelo sistema de segurança porque continha referências a medicamentos, diagnósticos definitivos ou termos proibidos. Você DEVE responder novamente seguindo ESTRITAMENTE estas regras:
-- NUNCA mencione nomes de medicamentos (ritalina, risperidona, metilfenidato, etc.)
-- NUNCA faça diagnósticos definitivos ou conclusivos
-- NUNCA use termos como "cura definitiva", "sempre será", "nunca vai"
-- Foque APENAS em: atividades terapêuticas, análise comportamental, estratégias de manejo, padrões observados e sugestões práticas para a sessão
-- Se o tema envolve medicação, diga apenas "acompanhamento medicamentoso conforme prescrição médica" sem citar nomes
-
-Responda a pergunta original de forma útil, mantendo-se dentro do escopo terapêutico permitido.`;
 
 async function finalizeCopilotAnswer(
   answer: string,
   tokensUsed: number,
   answerIncomplete: boolean,
-  ctx: { startTime: number; patientId: string; sources: QueryCopilotResponse['sources']; rerankedCount: number },
+  ctx: {
+    startTime: number;
+    patientId: string;
+    sources: QueryCopilotResponse['sources'];
+    rerankedCount: number;
+  },
   caller: AuthenticatedUser,
+  safetyMeta?: { sanitized: boolean; usedFallback: boolean; reason?: string },
 ): Promise<QueryCopilotResponse> {
   const supabase = createServiceClient();
+  const safe = enforceSafeOutput(answer);
 
   await supabase.from('audit_logs').insert({
     user_id: caller.id,
@@ -48,13 +43,16 @@ async function finalizeCopilotAnswer(
       latency_ms: Date.now() - ctx.startTime,
       model: CHAT_MODEL,
       guardrail_triggered: false,
+      output_sanitized: safe.sanitized || Boolean(safetyMeta?.sanitized),
+      output_fallback: safe.usedFallback || Boolean(safetyMeta?.usedFallback),
+      output_guardrail_reason: safe.reason ?? safetyMeta?.reason ?? null,
       answer_incomplete: answerIncomplete,
       streamed: true,
     },
   });
 
   return {
-    answer,
+    answer: safe.answer,
     sources: ctx.sources,
     guardrail_triggered: false,
     answer_incomplete: answerIncomplete,
@@ -63,55 +61,29 @@ async function finalizeCopilotAnswer(
   };
 }
 
-/**
- * Retry logic: if the output guardrail triggers, automatically retry
- * with reinforced instructions — never expose the guardrail to the user.
- */
-async function generateWithRetry(
-  chatMessages: ChatMessage[],
+async function generateOnce(
+  chatMessages: Parameters<typeof vertexChat>[0],
   systemInstruction: string,
 ): Promise<{ answer: string; tokensUsed: number; answerIncomplete: boolean }> {
-  let lastAnswer = '';
-  let totalTokens = 0;
+  const llm = await vertexChat(chatMessages, {
+    system: systemInstruction,
+    ...LLM_OPTS,
+  });
 
-  for (let attempt = 0; attempt <= MAX_GUARDRAIL_RETRIES; attempt++) {
-    const messages = attempt === 0
-      ? chatMessages
-      : [...chatMessages, { role: 'assistant' as const, content: lastAnswer }, { role: 'user' as const, content: GUARDRAIL_RETRY_SUFFIX }];
-
-    const llm = await vertexChat(messages, {
-      system: systemInstruction,
-      ...LLM_OPTS,
-    });
-
-    lastAnswer = llm.text;
-    totalTokens += llm.tokens;
-
-    const outputCheck = validateOutput(llm.text);
-    if (outputCheck.safe) {
-      return { answer: llm.text, tokensUsed: totalTokens, answerIncomplete: llm.truncated };
-    }
-
+  const safe = enforceSafeOutput(llm.text);
+  if (safe.sanitized) {
     console.log(JSON.stringify({
       level: 'warn',
-      action: 'output_guardrail_retry',
-      attempt: attempt + 1,
-      reason: outputCheck.reason,
+      action: 'output_guardrail_sanitized',
+      used_fallback: safe.usedFallback,
+      reason: safe.reason,
     }));
   }
 
-  // All retries exhausted — return the last answer stripped of problematic terms
-  // rather than exposing an error to the user
-  console.log(JSON.stringify({
-    level: 'error',
-    action: 'output_guardrail_exhausted',
-    retries: MAX_GUARDRAIL_RETRIES,
-  }));
-
   return {
-    answer: 'Com base no histórico clínico, observo padrões que merecem atenção no planejamento da sessão. Sugiro focar em atividades de regulação emocional e monitoramento comportamental. Posso detalhar estratégias específicas se reformular a pergunta com foco em atividades práticas.',
-    tokensUsed: totalTokens,
-    answerIncomplete: false,
+    answer: safe.answer,
+    tokensUsed: llm.tokens,
+    answerIncomplete: llm.truncated,
   };
 }
 
@@ -129,17 +101,21 @@ export async function queryCopilot(
   const { context } = prepared;
 
   try {
-    const { answer, tokensUsed, answerIncomplete } = await generateWithRetry(
+    const { answer, tokensUsed, answerIncomplete } = await generateOnce(
       context.chatMessages,
       context.systemInstruction,
     );
     return finalizeCopilotAnswer(answer, tokensUsed, answerIncomplete, context, caller);
   } catch (e) {
-    throw new AppError({ code: 'LLM_ERROR', message: e instanceof Error ? e.message : 'LLM error', statusCode: 502 });
+    throw new AppError({
+      code: 'LLM_ERROR',
+      message: e instanceof Error ? e.message : 'LLM error',
+      statusCode: 502,
+    });
   }
 }
 
-/** NDJSON stream: chunk → done | error */
+/** NDJSON stream: chunk → done | error — uma única geração, sem apagar conteúdo. */
 export function queryCopilotStream(
   payload: QueryCopilotPayload,
   caller: AuthenticatedUser,
@@ -184,44 +160,32 @@ export function queryCopilotStream(
           }
         }
 
-        // Check output guardrail AFTER full stream is collected
-        const outputCheck = validateOutput(fullText);
-        if (!outputCheck.safe) {
+        // Nunca envia "retry"/apaga stream. Sanitiza só no done se necessário.
+        const safe = enforceSafeOutput(fullText);
+        if (safe.sanitized) {
           console.log(JSON.stringify({
             level: 'warn',
-            action: 'stream_guardrail_triggered_retry',
-            reason: outputCheck.reason,
+            action: 'stream_output_sanitized',
+            used_fallback: safe.usedFallback,
+            reason: safe.reason,
             patient_id: context.patientId,
           }));
-
-          // Send a "retry" event to clear the streamed content on frontend
-          write({ type: 'retry', reason: 'refining' });
-
-          // Retry with reinforced instructions (non-streaming for simplicity)
-          const { answer: retryAnswer, tokensUsed: retryTokens, answerIncomplete: retryIncomplete } =
-            await generateWithRetry(context.chatMessages, context.systemInstruction);
-
-          const result = await finalizeCopilotAnswer(
-            retryAnswer,
-            tokensUsed + retryTokens,
-            retryIncomplete,
-            context,
-            caller,
-          );
-
-          write({ type: 'done', ...result });
-          controller.close();
-          return;
         }
 
         const result = await finalizeCopilotAnswer(
-          fullText,
+          safe.answer,
           tokensUsed,
           answerIncomplete,
           context,
           caller,
+          {
+            sanitized: safe.sanitized,
+            usedFallback: safe.usedFallback,
+            reason: safe.reason,
+          },
         );
 
+        // Se sanitizou, o frontend troca o texto uma única vez no done (sem limpar mid-stream).
         write({ type: 'done', ...result });
         controller.close();
       } catch (e) {

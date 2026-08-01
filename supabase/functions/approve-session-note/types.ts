@@ -17,4 +17,13 @@ export interface ApproveSessionNoteResponse {
   approved_at: string;
   schedule_completed: boolean;
   message: string;
+  payment_prompt?: {
+    schedule_id: string;
+    patient_id: string;
+    patient_name: string;
+    modelo: string;
+    saldo_sessoes: number;
+    valor_sugerido_cents: number;
+    pode_consumir_pacote: boolean;
+  } | null;
 }

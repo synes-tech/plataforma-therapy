@@ -28,6 +28,40 @@ function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
     objetivos_terapeuticos: form.objetivos_terapeuticos.trim() || undefined,
     hiperfocos_interesses: form.hiperfocos_interesses.trim() || undefined,
     informacoes_adicionais: form.informacoes_adicionais.trim() || undefined,
+    contact_scope: form.contact_scope || undefined,
+    email_paciente: form.email_paciente.trim() || undefined,
+    telefone_paciente: form.telefone_paciente.replace(/\D/g, '') || undefined,
+    email_responsavel: form.email_responsavel.trim() || undefined,
+    telefone_responsavel: form.telefone_responsavel.replace(/\D/g, '') || undefined,
+    financeiro_modelo: form.financeiro_modelo || undefined,
+    financeiro_valor_sessao_cents: form.financeiro_modelo
+      ? Math.round(
+          Number(
+            form.financeiro_valor_sessao
+              .replace(/\s/g, '')
+              .replace('R$', '')
+              .replace(/\./g, '')
+              .replace(',', '.'),
+          ) * 100,
+        ) || 0
+      : undefined,
+    financeiro_pacote_qtd_sessoes:
+      form.financeiro_modelo === 'pacote' ? Number(form.financeiro_pacote_qtd) || undefined : undefined,
+    financeiro_pacote_valor_cents:
+      form.financeiro_modelo === 'pacote'
+        ? Math.round(
+            Number(
+              form.financeiro_pacote_valor
+                .replace(/\s/g, '')
+                .replace('R$', '')
+                .replace(/\./g, '')
+                .replace(',', '.'),
+            ) * 100,
+          ) || 0
+        : undefined,
+    financeiro_registrar_pacote_pago:
+      form.financeiro_modelo === 'pacote' ? form.financeiro_registrar_pacote_pago : undefined,
+    financeiro_observacoes: form.financeiro_observacoes.trim() || undefined,
   };
 }
 

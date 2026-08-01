@@ -48,7 +48,7 @@ export function UserProfile({
           type="button"
           onClick={onOpenProfile}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none transition-colors hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-primary/30"
-          aria-label={`Abrir Controle Geral de ${name}`}
+          aria-label={`Abrir Perfil/Configurações de ${name}`}
         >
           <ProfileAvatar name={name} fotoUrl={fotoUrl} size="md" />
           <div className="min-w-0 flex-1">

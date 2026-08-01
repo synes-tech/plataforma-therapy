@@ -8,6 +8,7 @@ import { FamilyDiaryModal } from './family-diary/FamilyDiaryModal';
 import { PatientClinicalRecordTab } from './PatientClinicalRecordTab';
 import { PatientCopilotTab } from './PatientCopilotTab';
 import { PatientDocumentsTab } from './documents/PatientDocumentsTab';
+import { PatientFinanceTab } from './PatientFinanceTab';
 import { PatientCrisisControlTab } from './PatientCrisisControlTab';
 import { PatientFamilyInviteModal, usePatientFamilyInvite } from './PatientFamilyInvite';
 import { PatientRecordPageHeader } from './PatientRecordPageHeader';
@@ -243,6 +244,8 @@ export default function PatientRecordContainer() {
               isDirty={isDirty}
             />
           )}
+
+          {activeTab === 'financeiro' && patientId && <PatientFinanceTab patientId={patientId} />}
 
           {activeTab === 'documents' && (
             <PatientDocumentsTab patientId={patientId} patientName={patient.name} />

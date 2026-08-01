@@ -32,11 +32,11 @@ interface ReportCardProps {
 export function ReportCard({ report, onEdit, onSummary }: ReportCardProps) {
   const badge = STATUS_BADGE[report.status];
 
-  // Build a preview from the SOAP content
   const preview =
-    truncateText(report.content.assessment, 120) ||
-    truncateText(report.content.subjective, 120) ||
-    truncateText(report.content.plan, 120) ||
+    truncateText(report.content.clinical_synthesis || report.content.objective || '', 120) ||
+    truncateText(report.content.clinical_observations || report.content.assessment || '', 120) ||
+    truncateText(report.content.patient_reports || report.content.subjective || '', 120) ||
+    truncateText(report.content.management_next_steps || report.content.plan || '', 120) ||
     'Sem conteúdo';
 
   return (

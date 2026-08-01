@@ -3,7 +3,7 @@ import { AppError, NotFoundError } from '../_shared/errors.ts';
 import type { SoapContent, ReportSummaryOutput } from './types.ts';
 
 const SUMMARY_SYSTEM_PROMPT = `Você é um assistente clínico especializado em pediatria neurodivergente (TEA/TDAH).
-Receba uma evolução clínica no formato SOAP e retorne um RESUMO RÁPIDO com as seguintes diretrizes:
+Receba um prontuário psicológico pós-sessão e retorne um RESUMO RÁPIDO com as seguintes diretrizes:
 - Máximo de 5 bullet points
 - Foco em insights clínicos acionáveis
 - Linguagem objetiva e profissional
@@ -14,19 +14,24 @@ Responda APENAS com um JSON no formato: { "bullets": ["ponto 1", "ponto 2", ...]
 Não inclua explicações, markdown ou texto fora do JSON.`;
 
 function buildUserPrompt(soap: SoapContent): string {
-  return `EVOLUÇÃO CLÍNICA (SOAP):
+  const synthesis = soap.clinical_synthesis || soap.objective || '(não preenchido)';
+  const reports = soap.patient_reports || soap.subjective || '(não preenchido)';
+  const observations = soap.clinical_observations || soap.assessment || '(não preenchido)';
+  const management = soap.management_next_steps || soap.plan || '(não preenchido)';
 
-SUBJETIVO:
-${soap.subjective || '(não preenchido)'}
+  return `EVOLUÇÃO CLÍNICA (PRONTUÁRIO PSICOLÓGICO):
 
-OBJETIVO:
-${soap.objective || '(não preenchido)'}
+SÍNTESE DA SESSÃO:
+${synthesis}
 
-AVALIAÇÃO:
-${soap.assessment || '(não preenchido)'}
+RELATOS E CONTEÚDO TRAZIDO:
+${reports}
 
-PLANO:
-${soap.plan || '(não preenchido)'}
+OBSERVAÇÕES E HIPÓTESES:
+${observations}
+
+MANEJO E PRÓXIMOS PASSOS:
+${management}
 
 Gere o resumo rápido em bullet points.`;
 }
@@ -58,7 +63,18 @@ export async function generateReportSummary(
   }
 
   const soap = note.content as SoapContent;
-  if (!soap.subjective && !soap.objective && !soap.assessment && !soap.plan) {
+  const hasContent = Boolean(
+    soap.clinical_synthesis ||
+      soap.patient_reports ||
+      soap.clinical_observations ||
+      soap.management_next_steps ||
+      soap.subjective ||
+      soap.objective ||
+      soap.assessment ||
+      soap.plan ||
+      soap.summary_markdown,
+  );
+  if (!hasContent) {
     throw new AppError({
       code: 'EMPTY_REPORT',
       message: 'O relatório não possui conteúdo para resumir.',

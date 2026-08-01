@@ -4,8 +4,8 @@ import { verifyProfessionalPatientWrite } from '../_shared/verify-patient-access
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import { vertexJSON, CHAT_MODEL } from '../_shared/vertex.ts';
 import {
-  buildSummaryMarkdown,
   buildTextOnlySoapPrompt,
+  normalizeStructuredSessionReport,
   SOAP_RESPONSE_SCHEMA,
   type StructuredSessionReport,
 } from '../_shared/session-report-prompts.ts';
@@ -114,7 +114,7 @@ export async function processSessionText(
 
   try {
     const prompt = buildTextOnlySoapPrompt(annotations);
-    const { data: structured, tokens } = await vertexJSON<StructuredSessionReport>(
+    const { data: rawStructured, tokens } = await vertexJSON<StructuredSessionReport>(
       [{ text: prompt }],
       {
         model: CHAT_MODEL,
@@ -125,14 +125,14 @@ export async function processSessionText(
     );
 
     const latencyMs = Date.now() - startTime;
-    const summaryMarkdown = structured.summary_markdown?.trim() || buildSummaryMarkdown(structured);
+    const structured = normalizeStructuredSessionReport(rawStructured);
 
     const { session_note_id, embeddings_count } = await persistSessionDraft({
       patient_id: ctx.patient_id,
       professional_id: ctx.caller_professional_id,
       clinic_id: ctx.clinic_id,
       schedule_id: scheduleId,
-      structured: { ...structured, summary_markdown: summaryMarkdown },
+      structured,
       anotacoes_texto: annotations,
       input_mode: 'text',
       llm_model: CHAT_MODEL,

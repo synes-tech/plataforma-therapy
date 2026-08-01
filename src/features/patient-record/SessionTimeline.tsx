@@ -2,6 +2,10 @@ interface SessionNote {
   id: string;
   status: string;
   content: {
+    clinical_synthesis?: string;
+    patient_reports?: string;
+    clinical_observations?: string;
+    management_next_steps?: string;
     subjective?: string;
     objective?: string;
     assessment?: string;
@@ -68,29 +72,32 @@ export function SessionTimeline({ notes, totalSessions }: Props) {
                   )}
                 </div>
 
-                {/* SOAP preview */}
                 <div className="mt-2 space-y-1.5">
-                  {note.content.assessment && (
+                  {(note.content.clinical_synthesis || note.content.objective) && (
                     <p className="text-xs text-charcoal-muted">
-                      <span className="font-medium text-charcoal">A: </span>
-                      {note.content.assessment.slice(0, 150)}
-                      {note.content.assessment.length > 150 && '...'}
+                      <span className="font-medium text-charcoal">Síntese: </span>
+                      {(note.content.clinical_synthesis || note.content.objective || '').slice(0, 150)}
+                      {(note.content.clinical_synthesis || note.content.objective || '').length > 150 && '...'}
                     </p>
                   )}
-                  {note.content.plan && (
+                  {(note.content.management_next_steps || note.content.plan) && (
                     <p className="text-xs text-charcoal-muted">
-                      <span className="font-medium text-charcoal">P: </span>
-                      {note.content.plan.slice(0, 120)}
-                      {note.content.plan.length > 120 && '...'}
+                      <span className="font-medium text-charcoal">Próximos passos: </span>
+                      {(note.content.management_next_steps || note.content.plan || '').slice(0, 120)}
+                      {(note.content.management_next_steps || note.content.plan || '').length > 120 && '...'}
                     </p>
                   )}
-                  {!note.content.assessment && !note.content.plan && note.content.subjective && (
-                    <p className="text-xs text-charcoal-muted">
-                      <span className="font-medium text-charcoal">S: </span>
-                      {note.content.subjective.slice(0, 150)}
-                      {note.content.subjective.length > 150 && '...'}
-                    </p>
-                  )}
+                  {!note.content.clinical_synthesis &&
+                    !note.content.objective &&
+                    !note.content.management_next_steps &&
+                    !note.content.plan &&
+                    (note.content.patient_reports || note.content.subjective) && (
+                      <p className="text-xs text-charcoal-muted">
+                        <span className="font-medium text-charcoal">Relatos: </span>
+                        {(note.content.patient_reports || note.content.subjective || '').slice(0, 150)}
+                        {(note.content.patient_reports || note.content.subjective || '').length > 150 && '...'}
+                      </p>
+                    )}
                 </div>
               </div>
             </div>

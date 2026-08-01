@@ -60,7 +60,10 @@ export function SessionHistoryItem({
             {formatSessionDate(session.data_sessao)}
           </time>
           <p className="mt-1 line-clamp-2 text-xs text-charcoal-muted">
-            {session.resumo_ia.subjective || 'Sessão registrada'}
+            {session.resumo_ia.clinical_synthesis ||
+              session.resumo_ia.patient_reports ||
+              session.resumo_ia.subjective ||
+              'Sessão registrada'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

@@ -1,62 +1,19 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ForbiddenError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
-import { sendSesEmail } from '../_shared/aws-ses.ts';
+import {
+  enqueueSessionEmailJobs,
+  resolveRecipientsForPatient,
+  sendSessionEmailNow,
+} from '../_shared/session-email-jobs.ts';
 import type { SendSessionReminderPayload, SendSessionReminderResponse } from './types.ts';
-
-function formatSessionDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
-
-function buildReminderEmail(params: {
-  contactName: string;
-  patientName: string;
-  professionalName: string;
-  sessionAtLabel: string;
-  durationMinutes: number | null;
-}): { subject: string; html: string; text: string } {
-  const durationLine = params.durationMinutes
-    ? `Duração prevista: ${params.durationMinutes} minutos.`
-    : '';
-
-  const subject = `Lembrete de atendimento — ${params.patientName}`;
-  const text = [
-    `Olá, ${params.contactName}!`,
-    '',
-    `Este é um lembrete do atendimento de ${params.patientName} com ${params.professionalName}.`,
-    `Data e horário: ${params.sessionAtLabel}.`,
-    durationLine,
-    '',
-    'Unithery — plataforma de acompanhamento terapêutico.',
-  ].filter(Boolean).join('\n');
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<body style="font-family:Arial,sans-serif;color:#1f2a2e;line-height:1.6;">
-  <p>Olá, <strong>${params.contactName}</strong>!</p>
-  <p>Este é um lembrete do atendimento de <strong>${params.patientName}</strong> com <strong>${params.professionalName}</strong>.</p>
-  <p><strong>Data e horário:</strong> ${params.sessionAtLabel}<br/>
-  ${durationLine ? `<strong>${durationLine}</strong>` : ''}</p>
-  <p style="color:#4b5a60;font-size:13px;">Enviado pela plataforma Unithery em nome do consultório/clínica.</p>
-</body>
-</html>`;
-
-  return { subject, html, text };
-}
 
 export async function sendSessionReminder(
   payload: SendSessionReminderPayload,
   caller: AuthenticatedUser,
 ): Promise<SendSessionReminderResponse> {
   const supabase = createServiceClient();
+  const mode = payload.mode ?? 'now';
 
   const { data: professional, error: profError } = await supabase
     .from('professionals')
@@ -101,57 +58,112 @@ export async function sendSessionReminder(
     });
   }
 
-  const [{ data: patient }, { data: familyContact }] = await Promise.all([
-    supabase
-      .from('patients')
-      .select('id, name')
-      .eq('id', session.patient_id)
-      .is('deleted_at', null)
-      .single(),
-    supabase
-      .from('family_members')
-      .select('name, email, phone')
-      .eq('patient_id', session.patient_id)
-      .is('deleted_at', null)
-      .not('email', 'is', null)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (!patient) {
+  const resolved = await resolveRecipientsForPatient(supabase, session.patient_id as string);
+  if (!resolved || resolved.recipients.length === 0) {
     throw new AppError({
-      code: 'PATIENT_NOT_FOUND',
-      message: 'Paciente não encontrado',
-      statusCode: 404,
-    });
-  }
-
-  const recipientEmail = familyContact?.email?.trim();
-  if (!recipientEmail) {
-    throw new AppError({
-      code: 'NO_FAMILY_EMAIL',
-      message: 'Nenhum responsável com e-mail cadastrado para este paciente. Cadastre um contato familiar com e-mail.',
+      code: 'NO_CONTACT_EMAIL',
+      message:
+        'Nenhum e-mail de contato cadastrado para este paciente. Inclua e-mail do paciente ou do responsável no cadastro.',
       statusCode: 409,
     });
   }
 
-  const sessionAtLabel = formatSessionDateTime(session.scheduled_at as string);
-  const contactName = (familyContact?.name as string)?.trim() || 'responsável';
-  const emailContent = buildReminderEmail({
-    contactName,
-    patientName: patient.name as string,
-    professionalName: (professional.name as string) || 'terapeuta',
-    sessionAtLabel,
-    durationMinutes: session.duration_minutes ? Number(session.duration_minutes) : null,
-  });
+  if (mode === 'at') {
+    const sendAtRaw = payload.send_at;
+    if (!sendAtRaw) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        message: 'Informe send_at (ISO 8601) para agendar o lembrete.',
+        statusCode: 400,
+      });
+    }
+    const sendAt = new Date(sendAtRaw);
+    if (Number.isNaN(sendAt.getTime())) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        message: 'send_at inválido.',
+        statusCode: 400,
+      });
+    }
+    if (sendAt.getTime() < Date.now() - 60_000) {
+      throw new AppError({
+        code: 'PAST_DATE',
+        message: 'Não é possível agendar lembrete no passado.',
+        statusCode: 400,
+      });
+    }
+    if (sendAt.getTime() >= new Date(session.scheduled_at as string).getTime()) {
+      throw new AppError({
+        code: 'INVALID_SEND_AT',
+        message: 'O lembrete precisa ser anterior ao horário da sessão.',
+        statusCode: 400,
+      });
+    }
 
-  await sendSesEmail({
-    to: recipientEmail,
-    subject: emailContent.subject,
-    html: emailContent.html,
-    text: emailContent.text,
-  });
+    const queued = await enqueueSessionEmailJobs({
+      supabase,
+      scheduleId: session.id as string,
+      patientId: session.patient_id as string,
+      clinicId: professional.clinic_id as string,
+      professionalId: professional.id as string,
+      kind: 'reminder_manual',
+      sendAt,
+      recipients: resolved.recipients,
+      metadata: { channel: 'ses', trigger: 'send-session-reminder', mode: 'at' },
+    });
+
+    await supabase.from('audit_logs').insert({
+      user_id: caller.id,
+      clinic_id: professional.clinic_id,
+      action: 'session.reminder_email_scheduled',
+      resource_type: 'therapist_schedule',
+      resource_id: session.id,
+      metadata: {
+        patient_id: session.patient_id,
+        send_at: sendAt.toISOString(),
+        recipients: resolved.recipients.map((r) => r.email),
+        queued,
+      },
+    });
+
+    return {
+      mode: 'at',
+      queued,
+      send_at: sendAt.toISOString(),
+      sent_to: resolved.recipients.map((r) => r.email).join(', '),
+      contact_name: resolved.recipients.map((r) => r.name).join(', '),
+      session_at: session.scheduled_at as string,
+    };
+  }
+
+  const sentTo: string[] = [];
+  for (const recipient of resolved.recipients) {
+    await sendSessionEmailNow({
+      kind: 'reminder_manual',
+      recipient,
+      patientName: resolved.patient.name,
+      professionalName: (professional.name as string) || 'terapeuta',
+      sessionAtIso: session.scheduled_at as string,
+      durationMinutes: session.duration_minutes ? Number(session.duration_minutes) : null,
+    });
+    sentTo.push(recipient.email);
+
+    await supabase.from('session_email_jobs').insert({
+      schedule_id: session.id,
+      patient_id: session.patient_id,
+      clinic_id: professional.clinic_id,
+      professional_id: professional.id,
+      kind: 'reminder_manual',
+      send_at: new Date().toISOString(),
+      status: 'sent',
+      recipient_email: recipient.email,
+      recipient_name: recipient.name,
+      recipient_role: recipient.role,
+      sent_at: new Date().toISOString(),
+      attempts: 1,
+      metadata: { channel: 'ses', trigger: 'send-session-reminder', mode: 'now' },
+    });
+  }
 
   await supabase.from('audit_logs').insert({
     user_id: caller.id,
@@ -161,14 +173,15 @@ export async function sendSessionReminder(
     resource_id: session.id,
     metadata: {
       patient_id: session.patient_id,
-      sent_to: recipientEmail,
+      sent_to: sentTo,
       scheduled_at: session.scheduled_at,
     },
   });
 
   return {
-    sent_to: recipientEmail,
-    contact_name: contactName,
+    mode: 'now',
+    sent_to: sentTo.join(', '),
+    contact_name: resolved.recipients.map((r) => r.name).join(', '),
     session_at: session.scheduled_at as string,
   };
 }

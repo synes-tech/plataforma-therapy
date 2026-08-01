@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { StandardModal } from '@shared/ui/StandardModal';
+import {
+  getReportSectionValue,
+  PSYCH_REPORT_SECTIONS,
+  type PsychReportSectionKey,
+} from '@containers/patient/session/session-report-sections';
 import type { ReportItem } from './AllReportsTab';
 
 interface ReportEditModalProps {
@@ -10,29 +15,39 @@ interface ReportEditModalProps {
   onSaved: () => void;
 }
 
-const SOAP_SECTIONS: Array<{ key: keyof ReportItem['content']; label: string }> = [
-  { key: 'subjective', label: 'Subjetivo' },
-  { key: 'objective', label: 'Objetivo' },
-  { key: 'assessment', label: 'Avaliação' },
-  { key: 'plan', label: 'Plano' },
-];
+type EditableContent = ReportItem['content'];
+
+function buildInitialContent(report: ReportItem): EditableContent {
+  const next: EditableContent = { ...report.content };
+  for (const section of PSYCH_REPORT_SECTIONS) {
+    next[section.key] = getReportSectionValue(report.content, section);
+  }
+  return next;
+}
 
 export function ReportEditModal({ report, onClose, onSaved }: ReportEditModalProps) {
-  const [content, setContent] = useState({ ...report.content });
+  const [content, setContent] = useState<EditableContent>(() => buildInitialContent(report));
   const [error, setError] = useState<string | null>(null);
 
   const saveMutation = useMutation({
     mutationFn: (approve: boolean) =>
       callFunction<{ id: string; status: string; updated_at: string }>('update-report', {
         session_note_id: report.id,
-        content,
+        content: {
+          ...content,
+          // espelha legado para consumidores antigos
+          subjective: content.patient_reports ?? content.subjective,
+          objective: content.clinical_synthesis ?? content.objective,
+          assessment: content.clinical_observations ?? content.assessment,
+          plan: content.management_next_steps ?? content.plan,
+        },
         approve,
       }),
     onSuccess: () => onSaved(),
     onError: (err: Error) => setError(err.message),
   });
 
-  function handleFieldChange(key: keyof ReportItem['content'], value: string) {
+  function handleFieldChange(key: PsychReportSectionKey, value: string) {
     setContent((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -78,18 +93,18 @@ export function ReportEditModal({ report, onClose, onSaved }: ReportEditModalPro
       )}
 
       <div className="space-y-4">
-        {SOAP_SECTIONS.map(({ key, label }) => (
-          <div key={key}>
-            <label htmlFor={`edit-${key}`} className="mb-1.5 block text-sm font-medium text-charcoal">
-              {label}
+        {PSYCH_REPORT_SECTIONS.map((section) => (
+          <div key={section.key}>
+            <label htmlFor={`edit-${section.key}`} className="mb-1.5 block text-sm font-medium text-charcoal">
+              {section.label}
             </label>
             <textarea
-              id={`edit-${key}`}
-              value={content[key] ?? ''}
-              onChange={(e) => handleFieldChange(key, e.target.value)}
+              id={`edit-${section.key}`}
+              value={content[section.key] ?? ''}
+              onChange={(e) => handleFieldChange(section.key, e.target.value)}
               rows={4}
               className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-charcoal transition-all placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
-              placeholder={`Descreva o conteúdo ${label.toLowerCase()}...`}
+              placeholder={`Descreva ${section.label.toLowerCase()}...`}
             />
           </div>
         ))}

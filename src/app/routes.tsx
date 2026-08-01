@@ -24,11 +24,11 @@ const FamilyCalendar = lazy(() => import('@containers/family/FamilyCalendar'));
 const Agreements = lazy(() => import('@containers/family/Agreements'));
 const SettingsHubContainer = lazy(() => import('@containers/settings/SettingsHubContainer'));
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
-const SettingsPlanTab = lazy(() => import('@containers/settings/SettingsPlanTab'));
-const BillingContainer = lazy(() => import('@containers/billing/BillingContainer'));
+const AssinaturaContainer = lazy(() => import('@containers/settings/AssinaturaContainer'));
 const StripeTestPageContainer = lazy(() => import('@containers/billing/stripe-test/StripeTestPageContainer'));
 const CheckoutReturnContainer = lazy(() => import('@containers/billing/CheckoutReturnContainer'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
+const FinanceiroContainer = lazy(() => import('@containers/financeiro/FinanceiroContainer'));
 
 /**
  * Wrapper that adds AppLayout (persistent sidebar) to protected routes
@@ -110,6 +110,14 @@ export function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['professional', 'clinic_admin', 'master']}>
             <WithLayout><PatientRecordContainer /></WithLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/financeiro"
+        element={
+          <ProtectedRoute allowedRoles={['professional', 'master']} financeOnly>
+            <WithLayout><FinanceiroContainer /></WithLayout>
           </ProtectedRoute>
         }
       />
@@ -198,11 +206,27 @@ export function AppRoutes() {
       <Route path="/diary" element={<Navigate to="/family/diary" replace />} />
       <Route
         path="/billing"
-        element={<Navigate to="/settings/plan" replace />}
+        element={<Navigate to="/assinatura" replace />}
       />
       <Route
         path="/billing/invoices"
-        element={<Navigate to="/settings/invoices" replace />}
+        element={<Navigate to="/assinatura" replace />}
+      />
+      <Route
+        path="/settings/invoices"
+        element={<Navigate to="/assinatura" replace />}
+      />
+      <Route
+        path="/settings/plan"
+        element={<Navigate to="/assinatura" replace />}
+      />
+      <Route
+        path="/assinatura"
+        element={
+          <ProtectedRoute ownerOnly>
+            <WithLayout><AssinaturaContainer /></WithLayout>
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/settings"
@@ -213,8 +237,6 @@ export function AppRoutes() {
         }
       >
         <Route index element={<SettingsContainer />} />
-        <Route path="plan" element={<SettingsPlanTab />} />
-        <Route path="invoices" element={<BillingContainer />} />
       </Route>
       <Route
         path="/invite"

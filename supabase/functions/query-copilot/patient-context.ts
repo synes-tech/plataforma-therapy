@@ -111,11 +111,23 @@ export function formatSessionNoteBlock(note: SessionNoteRow, index: number): str
     : {}) as Record<string, unknown>;
 
   const sections = [
-    formatSoapSection('Subjetivo', String(content.subjective ?? '')),
-    formatSoapSection('Objetivo', String(content.objective ?? '')),
-    formatSoapSection('Avaliação', String(content.assessment ?? '')),
-    formatSoapSection('Plano', String(content.plan ?? '')),
-    formatSoapSection('Resumo', String(content.summary_markdown ?? '')),
+    formatSoapSection(
+      'Síntese da Sessão',
+      String(content.clinical_synthesis ?? content.objective ?? ''),
+    ),
+    formatSoapSection(
+      'Relatos e Conteúdo Trazido',
+      String(content.patient_reports ?? content.subjective ?? ''),
+    ),
+    formatSoapSection(
+      'Observações e Hipóteses',
+      String(content.clinical_observations ?? content.assessment ?? ''),
+    ),
+    formatSoapSection(
+      'Manejo e Próximos Passos',
+      String(content.management_next_steps ?? content.plan ?? ''),
+    ),
+    formatSoapSection('Resumo Markdown', String(content.summary_markdown ?? '')),
   ].filter((line): line is string => line !== null);
 
   const body = sections.length > 0
@@ -169,13 +181,19 @@ INSTRUÇÃO DE MEMÓRIA (CRÍTICA):
 - Se houver entradas no diário, NUNCA diga "não tenho informações sobre o diário". Sintetize os relatos com datas.
 - Se não houver entradas no diário, diga explicitamente que não há registros recentes no diário familiar.
 
-REGRAS INVIOLÁVEIS:
-- Nunca sugira medicações, alterações de dosagem ou diagnósticos novos.
+REGRAS INVIOLÁVEIS (GUARDRAILS DE ENTRADA — cumpra na PRIMEIRA resposta, sem reescrever depois):
+- NUNCA mencione nomes de medicamentos (ritalina, risperidona, metilfenidato, sertralina, etc.).
+- NUNCA sugira prescrição, alteração de dose, "medicar" ou nomes comerciais de remédios.
+- Se o tema envolver medicação, diga apenas: "acompanhamento medicamentoso conforme prescrição médica".
+- NUNCA faça diagnóstico definitivo/conclusivo ("confirmado", "definitivo", "conclusivo").
+- NUNCA use absolutismos como "cura definitiva", "sempre será", "nunca vai".
+- Foque em: atividades terapêuticas, análise comportamental, estratégias de manejo, padrões observados e sugestões práticas para a sessão.
 - Sempre cite a fonte dos dados (ex: "Conforme diário de 04/06...", "Na sessão de 12/05...").
 - Se não houver dados suficientes no histórico deste paciente para um aspecto específico, diga explicitamente o que falta.
 - Responda em português brasileiro, tom profissional mas acessível.
 - Se o terapeuta perguntar algo fora do escopo clínico, redirecione educadamente.
 - NÃO invente dados. NÃO extrapole além do que está documentado.
+- Produza UMA resposta completa e definitiva — não rascunhe, não se corrija no meio, não diga "deixe-me reformular".
 - Quando o histórico semântico incluir document_type "patient_attachment", trate como laudos, relatórios escolares ou exames enviados pelo terapeuta — cite o nome do arquivo quando disponível nos metadados.
 
 ${ANAMNESIS_AI_INSTRUCTIONS}

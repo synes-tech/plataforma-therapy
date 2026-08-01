@@ -11,6 +11,8 @@ import {
 } from './session-note-format.utils';
 import { SessionNoteFamilyShareModal, type SessionNoteFamilyShareMode } from './SessionNoteFamilyShareModal';
 import { SessionNoteSaveVisibilityModal } from './SessionNoteSaveVisibilityModal';
+import { SessionPaymentModal } from '@containers/financeiro/SessionPaymentModal';
+import type { PaymentPrompt } from '@containers/financeiro/financeiro.types';
 
 interface SessionNoteApprovalEditorProps {
   noteId: string;
@@ -49,6 +51,7 @@ export function SessionNoteApprovalEditor({
   const [familyShareModalOpen, setFamilyShareModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [lastShareMode, setLastShareMode] = useState<SessionNoteFamilyShareMode | null>(null);
+  const [paymentPrompt, setPaymentPrompt] = useState<PaymentPrompt | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: (payload: ApprovePayload) =>
@@ -57,6 +60,7 @@ export function SessionNoteApprovalEditor({
         visivel_familia: boolean;
         share_mode?: SessionNoteFamilyShareMode | null;
         message: string;
+        payment_prompt?: PaymentPrompt | null;
       }>('approve-session-note', {
         session_note_id: noteId,
         ...(scheduleId ? { schedule_id: scheduleId } : {}),
@@ -71,6 +75,7 @@ export function SessionNoteApprovalEditor({
       void queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['latest-agreements'] });
       void queryClient.invalidateQueries({ queryKey: ['family-shared-artifacts'] });
+      if (data.payment_prompt) setPaymentPrompt(data.payment_prompt);
       onApproved?.(data.visivel_familia);
     },
   });
@@ -267,6 +272,16 @@ export function SessionNoteApprovalEditor({
           </p>
         </div>
       </StandardModal>
+
+      <SessionPaymentModal
+        prompt={paymentPrompt}
+        onClose={() => setPaymentPrompt(null)}
+        onDone={() => {
+          setPaymentPrompt(null);
+          void queryClient.invalidateQueries({ queryKey: ['financeiro-dashboard'] });
+          void queryClient.invalidateQueries({ queryKey: ['financeiro-ledger', patientId] });
+        }}
+      />
     </>
   );
 }

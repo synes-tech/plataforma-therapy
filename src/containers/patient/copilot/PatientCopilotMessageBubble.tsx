@@ -60,7 +60,7 @@ export function PatientCopilotMessageBubble({
         {message.streaming && !message.content && <ThinkingIndicator />}
 
         {message.content && (
-          <div className="animate-fade-in text-gray-900">
+          <div className={`text-gray-900 ${message.streaming ? '' : 'animate-fade-in'}`}>
             <AiMarkdownContent content={message.content} variant="light" />
           </div>
         )}

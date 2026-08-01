@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ValidationError, ForbiddenError } from '../_shared/errors.ts';
+import { requeueReminder24hAfterReschedule } from '../_shared/session-email-jobs.ts';
 
 /**
  * reschedule-session
@@ -86,6 +87,21 @@ serve(async (req: Request) => {
       resource_id: sessionId,
       metadata: { new_start: parsed.toISOString(), patient_id: session.patient_id },
     });
+
+    if (session.patient_id) {
+      try {
+        await requeueReminder24hAfterReschedule({
+          supabase,
+          scheduleId: sessionId,
+          patientId: session.patient_id as string,
+          clinicId: session.clinic_id as string,
+          professionalId: professional.id as string,
+          scheduledAtIso: parsed.toISOString(),
+        });
+      } catch (emailErr) {
+        console.error('[reschedule-session] requeue 24h reminder failed', emailErr);
+      }
+    }
 
     return successResponse(updated, req, 200);
   } catch (error) {
