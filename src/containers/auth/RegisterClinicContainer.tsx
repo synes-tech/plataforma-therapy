@@ -4,6 +4,12 @@ import type { AccountType } from '@features/register/account-type';
 import { PRODUCT_LAUNCH } from '@features/register/product-launch';
 import { useAuthStore } from '@shared/lib/auth-store';
 import {
+  isFirebaseAuthConfigured,
+  signInWithGooglePopup,
+  signOutFirebase,
+} from '@shared/lib/firebase';
+import { mapFirebaseAuthError } from '@shared/lib/firebase-mfa';
+import {
   RegisterOnboardingView,
   type RegisterOnboardingFormData,
 } from './RegisterOnboardingView';
@@ -55,11 +61,14 @@ function validateStep1(form: RegisterOnboardingFormData, isSolo: boolean): strin
 export default function RegisterClinicContainer() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
+  const hydrateFromFirebase = useAuthStore((s) => s.hydrateFromFirebase);
   const useTherapistForm = PRODUCT_LAUNCH.soloProfessionalOnly;
+  const googleEnabled = isFirebaseAuthConfigured();
 
   const [accountType, setAccountType] = useState<AccountType>('solo');
   const [mobileStep, setMobileStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [legacyForm, setLegacyForm] = useState<RegisterOnboardingFormData>(INITIAL_LEGACY_FORM);
@@ -141,6 +150,66 @@ export default function RegisterClinicContainer() {
   function handleTherapistBack() {
     setError(null);
     setTherapistStep(1);
+  }
+
+  async function handleGoogleRegister() {
+    setError(null);
+    if (!termsAccepted) {
+      setError('Para criar sua conta com Google, você precisa ler e aceitar os Termos de Uso.');
+      return;
+    }
+
+    setIsGoogleSubmitting(true);
+    try {
+      const firebaseUser = await signInWithGooglePopup();
+      const tokenResult = await firebaseUser.getIdTokenResult(true);
+      const hasRole = Boolean(
+        tokenResult.claims.role
+        ?? (tokenResult.claims.app_metadata as Record<string, unknown> | undefined)?.role,
+      );
+
+      if (hasRole) {
+        await hydrateFromFirebase();
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+
+      const idToken = await firebaseUser.getIdToken();
+      const email = (firebaseUser.email ?? '').trim().toLowerCase();
+      const name = (firebaseUser.displayName ?? therapistForm.name).trim() || 'Terapeuta';
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/register-clinic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_type: 'solo',
+          clinic_email: email,
+          clinic_phone: therapistForm.phone.trim() || undefined,
+          admin_name: name,
+          admin_email: email,
+          google_id_token: idToken,
+        }),
+      });
+
+      const data = await response.json() as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+
+      if (!data.success) {
+        await signOutFirebase().catch(() => undefined);
+        setError(data.error?.message ?? 'Não foi possível criar a conta com Google.');
+        return;
+      }
+
+      await hydrateFromFirebase();
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      await signOutFirebase().catch(() => undefined);
+      setError(err instanceof Error ? mapFirebaseAuthError(err) : 'Erro ao cadastrar com Google.');
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
   }
 
   async function handleTherapistSubmit(e: FormEvent) {
@@ -234,6 +303,8 @@ export default function RegisterClinicContainer() {
         step={therapistStep}
         form={therapistForm}
         isSubmitting={isSubmitting}
+        isGoogleSubmitting={isGoogleSubmitting}
+        googleEnabled={googleEnabled}
         error={error}
         termsAccepted={termsAccepted}
         onTermsAcceptedChange={setTermsAccepted}
@@ -241,6 +312,7 @@ export default function RegisterClinicContainer() {
         onNext={handleTherapistNext}
         onBack={handleTherapistBack}
         onSubmit={handleTherapistSubmit}
+        onGoogleRegister={() => void handleGoogleRegister()}
       />
     );
   }

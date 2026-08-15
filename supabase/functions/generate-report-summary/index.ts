@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { generateReportSummarySchema } from './schema.ts';
 import { generateReportSummary } from './service.ts';
 
@@ -29,6 +30,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['professional']);
+    await assertAiRateLimit(user, 'report');
 
     const body = await req.json();
     const parsed = generateReportSummarySchema.safeParse(body);

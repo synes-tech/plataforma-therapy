@@ -10,7 +10,6 @@ export interface LandingPillar {
 }
 
 export const HERO = {
-  badge: 'LGPD-ready · Dados isolados por paciente · IA que não treina modelos públicos',
   titleLines: ['O cuidado humano,', 'potencializado', 'por tecnologia.'],
   subtitle:
     'Uma IA copiloto — não substituta. Acompanhe a rotina da criança entre uma sessão e outra, construa relatórios e hipóteses diagnósticas com apoio da IA, e decida com transparência o que compartilhar com a família. Pensado para terapeutas de crianças com TEA, TDAH e outras demandas do desenvolvimento.',

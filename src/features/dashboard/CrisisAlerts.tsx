@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { supabase } from '@shared/lib/supabase';
+import { isGcpDataPlane, supabase } from '@shared/lib/supabase';
 
 interface CrisisAlert {
   id: string;
@@ -26,8 +26,15 @@ export function CrisisAlerts() {
     },
   });
 
-  // Subscribe to Realtime for new crisis alerts
+  // Realtime no Supabase; no plano GCP usamos polling leve (Cloud Run sem Realtime).
   useEffect(() => {
+    if (isGcpDataPlane()) {
+      const pollId = window.setInterval(() => {
+        void refetch();
+      }, 30_000);
+      return () => clearInterval(pollId);
+    }
+
     const channel = supabase
       .channel('crisis-alerts-realtime')
       .on(
@@ -38,14 +45,13 @@ export function CrisisAlerts() {
           table: 'crisis_alerts',
         },
         () => {
-          // Refetch alerts when a new one is inserted
-          refetch();
+          void refetch();
         },
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [refetch]);
 

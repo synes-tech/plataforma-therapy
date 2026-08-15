@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Spinner } from '@containers/loading';
-import { supabase } from '@shared/lib/supabase';
+import { getSignedReadUrl } from '@shared/lib/signed-read-url';
 import { formatSessionDuration } from './session-history.utils';
 
 interface SessionAudioPlayerProps {
@@ -30,16 +30,9 @@ export function SessionAudioPlayer({
       setLoading(true);
       setError(null);
       try {
-        const { data, error: signError } = await supabase.storage
-          .from('audio-recordings')
-          .createSignedUrl(storagePath, 3600);
-
-        if (signError || !data?.signedUrl) {
-          throw new Error(signError?.message ?? 'Não foi possível carregar o áudio');
-        }
-
+        const url = await getSignedReadUrl('audio-recordings', storagePath, 3600);
         if (!cancelled) {
-          setSignedUrl(data.signedUrl);
+          setSignedUrl(url);
         }
       } catch {
         if (!cancelled) {

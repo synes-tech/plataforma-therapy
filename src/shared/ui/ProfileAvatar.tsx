@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@shared/lib/supabase';
+import { getSignedReadUrl } from '@shared/lib/signed-read-url';
 import { getInitials } from '@shared/lib/greeting';
 
-export const PROFESSIONAL_AVATAR_BUCKET = 'profissionais-avatars';
+export const PROFESSIONAL_AVATAR_BUCKET = 'profissionais-avatars' as const;
 
 interface ProfileAvatarProps {
   name: string;
@@ -30,11 +30,11 @@ export function ProfileAvatar({
     queryKey: ['professional-avatar-url', fotoUrl],
     queryFn: async () => {
       if (!fotoUrl) return null;
-      const { data, error } = await supabase.storage
-        .from(PROFESSIONAL_AVATAR_BUCKET)
-        .createSignedUrl(fotoUrl, 3600);
-      if (error || !data?.signedUrl) return null;
-      return data.signedUrl;
+      try {
+        return await getSignedReadUrl(PROFESSIONAL_AVATAR_BUCKET, fotoUrl, 3600);
+      } catch {
+        return null;
+      }
     },
     enabled: !!fotoUrl && !previewUrl,
     staleTime: 45 * 60 * 1000,

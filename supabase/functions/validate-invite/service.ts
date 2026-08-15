@@ -1,4 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { setIdpClaims } from '../_shared/identity-platform-admin.ts';
 import { AppError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { ValidateInvitePayload, ValidateInviteResponse } from './types.ts';
@@ -43,10 +44,7 @@ export async function validateInvite(
 
   const result = data as { family_member_id: string; patient_id: string; clinic_id: string; relationship: string };
 
-  // Update user's app_metadata with role and clinic
-  await serviceClient.auth.admin.updateUserById(caller.id, {
-    app_metadata: { role: 'family', clinic_id: result.clinic_id },
-  });
+  await setIdpClaims(caller.id, { role: 'family', clinic_id: result.clinic_id });
 
   // Audit log
   await serviceClient.from('audit_logs').insert({

@@ -7,13 +7,26 @@ import { LoadingButton } from '@containers/loading';
 import type {
   FinanceDashboard,
   FinancePatientPlanRow,
+  FinanceReceivableItem,
   FinanceTransacao,
   PendingSessionItem,
+  PaymentPrompt,
 } from './financeiro.types';
-import { MODELO_LABEL, reaisInputToCents } from './financeiro.types';
+import {
+  BILLING_TYPE_LABEL,
+  CATEGORIA_LABEL,
+  MODEL_TYPE_LABEL,
+  STATUS_BADGE,
+  STATUS_LABEL,
+  reaisInputToCents,
+} from './financeiro.types';
+import { invalidateFinanceQueries } from './invalidate-finance';
 import { SessionPaymentModal } from './SessionPaymentModal';
 import { CustosMensaisTab } from './CustosMensaisTab';
-import type { PaymentPrompt } from './financeiro.types';
+import { ReceivablesTab } from './ReceivablesTab';
+import { AvulsoSessionModal } from './AvulsoSessionModal';
+import { RecordPaymentModal } from './RecordPaymentModal';
+import { PatientFinancialSetupModal } from '@containers/patient/PatientFinancialSetupModal';
 
 type TabKey = 'executivo' | 'extrato' | 'recebimentos' | 'custos' | 'planos';
 
@@ -37,6 +50,17 @@ export default function FinanceiroContainer() {
     valor: '',
     status: 'PAGO' as const,
   });
+  const [contractModal, setContractModal] = useState<{
+    patientId: string;
+    patientName: string;
+  } | null>(null);
+  const [avulsoModal, setAvulsoModal] = useState<{
+    patientId: string;
+    patientName: string;
+    suggestedCents: number;
+    monthly: boolean;
+  } | null>(null);
+  const [payItem, setPayItem] = useState<FinanceReceivableItem | null>(null);
 
   const dashboardQuery = useQuery({
     queryKey: ['financeiro-dashboard', month, tab === 'recebimentos'],
@@ -77,8 +101,7 @@ export default function FinanceiroContainer() {
       }),
     onSuccess: () => {
       setTxModalOpen(false);
-      qc.invalidateQueries({ queryKey: ['financeiro-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['financeiro-transacoes'] });
+      invalidateFinanceQueries(qc);
     },
   });
 
@@ -91,8 +114,8 @@ export default function FinanceiroContainer() {
   const tabs: { id: TabKey; label: string }[] = [
     { id: 'executivo', label: 'Visão geral' },
     { id: 'extrato', label: 'Extrato' },
-    { id: 'recebimentos', label: 'Recebimentos' },
-    { id: 'custos', label: 'Custos' },
+    { id: 'recebimentos', label: 'Receitas' },
+    { id: 'custos', label: 'Despesas' },
     { id: 'planos', label: 'Pacientes & planos' },
   ];
 
@@ -102,7 +125,7 @@ export default function FinanceiroContainer() {
         <div>
           <h1 className="font-serif text-2xl font-medium text-charcoal">Financeiro</h1>
           <p className="mt-1 text-sm text-charcoal-muted">
-            Controle de receitas, despesas e recebimentos de sessões.
+            Contas a receber, extrato e custos do consultório.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -200,10 +223,7 @@ export default function FinanceiroContainer() {
               <AlertRow
                 title="Inadimplência"
                 body={`${dash?.alertas.inadimplentes ?? 0} títulos · ${formatCurrency(dash?.alertas.inadimplentes_total_cents ?? 0)}`}
-                onClick={() => {
-                  setStatusFilter('ATRASADO');
-                  setTab('extrato');
-                }}
+                onClick={() => setTab('recebimentos')}
               />
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-charcoal">A pagar (7 dias)</p>
@@ -242,7 +262,7 @@ export default function FinanceiroContainer() {
               options={[
                 { value: '', label: 'Todos status' },
                 { value: 'PAGO', label: 'Pago' },
-                { value: 'PENDENTE', label: 'Pendente' },
+                { value: 'PENDENTE', label: 'A receber' },
                 { value: 'ATRASADO', label: 'Atrasado' },
               ]}
             />
@@ -256,18 +276,33 @@ export default function FinanceiroContainer() {
                       {t.descricao || t.categoria}
                     </p>
                     <p className="text-xs text-charcoal-muted">
-                      {t.tipo} · {t.status}
+                      {t.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'} · {STATUS_LABEL[t.status] ?? t.status}
                       {t.paciente_nome ? ` · ${t.paciente_nome}` : ''}
+                      {t.categoria ? ` · ${CATEGORIA_LABEL[t.categoria] ?? t.categoria}` : ''}
                     </p>
                   </div>
-                  <p
-                    className={`text-sm font-semibold ${
-                      t.tipo === 'ENTRADA' ? 'text-emerald-600' : 'text-charcoal'
-                    }`}
-                  >
-                    {t.tipo === 'ENTRADA' ? '+' : '-'}
-                    {formatCurrency(t.valor_cents)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_BADGE[t.status]}`}>
+                      {STATUS_LABEL[t.status] ?? t.status}
+                    </span>
+                    <p
+                      className={`text-sm font-semibold ${
+                        t.tipo === 'ENTRADA' ? 'text-emerald-600' : 'text-charcoal'
+                      }`}
+                    >
+                      {t.tipo === 'ENTRADA' ? '+' : '-'}
+                      {formatCurrency(t.valor_cents)}
+                    </p>
+                    {t.tipo === 'ENTRADA' && (t.status === 'PENDENTE' || t.status === 'ATRASADO') && (
+                      <button
+                        type="button"
+                        onClick={() => setPayItem(t)}
+                        className="rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        Dar baixa
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
               {(txsQuery.data?.items ?? []).length === 0 && (
@@ -281,59 +316,11 @@ export default function FinanceiroContainer() {
       )}
 
       {tab === 'recebimentos' && (
-        <section className="space-y-3">
-          <p className="text-sm text-charcoal-muted">
-            Sessões que passaram do horário sem confirmação de realização/pagamento.
-          </p>
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white">
-            {pendingItems.map((item) => (
-              <li key={item.id} className="space-y-3 px-4 py-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal">{item.patient_name}</p>
-                    <p className="text-xs text-charcoal-muted">
-                      {item.schedule?.scheduled_at
-                        ? new Date(item.schedule.scheduled_at).toLocaleString('pt-BR')
-                        : 'Horário não informado'}
-                      {' · '}
-                      {MODELO_LABEL[(item.modelo as keyof typeof MODELO_LABEL) ?? 'avulso'] ?? item.modelo}
-                      {item.sessoes_disponiveis > 0
-                        ? ` · saldo pacote: ${item.sessoes_disponiveis}`
-                        : ''}
-                    </p>
-                  </div>
-                  <p className="text-sm font-medium text-charcoal">
-                    {formatCurrency(item.valor_previsto_cents)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentPrompt({
-                        schedule_id: item.schedule_id,
-                        patient_id: item.patient_id,
-                        patient_name: item.patient_name,
-                        modelo: item.modelo,
-                        saldo_sessoes: item.sessoes_disponiveis,
-                        valor_sugerido_cents: item.valor_previsto_cents,
-                        pode_consumir_pacote: item.sessoes_disponiveis > 0,
-                      })
-                    }
-                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white"
-                  >
-                    Confirmar pagamento
-                  </button>
-                </div>
-              </li>
-            ))}
-            {pendingItems.length === 0 && (
-              <li className="px-4 py-8 text-center text-sm text-charcoal-muted">
-                Nenhuma sessão pendente. Tudo em dia.
-              </li>
-            )}
-          </ul>
-        </section>
+        <ReceivablesTab
+          month={month}
+          pendingItems={pendingItems}
+          onConfirmSession={setPaymentPrompt}
+        />
       )}
 
       {tab === 'custos' && <CustosMensaisTab month={month} />}
@@ -347,17 +334,40 @@ export default function FinanceiroContainer() {
                   <p className="text-sm font-medium text-charcoal">{row.patient_name}</p>
                   <p className="text-xs text-charcoal-muted">
                     {row.plan
-                      ? `${MODELO_LABEL[row.plan.modelo]} · sessão ${formatCurrency(row.plan.valor_sessao_cents)}${
-                          row.plan.modelo === 'pacote' && row.plan.pacote_valor_cents != null
-                            ? ` · pacote ${formatCurrency(row.plan.pacote_valor_cents)} (${row.plan.pacote_qtd_sessoes}x)`
-                            : ''
-                        }`
-                      : 'Sem plano comercial definido'}
+                      ? `${MODEL_TYPE_LABEL[row.plan.model_type ?? 'PARTICULAR']} · ${
+                          BILLING_TYPE_LABEL[row.plan.billing_type ?? (row.plan.modelo === 'pacote' ? 'PACOTE' : 'AVULSO')]
+                        } · ${formatCurrency(row.plan.valor_acordado_cents ?? row.plan.valor_sessao_cents)}`
+                      : 'Sem contrato financeiro'}
                   </p>
                 </div>
-                <p className="text-xs font-medium text-primary">
-                  Saldo: {row.sessoes_disponiveis} sessão(ões)
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs font-medium text-primary">
+                    Saldo: {row.sessoes_disponiveis} sessão(ões)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAvulsoModal({
+                        patientId: row.patient_id,
+                        patientName: row.patient_name,
+                        suggestedCents: row.plan?.valor_sessao_cents ?? row.plan?.valor_acordado_cents ?? 0,
+                        monthly: row.plan?.billing_type === 'MENSAL_RECORRENTE',
+                      })
+                    }
+                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-3 text-xs font-medium text-charcoal hover:bg-slate-50"
+                  >
+                    Sessão extra
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContractModal({ patientId: row.patient_id, patientName: row.patient_name });
+                    }}
+                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-3 text-xs font-medium text-charcoal hover:bg-slate-50"
+                  >
+                    Editar dados financeiros
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -448,13 +458,38 @@ export default function FinanceiroContainer() {
         </div>
       </StandardModal>
 
+      <PatientFinancialSetupModal
+        isOpen={Boolean(contractModal)}
+        patientId={contractModal?.patientId ?? null}
+        patientName={contractModal?.patientName}
+        onClose={() => setContractModal(null)}
+      />
+
+      <AvulsoSessionModal
+        isOpen={Boolean(avulsoModal)}
+        patientId={avulsoModal?.patientId ?? ''}
+        patientName={avulsoModal?.patientName}
+        suggestedCents={avulsoModal?.suggestedCents ?? 0}
+        monthlyContract={avulsoModal?.monthly}
+        onClose={() => setAvulsoModal(null)}
+        onDone={() => setAvulsoModal(null)}
+      />
+
+      <RecordPaymentModal
+        item={payItem}
+        onClose={() => setPayItem(null)}
+        onDone={() => {
+          setPayItem(null);
+          invalidateFinanceQueries(qc);
+        }}
+      />
+
       <SessionPaymentModal
         prompt={paymentPrompt}
         onClose={() => setPaymentPrompt(null)}
         onDone={() => {
           setPaymentPrompt(null);
-          qc.invalidateQueries({ queryKey: ['financeiro-dashboard'] });
-          qc.invalidateQueries({ queryKey: ['financeiro-transacoes'] });
+          invalidateFinanceQueries(qc);
         }}
       />
     </div>

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { LoadingButton } from '@containers/loading';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
-import { supabase } from '@shared/lib/supabase';
+import { callFunction } from '@shared/lib/api';
 import { buildSignupEmailRedirectUrl } from './register-therapist.utils';
 
 interface RegisterEmailPendingViewProps {
@@ -17,18 +17,19 @@ export function RegisterEmailPendingView({ email }: RegisterEmailPendingViewProp
   async function handleResend() {
     setResendError(null);
     setResending(true);
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: buildSignupEmailRedirectUrl() },
-    });
-    setResending(false);
-    if (error) {
-      setResendError(error.message);
-      return;
+    try {
+      await callFunction('resend-signup-confirmation', {
+        email: email.trim().toLowerCase(),
+        email_redirect_to: buildSignupEmailRedirectUrl(),
+      });
+      setResendDone(true);
+    } catch (err) {
+      setResendError(err instanceof Error ? err.message : 'Não foi possível reenviar.');
+    } finally {
+      setResending(false);
     }
-    setResendDone(true);
   }
+
 
   return (
     <div className="relative flex min-h-dvh">

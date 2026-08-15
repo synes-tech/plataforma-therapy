@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@shared/lib/supabase';
+import { isGcpDataPlane, supabase } from '@shared/lib/supabase';
 
 interface JobOutputData {
   session_note_id?: string;
@@ -94,31 +94,35 @@ export function useAudioJobWatcher({
       }
     }, timeoutMs);
 
-    const channel = supabase
-      .channel(`audio-job-${jobId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `id=eq.${jobId}` },
-        (payload) => {
-          const job = payload.new as { status: string; output_data?: unknown };
-          const output = parseJobOutput(job.output_data);
+    // Cloud Run staging não proxya Realtime → Cloud SQL; polling cobre o fluxo GCP.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    if (!isGcpDataPlane()) {
+      channel = supabase
+        .channel(`audio-job-${jobId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `id=eq.${jobId}` },
+          (payload) => {
+            const job = payload.new as { status: string; output_data?: unknown };
+            const output = parseJobOutput(job.output_data);
 
-          if (job.status === 'completed' && output?.session_note_id) {
-            void settleCompleted(output.session_note_id);
-            return;
-          }
+            if (job.status === 'completed' && output?.session_note_id) {
+              void settleCompleted(output.session_note_id);
+              return;
+            }
 
-          if (job.status === 'failed') {
-            settleFailed('failed');
-          }
-        },
-      )
-      .subscribe();
+            if (job.status === 'failed') {
+              settleFailed('failed');
+            }
+          },
+        )
+        .subscribe();
+    }
 
     return () => {
       clearInterval(pollId);
       clearTimeout(timeoutId);
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [active, jobId, onCompleted, onFailed, pollIntervalMs, timeoutMs]);
 }

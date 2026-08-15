@@ -35,6 +35,7 @@ import {
 } from './patient-cpf.types';
 import type { PatientAnamnesisForm } from './patient-anamnesis.types';
 import { shouldTriggerCpfLookup } from './patient-cpf.utils';
+import { RecurrenceWindowsModal } from './RecurrenceWindowsModal';
 
 const CREATE_FORM_ID = 'create-patient-anamnesis-form';
 
@@ -77,6 +78,7 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
   const [createProgressComplete, setCreateProgressComplete] = useState(false);
   const progressTimerRef = useRef<number | null>(null);
   const wizardRef = useRef<PatientAnamnesisWizardHandle>(null);
+  const [windowsPatient, setWindowsPatient] = useState<{ id: string; name: string } | null>(null);
 
   const stopProgressCycle = useCallback(() => {
     if (progressTimerRef.current !== null) {
@@ -283,7 +285,11 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
     setCreateError(null);
 
     try {
-      const res = await callFunction<{ patient_id: string }>('create-patient', payload);
+      const res = await callFunction<{
+        patient_id: string;
+        needs_windows?: boolean;
+        next_step?: string | null;
+      }>('create-patient', payload);
 
       setCreateProgressStep(2);
 
@@ -306,6 +312,12 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
       await queryClient.invalidateQueries({ queryKey: ['patients'] });
       refreshState();
       setCreateProgressOpen(false);
+      if (res.needs_windows) {
+        setWindowsPatient({
+          id: res.patient_id,
+          name: payload.name?.trim() || 'paciente',
+        });
+      }
       onClose();
     } catch (err) {
       stopProgressCycle();
@@ -603,6 +615,23 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
         onSelect={handlePickerSelect}
         onRegisterNew={identity.mode === 'dependent' ? handleRegisterNewDependent : undefined}
       />
+
+      {windowsPatient && (
+        <RecurrenceWindowsModal
+          isOpen
+          patientId={windowsPatient.id}
+          patientName={windowsPatient.name}
+          allowSkip
+          onClose={() => {
+            const id = windowsPatient.id;
+            setWindowsPatient(null);
+            navigate(`/patients/${id}/financeiro`);
+          }}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['financeiro-ledger', windowsPatient.id] });
+          }}
+        />
+      )}
     </>
   );
 }

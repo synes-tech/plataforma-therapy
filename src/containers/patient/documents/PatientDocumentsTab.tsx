@@ -17,7 +17,6 @@ import { PatientArtifactsTableSkeleton } from './PatientArtifactsTableSkeleton';
 import type { ArtifactFilterValue, PatientArtifact, PatientArtifactsResponse } from './patient-artifacts.types';
 import { filterPatientArtifacts } from './patient-artifacts.utils';
 import { usePatientArtifacts } from './usePatientArtifacts';
-import { PatientAttachmentsPanel } from '../attachments/PatientAttachmentsPanel';
 
 interface PatientDocumentsTabProps {
   patientId: string;
@@ -261,10 +260,7 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
   }
 
   return (
-    <div className="space-y-6">
-      <PatientAttachmentsPanel patientId={patientId} />
-
-      <div className="space-y-3">
+    <div className="space-y-3">
       <div>
         <h3 className="text-base font-semibold text-charcoal">Documentos salvos pelo Copiloto</h3>
         <p className="mt-1 text-sm text-charcoal-muted">
@@ -327,7 +323,6 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
           />
         </div>
       ) : null}
-      </div>
 
       <PatientArtifactReadModal
         artifact={readingArtifact}

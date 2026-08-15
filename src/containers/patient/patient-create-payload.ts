@@ -33,8 +33,35 @@ function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
     telefone_paciente: form.telefone_paciente.replace(/\D/g, '') || undefined,
     email_responsavel: form.email_responsavel.trim() || undefined,
     telefone_responsavel: form.telefone_responsavel.replace(/\D/g, '') || undefined,
-    financeiro_modelo: form.financeiro_modelo || undefined,
-    financeiro_valor_sessao_cents: form.financeiro_modelo
+    financeiro_model_type: form.financeiro_model_type || undefined,
+    financeiro_billing_type: form.financeiro_billing_type || undefined,
+    financeiro_valor_acordado_cents: form.financeiro_billing_type
+      ? Math.round(
+          Number(
+            form.financeiro_valor_sessao
+              .replace(/\s/g, '')
+              .replace('R$', '')
+              .replace(/\./g, '')
+              .replace(',', '.'),
+          ) * 100,
+        ) || 0
+      : undefined,
+    financeiro_due_day:
+      form.financeiro_billing_type === 'MENSAL_RECORRENTE'
+        ? Number(form.financeiro_due_day) || undefined
+        : undefined,
+    financeiro_sessions_per_month: form.financeiro_sessions_custom
+      ? undefined
+      : Number(form.financeiro_sessions_per_month) || undefined,
+    financeiro_sessions_custom: form.financeiro_sessions_custom || undefined,
+    financeiro_contract_duration_months: Number(form.financeiro_duration_months) || undefined,
+    financeiro_modelo:
+      form.financeiro_billing_type === 'PACOTE'
+        ? 'pacote'
+        : form.financeiro_billing_type
+          ? 'avulso'
+          : undefined,
+    financeiro_valor_sessao_cents: form.financeiro_billing_type
       ? Math.round(
           Number(
             form.financeiro_valor_sessao
@@ -46,9 +73,9 @@ function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
         ) || 0
       : undefined,
     financeiro_pacote_qtd_sessoes:
-      form.financeiro_modelo === 'pacote' ? Number(form.financeiro_pacote_qtd) || undefined : undefined,
+      form.financeiro_billing_type === 'PACOTE' ? Number(form.financeiro_pacote_qtd) || undefined : undefined,
     financeiro_pacote_valor_cents:
-      form.financeiro_modelo === 'pacote'
+      form.financeiro_billing_type === 'PACOTE'
         ? Math.round(
             Number(
               form.financeiro_pacote_valor
@@ -60,7 +87,7 @@ function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
           ) || 0
         : undefined,
     financeiro_registrar_pacote_pago:
-      form.financeiro_modelo === 'pacote' ? form.financeiro_registrar_pacote_pago : undefined,
+      form.financeiro_billing_type === 'PACOTE' ? form.financeiro_registrar_pacote_pago : undefined,
     financeiro_observacoes: form.financeiro_observacoes.trim() || undefined,
   };
 }

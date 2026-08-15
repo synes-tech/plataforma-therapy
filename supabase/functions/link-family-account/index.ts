@@ -4,13 +4,15 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, logAuthEvent } from '../_shared/auth.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { assertIpRateLimit } from '../_shared/rate-limit.ts';
+import { setIdpClaims } from '../_shared/identity-platform-admin.ts';
 
 /**
  * link-family-account
  *
- * Handshake família↔clínica. O pai/mãe já criou a conta (Supabase Auth) e
- * agora informa o código de convite. Vincula auth.uid() ao patient_id via
- * consume_invite (transacional) e promove o usuário a role='family'.
+ * Handshake família↔clínica. O responsável já tem conta (Identity Platform)
+ * e informa o código de convite. Vincula uid ao patient_id via consume_invite
+ * e promove o usuário a role='family'.
  */
 
 serve(async (req: Request) => {
@@ -23,6 +25,7 @@ serve(async (req: Request) => {
     }
 
     const user = await authenticateRequest(req);
+    await assertIpRateLimit(req, { bucket: 'link_family', limit: 10, windowSec: 60 * 60 });
     logAuthEvent('link_family.attempt', user, 'link-family-account');
 
     const body = await req.json().catch(() => ({}));
@@ -57,10 +60,7 @@ serve(async (req: Request) => {
 
     const result = data as { family_member_id: string; patient_id: string; clinic_id: string; relationship: string };
 
-    // Promove o usuário a família (role + clinic no JWT)
-    await supabase.auth.admin.updateUserById(user.id, {
-      app_metadata: { role: 'family', clinic_id: result.clinic_id },
-    });
+    await setIdpClaims(user.id, { role: 'family', clinic_id: result.clinic_id });
 
     await supabase.from('audit_logs').insert({
       user_id: user.id,

@@ -2,7 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
-import { supabase } from '@shared/lib/supabase';
+import { isFirebaseAuthConfigured, sendFirebasePasswordReset } from '@shared/lib/firebase';
+import { callPublicFunction } from '@shared/lib/api';
+import { getRetryAfterSeconds, isRateLimitedError } from '@shared/lib/rate-limit-message';
+import { RateLimitMessage } from '@shared/ui/RateLimitMessage';
 
 function resetPasswordRedirectUrl(): string {
   return `${window.location.origin}/reset-password`;
@@ -11,30 +14,37 @@ function resetPasswordRedirectUrl(): string {
 export default function ForgotPasswordContainer() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setRetryAfterSeconds(null);
     setIsSubmitting(true);
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: resetPasswordRedirectUrl(),
-      });
-
-      if (resetError) {
-        throw resetError;
+      if (!isFirebaseAuthConfigured()) {
+        throw new Error('Recuperação de senha indisponível neste ambiente.');
       }
-
+      await callPublicFunction('guard-auth-rate', {
+        action: 'password_reset',
+        email: email.trim().toLowerCase(),
+      });
+      await sendFirebasePasswordReset(email.trim(), resetPasswordRedirectUrl());
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar o e-mail.');
+      if (isRateLimitedError(err)) {
+        setRetryAfterSeconds(getRetryAfterSeconds(err));
+      } else {
+        setError(err instanceof Error ? err.message : 'Não foi possível enviar o e-mail.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   }
+
 
   return (
     <div className="relative flex min-h-dvh">
@@ -80,12 +90,12 @@ export default function ForgotPasswordContainer() {
             </div>
           ) : (
             <>
-              {error && (
+              {(error || retryAfterSeconds != null) && (
                 <div
                   role="alert"
                   className="mb-6 rounded-xl border border-error/10 bg-error-light/50 px-4 py-3 text-sm text-error"
                 >
-                  {error}
+                  {retryAfterSeconds != null ? <RateLimitMessage seconds={retryAfterSeconds} /> : error}
                 </div>
               )}
 

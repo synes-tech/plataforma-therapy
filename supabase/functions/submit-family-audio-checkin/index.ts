@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
 import { extractToken } from '../_shared/supabase.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { SubmitFamilyAudioCheckinSchema } from './schema.ts';
 import { submitFamilyAudioCheckin } from './service.ts';
 
@@ -18,6 +19,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['family']);
+    await assertAiRateLimit(user, 'family');
     logAuthEvent('submit_family_audio_checkin.attempt', user, 'submit-family-audio-checkin');
 
     const body = await req.json();

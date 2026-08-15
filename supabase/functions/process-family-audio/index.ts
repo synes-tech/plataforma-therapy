@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { ProcessFamilyAudioSchema } from './schema.ts';
 import { initiateFamilyAudio, completeFamilyAudio } from './service.ts';
 
@@ -17,6 +18,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['family']);
+    await assertAiRateLimit(user, 'family');
     logAuthEvent('process_family_audio.attempt', user, 'process-family-audio');
 
     const body = await req.json();

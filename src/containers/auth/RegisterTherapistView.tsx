@@ -6,6 +6,7 @@ import { PhoneInput } from '@features/register/PhoneInput';
 import { TherapistSpecialtySelect } from '@features/register/TherapistSpecialtySelect';
 import { TermsOfUseModal } from '@features/legal/TermsOfUseModal';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { GoogleContinueButton } from './GoogleContinueButton';
 
 export interface RegisterTherapistFormData {
   name: string;
@@ -22,6 +23,8 @@ interface RegisterTherapistViewProps {
   step: 1 | 2;
   form: RegisterTherapistFormData;
   isSubmitting: boolean;
+  isGoogleSubmitting?: boolean;
+  googleEnabled?: boolean;
   error: string | null;
   termsAccepted: boolean;
   onTermsAcceptedChange: (accepted: boolean) => void;
@@ -29,6 +32,7 @@ interface RegisterTherapistViewProps {
   onNext: () => void;
   onBack: () => void;
   onSubmit: (e: FormEvent) => void;
+  onGoogleRegister?: () => void;
 }
 
 function StepIndicator({ step }: { step: 1 | 2 }) {
@@ -139,6 +143,8 @@ export function RegisterTherapistView({
   step,
   form,
   isSubmitting,
+  isGoogleSubmitting = false,
+  googleEnabled = false,
   error,
   termsAccepted,
   onTermsAcceptedChange,
@@ -146,6 +152,7 @@ export function RegisterTherapistView({
   onNext,
   onBack,
   onSubmit,
+  onGoogleRegister,
 }: RegisterTherapistViewProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -207,6 +214,40 @@ export function RegisterTherapistView({
               }}
               className="space-y-4"
             >
+              {googleEnabled && onGoogleRegister && (
+                <div className="space-y-4">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => onTermsAcceptedChange(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-[#1A86E2] focus:ring-primary/30"
+                    />
+                    <span className="text-sm leading-relaxed text-charcoal">
+                      Li e aceito os <strong>Termos de Uso</strong> da Unithery.
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setTermsOpen(true)}
+                    className="pl-7 text-left text-xs font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:text-primary-dark"
+                  >
+                    Ler os Termos de Uso
+                  </button>
+                  <GoogleContinueButton
+                    onClick={onGoogleRegister}
+                    disabled={isSubmitting}
+                    loading={isGoogleSubmitting}
+                    label="Cadastrar com Google"
+                    loadingLabel="Criando sua conta…"
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-slate-200" />
+                    <span className="text-xs font-medium uppercase tracking-wide text-charcoal-muted/60">ou</span>
+                    <div className="h-px flex-1 bg-slate-200" />
+                  </div>
+                </div>
+              )}
               <RegisterInput
                 id="name"
                 label="Seu nome completo *"

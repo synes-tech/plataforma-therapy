@@ -65,7 +65,8 @@ export async function uploadProfessionalAvatar(
 
     const oldPath = existing?.foto_url as string | null;
     if (oldPath && oldPath !== payload.storage_path) {
-      await supabase.storage.from(BUCKET).remove([oldPath]);
+      const { removePaths } = await import('../_shared/object-storage.ts');
+      await removePaths(BUCKET, [oldPath]);
     }
 
     const { error } = await supabase
@@ -105,14 +106,14 @@ export async function uploadProfessionalAvatar(
   const ext = mimeToExt(payload.mime_type);
   const storagePath = `${expectedPrefix}avatar.${ext}`;
 
-  const { data: signed, error: signError } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUploadUrl(storagePath, { upsert: true });
-
-  if (signError || !signed) {
+  const { createUploadUrl } = await import('../_shared/object-storage.ts');
+  let signed: { signedUrl: string };
+  try {
+    signed = await createUploadUrl(BUCKET, storagePath, { upsert: true });
+  } catch (signError) {
     throw new AppError({
       code: 'UPLOAD_URL_FAILED',
-      message: signError?.message ?? 'Falha ao gerar URL de upload',
+      message: signError instanceof Error ? signError.message : 'Falha ao gerar URL de upload',
       statusCode: 500,
     });
   }

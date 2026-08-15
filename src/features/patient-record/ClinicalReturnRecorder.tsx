@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
-import { supabase } from '@shared/lib/supabase';
+import { isGcpDataPlane, supabase } from '@shared/lib/supabase';
 import { blobToWav, pickRecorderMime } from '@shared/lib/audio-wav';
 
 type RecorderState = 'idle' | 'recording' | 'uploading' | 'processing' | 'done' | 'error';
@@ -79,36 +79,43 @@ export function ClinicalReturnRecorder({ patientId, patientName, onTranscribed }
     }
 
     // Check after a short delay (give the function a moment to start)
-    const pollTimer = setTimeout(checkJobStatus, 3000);
-    // Also check again after a longer interval as fallback
-    const fallbackTimer = setTimeout(checkJobStatus, 10000);
+    const pollTimer = setTimeout(() => void checkJobStatus(), 3000);
+    const fallbackTimer = setTimeout(() => void checkJobStatus(), 10000);
+    // GCP (Cloud SQL): sem Realtime — polling contínuo
+    const pollInterval = isGcpDataPlane()
+      ? window.setInterval(() => void checkJobStatus(), 3000)
+      : null;
 
-    const channel = supabase
-      .channel(`clinical-return-${patientId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `patient_id=eq.${patientId}` },
-        (payload) => {
-          const job = payload.new as { id: string; status: string; output_data?: { cleaned_text?: string } };
-          if (jobIdRef.current && job.id !== jobIdRef.current) return;
-          if (job.status === 'failed') {
-            setError('A IA não conseguiu processar o áudio. Tente novamente.');
-            setState('error');
-            return;
-          }
-          if (job.status === 'completed' && job.output_data?.cleaned_text) {
-            setCleanedText(job.output_data.cleaned_text);
-            setState('done');
-            onTranscribed?.(job.output_data.cleaned_text);
-          }
-        },
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    if (!isGcpDataPlane()) {
+      channel = supabase
+        .channel(`clinical-return-${patientId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `patient_id=eq.${patientId}` },
+          (payload) => {
+            const job = payload.new as { id: string; status: string; output_data?: { cleaned_text?: string } };
+            if (jobIdRef.current && job.id !== jobIdRef.current) return;
+            if (job.status === 'failed') {
+              setError('A IA não conseguiu processar o áudio. Tente novamente.');
+              setState('error');
+              return;
+            }
+            if (job.status === 'completed' && job.output_data?.cleaned_text) {
+              setCleanedText(job.output_data.cleaned_text);
+              setState('done');
+              onTranscribed?.(job.output_data.cleaned_text);
+            }
+          },
+        )
+        .subscribe();
+    }
 
     return () => {
       clearTimeout(pollTimer);
       clearTimeout(fallbackTimer);
-      supabase.removeChannel(channel);
+      if (pollInterval) clearInterval(pollInterval);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [state, patientId, onTranscribed]);
 

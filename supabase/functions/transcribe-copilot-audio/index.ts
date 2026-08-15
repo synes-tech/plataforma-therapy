@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { TranscribeCopilotAudioSchema } from './schema.ts';
 import { initiateCopilotAudio, completeCopilotAudio } from './service.ts';
 
@@ -17,6 +18,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['professional']);
+    await assertAiRateLimit(user, 'copilot');
     logAuthEvent('transcribe_copilot_audio.attempt', user, 'transcribe-copilot-audio');
 
     const body = await req.json();

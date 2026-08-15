@@ -48,7 +48,8 @@ export async function deletePatientAttachment(
     });
   }
 
-  await supabase.storage.from(BUCKET).remove([attachment.storage_path as string]);
+  const { removePaths } = await import('../_shared/object-storage.ts');
+  await removePaths(BUCKET, [attachment.storage_path as string]);
 
   await supabase.from('audit_logs').insert({
     user_id: caller.id,

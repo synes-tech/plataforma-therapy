@@ -29,6 +29,7 @@ const StripeTestPageContainer = lazy(() => import('@containers/billing/stripe-te
 const CheckoutReturnContainer = lazy(() => import('@containers/billing/CheckoutReturnContainer'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
 const FinanceiroContainer = lazy(() => import('@containers/financeiro/FinanceiroContainer'));
+const HelpContactContainer = lazy(() => import('@containers/help/HelpContactContainer'));
 
 /**
  * Wrapper that adds AppLayout (persistent sidebar) to protected routes
@@ -59,6 +60,7 @@ export function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordContainer />} />
       <Route path="/register" element={<RegisterClinicContainer />} />
       <Route path="/family/register" element={<RegisterFamily />} />
+      <Route path="/ajuda" element={<HelpContactContainer />} />
 
       {/* Rota oculta — sem link na navegação; acesso direto pela URL */}
       <Route path="/unithery/teste" element={<StripeTestPageContainer />} />

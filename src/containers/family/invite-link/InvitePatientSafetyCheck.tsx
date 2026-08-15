@@ -1,9 +1,11 @@
+import { RateLimitMessage } from '@shared/ui/RateLimitMessage';
 import type { InvitePreviewStatus } from './useInviteCodePreview';
 
 interface InvitePatientSafetyCheckProps {
   status: InvitePreviewStatus;
   patientName: string | null;
   error: string | null;
+  retryAfterSeconds?: number | null;
   className?: string;
 }
 
@@ -11,6 +13,7 @@ export function InvitePatientSafetyCheck({
   status,
   patientName,
   error,
+  retryAfterSeconds = null,
   className = '',
 }: InvitePatientSafetyCheckProps) {
   if (status === 'idle') {
@@ -68,7 +71,7 @@ export function InvitePatientSafetyCheck({
         role="alert"
         className={`rounded-xl border border-error/15 bg-error-light/40 px-3 py-2.5 text-xs text-error sm:px-4 sm:text-sm ${className}`.trim()}
       >
-        {error}
+        {retryAfterSeconds != null ? <RateLimitMessage seconds={retryAfterSeconds} /> : error}
       </div>
     );
   }

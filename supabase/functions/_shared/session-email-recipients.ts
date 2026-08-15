@@ -1,6 +1,6 @@
 export type ContactScope = 'patient' | 'responsible' | 'both';
 
-export type SessionEmailRecipientRole = 'patient' | 'responsible' | 'family';
+export type SessionEmailRecipientRole = 'patient' | 'responsible' | 'family' | 'professional';
 
 export interface SessionEmailRecipient {
   email: string;

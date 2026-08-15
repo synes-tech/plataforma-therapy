@@ -18,18 +18,14 @@ async function transcribeAndStructure(
   mimeType: string,
   annotations?: string | null,
 ): Promise<{ structured: StructuredSessionReport; tokensUsed: number; latencyMs: number; model: string }> {
-  const supabase = createServiceClient();
   const startTime = Date.now();
-
-  const { data: fileData, error: downloadError } = await supabase.storage
-    .from('audio-recordings')
-    .download(storagePath);
-
-  if (downloadError || !fileData) {
-    throw new Error(`Failed to download audio: ${downloadError?.message}`);
+  const { downloadBytes } = await import('../_shared/object-storage.ts');
+  let bytes: Uint8Array;
+  try {
+    bytes = await downloadBytes('audio-recordings', storagePath);
+  } catch (err) {
+    throw new Error(`Failed to download audio: ${err instanceof Error ? err.message : String(err)}`);
   }
-
-  const bytes = new Uint8Array(await fileData.arrayBuffer());
   const prompt = buildAudioSoapPrompt(annotations);
 
   const { data: rawStructured, tokens } = await vertexAudioToStructured<StructuredSessionReport>(

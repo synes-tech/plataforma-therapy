@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertIpRateLimit } from '../_shared/rate-limit.ts';
 import { ValidateInviteSchema } from './schema.ts';
 import { validateInvite } from './service.ts';
 
@@ -17,6 +18,7 @@ serve(async (req: Request) => {
 
     // Any authenticated user can validate an invite (they just signed up)
     const user = await authenticateRequest(req);
+    await assertIpRateLimit(req, { bucket: 'validate_invite', limit: 10, windowSec: 60 * 60 });
     logAuthEvent('validate_invite.attempt', user, 'validate-invite');
 
     const body = await req.json();

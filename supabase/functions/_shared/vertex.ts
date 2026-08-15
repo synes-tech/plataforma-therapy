@@ -18,16 +18,32 @@ interface ServiceAccount {
   token_uri: string;
 }
 
-const sa: ServiceAccount = JSON.parse(
-  new TextDecoder().decode(decodeBase64(Deno.env.get('GCP_SERVICE_ACCOUNT')!)),
-);
+let sa: ServiceAccount | null = null;
 const LOCATION = Deno.env.get('GCP_LOCATION') ?? 'us-central1';
-const VERTEX_BASE =
-  `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/${LOCATION}/publishers/google/models`;
 
 export const CHAT_MODEL = Deno.env.get('VERTEX_CHAT_MODEL') ?? 'gemini-2.5-pro';
 export const EMBED_MODEL = Deno.env.get('VERTEX_EMBED_MODEL') ?? 'gemini-embedding-001';
 export const EMBED_DIMS = 768;
+
+function getServiceAccount(): ServiceAccount {
+  if (sa) return sa;
+  const raw = Deno.env.get('GCP_SERVICE_ACCOUNT');
+  if (!raw) {
+    throw new Error('Missing GCP_SERVICE_ACCOUNT (base64 do JSON da service account)');
+  }
+  try {
+    sa = JSON.parse(new TextDecoder().decode(decodeBase64(raw))) as ServiceAccount;
+  } catch {
+    // Aceita JSON puro (útil em Cloud Run / Secret Manager)
+    sa = JSON.parse(raw) as ServiceAccount;
+  }
+  return sa;
+}
+
+function vertexBase(): string {
+  const account = getServiceAccount();
+  return `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${account.project_id}/locations/${LOCATION}/publishers/google/models`;
+}
 
 // ============================================================
 // Types
@@ -74,7 +90,8 @@ function strToB64Url(str: string): string {
 
 async function getSigningKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
-  const pem = sa.private_key
+  const account = getServiceAccount();
+  const pem = account.private_key
     .replace('-----BEGIN PRIVATE KEY-----', '')
     .replace('-----END PRIVATE KEY-----', '')
     .replace(/\s/g, '');
@@ -94,12 +111,13 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token;
   }
 
+  const account = getServiceAccount();
   const now = Math.floor(Date.now() / 1000);
   const header = strToB64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claim = strToB64Url(JSON.stringify({
-    iss: sa.client_email,
+    iss: account.client_email,
     scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud: sa.token_uri,
+    aud: account.token_uri,
     iat: now,
     exp: now + 3600,
   }));
@@ -113,7 +131,7 @@ async function getAccessToken(): Promise<string> {
   );
   const jwt = `${signingInput}.${toB64Url(new Uint8Array(sig))}`;
 
-  const res = await fetch(sa.token_uri, {
+  const res = await fetch(account.token_uri, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -170,7 +188,7 @@ async function generateContent(
     body.systemInstruction = { parts: [{ text: opts.system }] };
   }
 
-  const res = await fetch(`${VERTEX_BASE}/${model}:generateContent`, {
+  const res = await fetch(`${vertexBase()}/${model}:generateContent`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -303,7 +321,7 @@ export async function* vertexChatStream(
     body.systemInstruction = { parts: [{ text: opts.system }] };
   }
 
-  const res = await fetch(`${VERTEX_BASE}/${model}:streamGenerateContent?alt=sse`, {
+  const res = await fetch(`${vertexBase()}/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -393,7 +411,7 @@ export async function vertexEmbed(
   if (texts.length === 0) return [];
   const token = await getAccessToken();
 
-  const res = await fetch(`${VERTEX_BASE}/${EMBED_MODEL}:predict`, {
+  const res = await fetch(`${vertexBase()}/${EMBED_MODEL}:predict`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

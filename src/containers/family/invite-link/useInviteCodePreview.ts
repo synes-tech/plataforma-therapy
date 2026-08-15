@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { callPublicFunction } from '@shared/lib/api';
+import { getRetryAfterSeconds, isRateLimitedError } from '@shared/lib/rate-limit-message';
 import { isInviteCodeComplete, normalizeInviteCodeInput } from './invite-code-preview.utils';
 
 const PREVIEW_DEBOUNCE_MS = 350;
@@ -11,6 +12,7 @@ export interface InvitePreviewState {
   patientName: string | null;
   relationship: string | null;
   error: string | null;
+  retryAfterSeconds: number | null;
 }
 
 interface PreviewInviteResponse {
@@ -23,6 +25,7 @@ const INITIAL_STATE: InvitePreviewState = {
   patientName: null,
   relationship: null,
   error: null,
+  retryAfterSeconds: null,
 };
 
 /**
@@ -50,6 +53,7 @@ export function useInviteCodePreview(code: string): InvitePreviewState & {
         patientName: null,
         relationship: null,
         error: null,
+        retryAfterSeconds: null,
       });
 
       try {
@@ -66,6 +70,7 @@ export function useInviteCodePreview(code: string): InvitePreviewState & {
           patientName: result.patient_name,
           relationship: result.relationship,
           error: null,
+          retryAfterSeconds: null,
         });
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -75,6 +80,7 @@ export function useInviteCodePreview(code: string): InvitePreviewState & {
           patientName: null,
           relationship: null,
           error: err instanceof Error ? err.message : 'Não foi possível validar o convite.',
+          retryAfterSeconds: isRateLimitedError(err) ? getRetryAfterSeconds(err) : null,
         });
       }
     }, PREVIEW_DEBOUNCE_MS);

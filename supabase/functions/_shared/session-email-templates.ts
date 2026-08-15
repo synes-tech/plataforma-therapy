@@ -1,4 +1,10 @@
-export type SessionEmailKind = 'booking_confirmation' | 'reminder_24h' | 'reminder_manual';
+export type SessionEmailKind =
+  | 'booking_confirmation'
+  | 'reminder_24h'
+  | 'reminder_manual'
+  | 'reschedule_notice';
+
+export type SessionEmailAudience = 'contact' | 'professional';
 
 /** Mesma identidade visual dos e-mails de auth (recuperação de senha, etc.). */
 const BRAND = {
@@ -79,10 +85,15 @@ function sessionDetailsCard(params: {
   dateLabel: string;
   timeLabel: string;
   durationMinutes: number | null;
+  previousFullLabel?: string | null;
 }): string {
   const duration = params.durationMinutes
     ? `${params.durationMinutes} minutos`
     : 'A combinar com o consultório';
+
+  const scheduleRows = params.previousFullLabel
+    ? `${detailRow('Horário anterior', params.previousFullLabel)}${detailRow('Novo horário', `${params.dateLabel} às ${params.timeLabel}`)}`
+    : `${detailRow('Data', params.dateLabel)}${detailRow('Horário', params.timeLabel)}`;
 
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0;background:${BRAND.cardBg};border:1px solid #d5ebe8;border-radius:14px;">
     <tr><td style="padding:18px 20px;">
@@ -90,8 +101,7 @@ function sessionDetailsCard(params: {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
         ${detailRow('Paciente', params.patientName)}
         ${detailRow('Profissional', params.professionalName)}
-        ${detailRow('Data', params.dateLabel)}
-        ${detailRow('Horário', params.timeLabel)}
+        ${scheduleRows}
         ${detailRow('Duração', duration)}
       </table>
     </td></tr>
@@ -99,12 +109,16 @@ function sessionDetailsCard(params: {
 }
 
 const COPY: Record<
-  SessionEmailKind,
-  { subject: (patientName: string) => string; title: string; lead: (p: {
-    contactName: string;
-    patientName: string;
-    professionalName: string;
-  }) => string }
+  Exclude<SessionEmailKind, 'reschedule_notice'>,
+  {
+    subject: (patientName: string) => string;
+    title: string;
+    lead: (p: {
+      contactName: string;
+      patientName: string;
+      professionalName: string;
+    }) => string;
+  }
 > = {
   booking_confirmation: {
     subject: (patientName) => `Sessão agendada — ${patientName} | Unithery`,
@@ -136,6 +150,41 @@ const COPY: Record<
   },
 };
 
+function buildRescheduleCopy(params: {
+  audience: SessionEmailAudience;
+  contactName: string;
+  patientName: string;
+  professionalName: string;
+  previousFullLabel: string;
+  newFullLabel: string;
+}): { subject: string; title: string; leadHtml: string; leadText: string } {
+  if (params.audience === 'professional') {
+    return {
+      subject: `Sessão reagendada — ${params.patientName} | Unithery`,
+      title: 'Sessão reagendada',
+      leadHtml: `Olá, <strong style="color:${BRAND.text};">${escapeHtml(params.contactName)}</strong>!<br/><br/>
+        A sessão de <strong style="color:${BRAND.text};">${escapeHtml(params.patientName)}</strong> foi reagendada.
+        O horário anterior era <strong style="color:${BRAND.text};">${escapeHtml(params.previousFullLabel)}</strong>
+        e o novo horário é <strong style="color:${BRAND.text};">${escapeHtml(params.newFullLabel)}</strong>.`,
+      leadText:
+        `A sessão de ${params.patientName} foi reagendada. Anterior: ${params.previousFullLabel}. Novo: ${params.newFullLabel}.`,
+    };
+  }
+
+  return {
+    subject: `Sessão reagendada — ${params.patientName} | Unithery`,
+    title: 'Sessão terapêutica reagendada',
+    leadHtml: `Olá, <strong style="color:${BRAND.text};">${escapeHtml(params.contactName)}</strong>!<br/><br/>
+      A sessão terapêutica de <strong style="color:${BRAND.text};">${escapeHtml(params.patientName)}</strong>
+      com o(a) psicólogo(a) <strong style="color:${BRAND.text};">${escapeHtml(params.professionalName)}</strong>
+      foi reagendada.<br/><br/>
+      Horário anterior: <strong style="color:${BRAND.text};">${escapeHtml(params.previousFullLabel)}</strong><br/>
+      Novo horário: <strong style="color:${BRAND.text};">${escapeHtml(params.newFullLabel)}</strong>.`,
+    leadText:
+      `A sessão de ${params.patientName} com ${params.professionalName} foi reagendada. Anterior: ${params.previousFullLabel}. Novo: ${params.newFullLabel}.`,
+  };
+}
+
 export function buildSessionEmailContent(params: {
   kind: SessionEmailKind;
   contactName: string;
@@ -143,13 +192,65 @@ export function buildSessionEmailContent(params: {
   professionalName: string;
   sessionAtIso: string;
   durationMinutes: number | null;
+  /** Obrigatório para reschedule_notice */
+  previousSessionAtIso?: string | null;
+  audience?: SessionEmailAudience;
 }): { subject: string; html: string; text: string } {
   const { dateLabel, timeLabel, fullLabel } = formatParts(params.sessionAtIso);
-  const copy = COPY[params.kind];
   const durationText = params.durationMinutes
     ? `${params.durationMinutes} minutos`
     : 'A combinar com o consultório';
 
+  if (params.kind === 'reschedule_notice') {
+    const previousIso = params.previousSessionAtIso;
+    if (!previousIso) {
+      throw new Error('previousSessionAtIso is required for reschedule_notice');
+    }
+    const previous = formatParts(previousIso);
+    const audience = params.audience ?? 'contact';
+    const copy = buildRescheduleCopy({
+      audience,
+      contactName: params.contactName,
+      patientName: params.patientName,
+      professionalName: params.professionalName,
+      previousFullLabel: previous.fullLabel,
+      newFullLabel: fullLabel,
+    });
+
+    const bodyHtml = `
+      <p style="margin:0 0 4px;">${copy.leadHtml}</p>
+      ${sessionDetailsCard({
+        patientName: params.patientName,
+        professionalName: params.professionalName,
+        dateLabel,
+        timeLabel,
+        durationMinutes: params.durationMinutes,
+        previousFullLabel: previous.fullLabel,
+      })}
+      <p style="margin:0;font-size:13px;color:${BRAND.muted};">
+        Enviado pela <strong style="color:${BRAND.primary};">Unithery</strong> em nome do consultório.
+      </p>
+    `;
+
+    const text = [
+      'Unithery',
+      copy.title,
+      '',
+      `Olá, ${params.contactName}!`,
+      copy.leadText,
+      `Paciente: ${params.patientName}`,
+      `Profissional: ${params.professionalName}`,
+      `Horário anterior: ${previous.fullLabel}`,
+      `Novo horário: ${fullLabel}`,
+      `Duração prevista: ${durationText}`,
+      '',
+      'Este e-mail foi enviado pela plataforma Unithery em nome do consultório/clínica.',
+    ].join('\n');
+
+    return { subject: copy.subject, html: wrapLayout(copy.title, bodyHtml), text };
+  }
+
+  const copy = COPY[params.kind];
   const bodyHtml = `
     <p style="margin:0 0 4px;">${copy.lead({
       contactName: params.contactName,

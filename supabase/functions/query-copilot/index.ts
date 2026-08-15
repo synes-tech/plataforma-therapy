@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { QueryCopilotSchema } from './schema.ts';
 import { queryCopilot, queryCopilotStream, streamResponse } from './service.ts';
 
@@ -18,6 +19,7 @@ serve(async (req: Request) => {
     // Only professionals can use the copilot
     const user = await authenticateRequest(req);
     requireRole(user, ['professional']);
+    await assertAiRateLimit(user, 'copilot');
     logAuthEvent('copilot_query.attempt', user, 'query-copilot');
 
     const body = await req.json();

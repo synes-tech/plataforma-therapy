@@ -51,4 +51,26 @@ describe('patient anamnesis wizard — validação de etapas', () => {
     expect(canAdvanceFromStep(3, EMPTY_ANAMNESIS_FORM)).toBe(true);
     expect(canAdvanceFromStep(4, EMPTY_ANAMNESIS_FORM)).toBe(true);
   });
+
+  it('passo 6 exige contrato particular/convênio e forma de cobrança', () => {
+    expect(canAdvanceFromStep(6, EMPTY_ANAMNESIS_FORM)).toBe(false);
+    expect(
+      canAdvanceFromStep(6, {
+        ...EMPTY_ANAMNESIS_FORM,
+        financeiro_model_type: 'PARTICULAR',
+        financeiro_billing_type: 'AVULSO',
+        financeiro_valor_sessao: '180,00',
+      }),
+    ).toBe(true);
+    expect(
+      canAdvanceFromStep(6, {
+        ...EMPTY_ANAMNESIS_FORM,
+        financeiro_model_type: 'CONVENIO',
+        financeiro_billing_type: 'MENSAL_RECORRENTE',
+        financeiro_valor_sessao: '800,00',
+        financeiro_due_day: '10',
+        financeiro_sessions_per_month: '4',
+      }),
+    ).toBe(true);
+  });
 });

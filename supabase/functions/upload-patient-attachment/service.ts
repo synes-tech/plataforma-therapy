@@ -61,14 +61,14 @@ export async function uploadPatientAttachment(
       payload.file_name,
     );
 
-    const { data: signed, error: signError } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUploadUrl(storagePath, { upsert: false });
-
-    if (signError || !signed) {
+    const { createUploadUrl } = await import('../_shared/object-storage.ts');
+    let signed: { signedUrl: string };
+    try {
+      signed = await createUploadUrl(BUCKET, storagePath, { upsert: false });
+    } catch (err) {
       throw new AppError({
         code: 'UPLOAD_URL_FAILED',
-        message: signError?.message ?? 'Falha ao gerar URL de upload',
+        message: err instanceof Error ? err.message : 'Falha ao gerar URL de upload',
         statusCode: 500,
       });
     }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@shared/lib/supabase';
+import { getSignedReadUrl } from '@shared/lib/signed-read-url';
 
 interface Props {
   storagePath: string;
@@ -13,15 +13,8 @@ export function FamilyDiaryAudioPlay({ storagePath }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: signError } = await supabase.storage
-        .from('family-diary-audio')
-        .createSignedUrl(storagePath, 300);
-
-      if (signError || !data?.signedUrl) {
-        throw new Error(signError?.message ?? 'Não foi possível carregar o áudio');
-      }
-
-      const audio = new Audio(data.signedUrl);
+      const url = await getSignedReadUrl('family-diary-audio', storagePath, 300);
+      const audio = new Audio(url);
       await audio.play();
     } catch {
       setError('Áudio indisponível');

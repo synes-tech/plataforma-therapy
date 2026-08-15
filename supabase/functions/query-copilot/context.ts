@@ -13,10 +13,27 @@ import {
   buildCopilotSystemInstruction,
   DIARY_CONTEXT_LIMIT,
   SESSION_CONTEXT_LIMIT,
+  SESSION_INVENTORY_LIMIT,
   type DiaryEntryRow,
   type PatientBaseRow,
+  type SessionInventoryRow,
   type SessionNoteRow,
 } from './patient-context.ts';
+
+/** Perguntas factuais de quantidade/histórico — reduzem o viés de recência no RAG. */
+function isSessionHistoryQuestion(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    /quantas?\s+sess/.test(m) ||
+    /n[uú]mero\s+de\s+sess/.test(m) ||
+    /total\s+de\s+sess/.test(m) ||
+    /hist[oó]rico\s+de\s+sess/.test(m) ||
+    /quantas?\s+vezes/.test(m) ||
+    /em\s+quais?\s+meses?/.test(m) ||
+    /j[aá]\s+(foram\s+)?realizad/.test(m) ||
+    /sess[oõ]es?\s+(foram\s+)?realizad/.test(m)
+  );
+}
 
 export interface CopilotPreparedContext {
   startTime: number;
@@ -83,29 +100,39 @@ export async function prepareCopilotContext(
     throw new ForbiddenError('You do not have access to this patient');
   }
 
-  const [queryEmbedding, recentDiariesResult, recentSessionsResult] = await Promise.all([
-    vertexEmbedSingle(payload.message, 'RETRIEVAL_QUERY'),
-    supabase
-      .from('diary_entries')
-      .select('entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes')
-      .eq('patient_id', payload.patient_id)
-      .is('deleted_at', null)
-      .order('entry_date', { ascending: false })
-      .limit(DIARY_CONTEXT_LIMIT),
-    supabase
-      .from('session_notes')
-      .select('created_at, status, content')
-      .eq('patient_id', payload.patient_id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(SESSION_CONTEXT_LIMIT),
-  ]);
+  const historyQuestion = isSessionHistoryQuestion(payload.message);
+
+  const [queryEmbedding, recentDiariesResult, recentSessionsResult, sessionInventoryResult] =
+    await Promise.all([
+      vertexEmbedSingle(payload.message, 'RETRIEVAL_QUERY'),
+      supabase
+        .from('diary_entries')
+        .select('entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes')
+        .eq('patient_id', payload.patient_id)
+        .is('deleted_at', null)
+        .order('entry_date', { ascending: false })
+        .limit(DIARY_CONTEXT_LIMIT),
+      supabase
+        .from('session_notes')
+        .select('created_at, status, content')
+        .eq('patient_id', payload.patient_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(SESSION_CONTEXT_LIMIT),
+      supabase
+        .from('session_notes')
+        .select('created_at, status')
+        .eq('patient_id', payload.patient_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(SESSION_INVENTORY_LIMIT),
+    ]);
 
   const { data: semanticResults } = await supabase.rpc('search_patient_embeddings', {
     p_patient_id: payload.patient_id,
     p_query_embedding: JSON.stringify(queryEmbedding),
-    p_match_count: 15,
-    p_match_threshold: 0.6,
+    p_match_count: historyQuestion ? 25 : 15,
+    p_match_threshold: 0.55,
   });
 
   const retrievedChunks: RetrievedChunk[] = (semanticResults ?? []).map((r: Record<string, unknown>) => ({
@@ -118,14 +145,23 @@ export async function prepareCopilotContext(
   }));
 
   const now = Date.now();
+  // Em perguntas de histórico/quantidade, prioriza similaridade e quase não pune sessões antigas.
+  const similarityWeight = historyQuestion ? 0.9 : 0.7;
+  const recencyWeight = historyQuestion ? 0.1 : 0.3;
+  const recencyHalfLifeDays = historyQuestion ? 365 : 30;
+  const topK = historyQuestion ? 8 : 5;
+
   const reranked = retrievedChunks
     .map((chunk) => {
       const ageInDays = (now - new Date(chunk.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      const recencyBoost = Math.exp(-ageInDays / 30);
-      return { ...chunk, finalScore: chunk.similarity * 0.7 + recencyBoost * 0.3 };
+      const recencyBoost = Math.exp(-ageInDays / recencyHalfLifeDays);
+      return {
+        ...chunk,
+        finalScore: chunk.similarity * similarityWeight + recencyBoost * recencyWeight,
+      };
     })
     .sort((a, b) => b.finalScore - a.finalScore)
-    .slice(0, 5);
+    .slice(0, topK);
 
   const ragContext = reranked
     .map((chunk, i) => {
@@ -140,11 +176,13 @@ export async function prepareCopilotContext(
 
   const diaryEntries = (recentDiariesResult.data ?? []) as DiaryEntryRow[];
   const sessionNotes = (recentSessionsResult.data ?? []) as SessionNoteRow[];
+  const sessionInventory = (sessionInventoryResult.data ?? []) as SessionInventoryRow[];
 
   const systemInstruction = buildCopilotSystemInstruction({
     patient: typedPatient,
     diaryEntries,
     sessionNotes,
+    sessionInventory,
     ragContext,
     professional: professional
       ? {

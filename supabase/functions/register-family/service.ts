@@ -1,4 +1,10 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import {
+  createIdpUser,
+  deleteIdpUser,
+  isIdpEmailExistsError,
+  setIdpClaims,
+} from '../_shared/identity-platform-admin.ts';
 import { AppError, ConflictError } from '../_shared/errors.ts';
 import type { RegisterFamilyPayload, RegisterFamilyResponse } from './types.ts';
 
@@ -30,26 +36,26 @@ export async function registerFamily(payload: RegisterFamilyPayload): Promise<Re
   const name = payload.name.trim();
   const email = payload.email.trim().toLowerCase();
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    password: payload.password,
-    email_confirm: true,
-    user_metadata: { full_name: name },
-    app_metadata: { role: 'family' },
-  });
-
-  if (authError || !authData.user) {
-    if (authError?.message?.includes('already been registered') || authError?.message?.includes('already exists')) {
+  let userId: string;
+  try {
+    const user = await createIdpUser({
+      email,
+      password: payload.password,
+      displayName: name,
+      emailVerified: true,
+      claims: { role: 'family' },
+    });
+    userId = user.id;
+  } catch (err) {
+    if (isIdpEmailExistsError(err)) {
       throw new ConflictError('Já existe uma conta com este e-mail. Faça login para vincular o convite.');
     }
     throw new AppError({
       code: 'AUTH_CREATE_FAILED',
-      message: authError?.message ?? 'Falha ao criar conta',
+      message: err instanceof Error ? err.message : 'Falha ao criar conta',
       statusCode: 500,
     });
   }
-
-  const userId = authData.user.id;
 
   try {
     const { data, error } = await supabase.rpc('consume_invite', {
@@ -64,9 +70,7 @@ export async function registerFamily(payload: RegisterFamilyPayload): Promise<Re
 
     const result = data as { family_member_id: string; patient_id: string; clinic_id: string; relationship: string };
 
-    await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { role: 'family', clinic_id: result.clinic_id },
-    });
+    await setIdpClaims(userId, { role: 'family', clinic_id: result.clinic_id });
 
     await supabase.from('audit_logs').insert({
       user_id: userId,
@@ -83,7 +87,7 @@ export async function registerFamily(payload: RegisterFamilyPayload): Promise<Re
       clinic_id: result.clinic_id,
     };
   } catch (err) {
-    await supabase.auth.admin.deleteUser(userId);
+    await deleteIdpUser(userId);
     throw err;
   }
 }

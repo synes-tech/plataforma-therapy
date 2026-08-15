@@ -1,5 +1,6 @@
 import { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
 import { AnamnesisFieldsSchema } from '../_shared/patient-anamnesis-schema.ts';
+import { CreatePatientFinanceSchema } from '../_shared/financeiro-contract.ts';
 import { isValidCpfFormat, normalizeCpf } from '../_shared/cpf.ts';
 
 const cpfSchema = z
@@ -40,14 +41,7 @@ const contactFields = z.object({
   telefone_responsavel: optionalPhone,
 });
 
-const commercialFields = z.object({
-  financeiro_modelo: z.enum(['avulso', 'pacote', 'social']).optional(),
-  financeiro_valor_sessao_cents: z.number().int().min(0).optional(),
-  financeiro_pacote_qtd_sessoes: z.number().int().positive().optional().nullable(),
-  financeiro_pacote_valor_cents: z.number().int().min(0).optional().nullable(),
-  financeiro_registrar_pacote_pago: z.boolean().optional().default(false),
-  financeiro_observacoes: z.string().max(2000).optional().nullable(),
-});
+const commercialFields = CreatePatientFinanceSchema;
 
 const baseFields = z.object({
   name: z.string().min(2).max(200).transform((v) => v.trim()),
@@ -92,6 +86,56 @@ const legacyCpfSchema = baseFields
     cpf_paciente: data.cpf,
   }));
 
+function refineFinance<T extends z.ZodTypeAny>(schema: T) {
+  return schema.superRefine((data: Record<string, unknown>, ctx) => {
+    const hasNew = Boolean(data.financeiro_model_type && data.financeiro_billing_type);
+    const hasLegacy = Boolean(data.financeiro_modelo);
+    if (!hasNew && !hasLegacy) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Defina o contrato financeiro (particular/convênio e forma de cobrança).',
+        path: ['financeiro_billing_type'],
+      });
+    }
+    if (data.financeiro_billing_type === 'MENSAL_RECORRENTE') {
+      if (data.financeiro_due_day == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Informe o dia de vencimento (1 a 28).',
+          path: ['financeiro_due_day'],
+        });
+      }
+      if (data.financeiro_sessions_per_month == null && !data.financeiro_sessions_custom) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Informe as sessões por mês.',
+          path: ['financeiro_sessions_per_month'],
+        });
+      }
+      if (data.financeiro_valor_acordado_cents == null && data.financeiro_valor_sessao_cents == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Informe o valor mensal acordado.',
+          path: ['financeiro_valor_acordado_cents'],
+        });
+      }
+    }
+    if (data.financeiro_billing_type === 'AVULSO' || data.financeiro_modelo === 'avulso' || data.financeiro_modelo === 'social') {
+      if (
+        data.financeiro_valor_acordado_cents == null &&
+        data.financeiro_valor_sessao_cents == null &&
+        hasNew
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Informe o valor acordado da sessão.',
+          path: ['financeiro_valor_acordado_cents'],
+        });
+      }
+    }
+  });
+}
+
 function refineContactEmails<T extends z.ZodTypeAny>(schema: T) {
   return schema.superRefine((data: Record<string, unknown>, ctx) => {
     const scope = data.contact_scope as string | undefined;
@@ -115,7 +159,7 @@ function refineContactEmails<T extends z.ZodTypeAny>(schema: T) {
 }
 
 export const CreatePatientSchema = z.union([
-  refineContactEmails(withOwnCpfSchema),
-  refineContactEmails(dependentSchema),
-  refineContactEmails(legacyCpfSchema),
+  refineFinance(refineContactEmails(withOwnCpfSchema)),
+  refineFinance(refineContactEmails(dependentSchema)),
+  refineFinance(refineContactEmails(legacyCpfSchema)),
 ]);

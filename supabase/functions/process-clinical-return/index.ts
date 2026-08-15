@@ -1,8 +1,9 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { authenticateRequest, requireRole } from '../_shared/auth.ts';
+import { authenticateRequest } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { ProcessClinicalReturnSchema } from './schema.ts';
 import { processClinicalReturn } from './service.ts';
 
@@ -29,8 +30,8 @@ serve(async (req: Request) => {
       return errorResponse(new ValidationError({ method: 'Only POST is allowed' }), req);
     }
 
-    // Authenticate — professionals can trigger their own recordings
-    await authenticateRequest(req);
+    const user = await authenticateRequest(req);
+    await assertAiRateLimit(user, 'session');
 
     const body = await req.json();
     const parseResult = ProcessClinicalReturnSchema.safeParse(body);

@@ -40,6 +40,7 @@ FUNCTIONS=(
   "financeiro-upsert-transacao"
   "financeiro-cancel-transacao"
   "financeiro-upsert-patient-plan"
+  "financeiro-process-recurrence"
   "financeiro-list-patient-plans"
   "list-agreements"
   "toggle-agreement"

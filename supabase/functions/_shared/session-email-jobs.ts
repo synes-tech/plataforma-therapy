@@ -130,6 +130,8 @@ export async function sendSessionEmailNow(params: {
   professionalName: string;
   sessionAtIso: string;
   durationMinutes: number | null;
+  previousSessionAtIso?: string | null;
+  audience?: 'contact' | 'professional';
 }): Promise<void> {
   const content = buildSessionEmailContent({
     kind: params.kind,
@@ -138,6 +140,8 @@ export async function sendSessionEmailNow(params: {
     professionalName: params.professionalName,
     sessionAtIso: params.sessionAtIso,
     durationMinutes: params.durationMinutes,
+    previousSessionAtIso: params.previousSessionAtIso,
+    audience: params.audience,
   });
 
   await sendSesEmail({
@@ -257,4 +261,157 @@ export async function requeueReminder24hAfterReschedule(params: {
     recipients: resolved.recipients,
     metadata: { channel: 'ses', trigger: 'reschedule-session' },
   });
+}
+
+/** Aviso imediato de reagendamento para contatos do paciente + profissional. */
+export async function notifySessionRescheduled(params: {
+  supabase: SupabaseClient;
+  scheduleId: string;
+  patientId: string;
+  clinicId: string;
+  professionalId: string;
+  professionalName: string;
+  professionalEmail: string | null;
+  previousScheduledAtIso: string;
+  scheduledAtIso: string;
+  durationMinutes: number | null;
+}): Promise<{ contact_sent: number; professional_sent: number }> {
+  const resolved = await resolveRecipientsForPatient(params.supabase, params.patientId);
+  let contactSent = 0;
+  let professionalSent = 0;
+
+  const recipients = resolved?.recipients ?? [];
+  for (const recipient of recipients) {
+    try {
+      await sendSessionEmailNow({
+        kind: 'reschedule_notice',
+        audience: 'contact',
+        recipient,
+        patientName: resolved!.patient.name,
+        professionalName: params.professionalName,
+        sessionAtIso: params.scheduledAtIso,
+        previousSessionAtIso: params.previousScheduledAtIso,
+        durationMinutes: params.durationMinutes,
+      });
+      contactSent += 1;
+      await params.supabase.from('session_email_jobs').insert({
+        schedule_id: params.scheduleId,
+        patient_id: params.patientId,
+        clinic_id: params.clinicId,
+        professional_id: params.professionalId,
+        kind: 'reschedule_notice',
+        send_at: new Date().toISOString(),
+        status: 'sent',
+        recipient_email: recipient.email,
+        recipient_name: recipient.name,
+        recipient_role: recipient.role,
+        sent_at: new Date().toISOString(),
+        attempts: 1,
+        metadata: {
+          channel: 'ses',
+          trigger: 'reschedule-session',
+          previous_scheduled_at: params.previousScheduledAtIso,
+          new_scheduled_at: params.scheduledAtIso,
+          audience: 'contact',
+        },
+      });
+    } catch (err) {
+      console.error('[notifySessionRescheduled] contact send failed', err);
+      await params.supabase.from('session_email_jobs').insert({
+        schedule_id: params.scheduleId,
+        patient_id: params.patientId,
+        clinic_id: params.clinicId,
+        professional_id: params.professionalId,
+        kind: 'reschedule_notice',
+        send_at: new Date().toISOString(),
+        status: 'failed',
+        recipient_email: recipient.email,
+        recipient_name: recipient.name,
+        recipient_role: recipient.role,
+        attempts: 1,
+        last_error: err instanceof Error ? err.message : 'SES send failed',
+        metadata: {
+          channel: 'ses',
+          trigger: 'reschedule-session',
+          previous_scheduled_at: params.previousScheduledAtIso,
+          new_scheduled_at: params.scheduledAtIso,
+          audience: 'contact',
+        },
+      });
+    }
+  }
+
+  const proEmail = params.professionalEmail?.trim().toLowerCase() ?? '';
+  if (proEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proEmail)) {
+    const alreadySentToPro = recipients.some((r) => r.email === proEmail);
+    if (!alreadySentToPro) {
+      const proRecipient = {
+        email: proEmail,
+        name: params.professionalName || 'Profissional',
+        role: 'professional' as const,
+      };
+      try {
+        await sendSessionEmailNow({
+          kind: 'reschedule_notice',
+          audience: 'professional',
+          recipient: proRecipient,
+          patientName: resolved?.patient.name ?? 'Paciente',
+          professionalName: params.professionalName,
+          sessionAtIso: params.scheduledAtIso,
+          previousSessionAtIso: params.previousScheduledAtIso,
+          durationMinutes: params.durationMinutes,
+        });
+        professionalSent = 1;
+        await params.supabase.from('session_email_jobs').insert({
+          schedule_id: params.scheduleId,
+          patient_id: params.patientId,
+          clinic_id: params.clinicId,
+          professional_id: params.professionalId,
+          kind: 'reschedule_notice',
+          send_at: new Date().toISOString(),
+          status: 'sent',
+          recipient_email: proRecipient.email,
+          recipient_name: proRecipient.name,
+          recipient_role: 'professional',
+          sent_at: new Date().toISOString(),
+          attempts: 1,
+          metadata: {
+            channel: 'ses',
+            trigger: 'reschedule-session',
+            previous_scheduled_at: params.previousScheduledAtIso,
+            new_scheduled_at: params.scheduledAtIso,
+            audience: 'professional',
+          },
+        });
+      } catch (err) {
+        console.error('[notifySessionRescheduled] professional send failed', err);
+        await params.supabase.from('session_email_jobs').insert({
+          schedule_id: params.scheduleId,
+          patient_id: params.patientId,
+          clinic_id: params.clinicId,
+          professional_id: params.professionalId,
+          kind: 'reschedule_notice',
+          send_at: new Date().toISOString(),
+          status: 'failed',
+          recipient_email: proRecipient.email,
+          recipient_name: proRecipient.name,
+          recipient_role: 'professional',
+          attempts: 1,
+          last_error: err instanceof Error ? err.message : 'SES send failed',
+          metadata: {
+            channel: 'ses',
+            trigger: 'reschedule-session',
+            previous_scheduled_at: params.previousScheduledAtIso,
+            new_scheduled_at: params.scheduledAtIso,
+            audience: 'professional',
+          },
+        });
+      }
+    } else {
+      // Mesmo e-mail já recebeu versão "contact"; conta como enviado ao profissional também.
+      professionalSent = 1;
+    }
+  }
+
+  return { contact_sent: contactSent, professional_sent: professionalSent };
 }

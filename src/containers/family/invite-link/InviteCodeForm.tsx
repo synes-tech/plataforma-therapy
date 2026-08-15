@@ -105,6 +105,7 @@ export function InviteCodeForm() {
           status={preview.status}
           patientName={preview.patientName}
           error={preview.error}
+          retryAfterSeconds={preview.retryAfterSeconds}
         />
 
         <button

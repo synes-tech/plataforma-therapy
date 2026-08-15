@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { ProcessSessionTextSchema } from './schema.ts';
 import { processSessionText } from './service.ts';
 
@@ -23,6 +24,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['professional', 'master']);
+    await assertAiRateLimit(user, 'session');
     logAuthEvent('process_session_text.attempt', user, 'process-session-text');
 
     const body = await req.json();

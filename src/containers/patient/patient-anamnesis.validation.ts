@@ -1,5 +1,6 @@
 import type { PatientAnamnesisForm } from './patient-anamnesis.types';
 import { parseDiagnoses } from './patient-anamnesis.types';
+import { anamnesisToContractForm, validateContractForm } from './patient-contract.schema';
 
 export interface StepValidationResult {
   valid: boolean;
@@ -49,14 +50,7 @@ export function validateAnamnesisStep(step: number, form: PatientAnamnesisForm):
   }
 
   if (step === 6) {
-    if (!form.financeiro_modelo) {
-      errors.financeiro_modelo = 'Selecione o modelo comercial (avulso, pacote ou social).';
-    } else if (form.financeiro_modelo === 'pacote') {
-      const qtd = Number(form.financeiro_pacote_qtd);
-      if (!Number.isFinite(qtd) || qtd < 1) {
-        errors.financeiro_pacote_qtd = 'Informe a quantidade de sessões do pacote.';
-      }
-    }
+    return validateContractForm(anamnesisToContractForm(form));
   }
 
   return { valid: Object.keys(errors).length === 0, errors };

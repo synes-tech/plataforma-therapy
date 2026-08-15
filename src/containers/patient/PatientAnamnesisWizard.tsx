@@ -18,6 +18,7 @@ import { AcompanhamentoMultiField } from './AcompanhamentoMultiField';
 import { PatientAttachmentDropzone } from './attachments/PatientAttachmentDropzone';
 import { formatAttachmentSize } from './attachments/patient-attachment.utils';
 import { PhoneInput } from '@features/register/PhoneInput';
+import { PatientContractFields, type PatientContractFormValues } from './PatientContractFields';
 
 const TOTAL_STEPS = WIZARD_STEPS.length;
 
@@ -502,99 +503,56 @@ export const PatientAnamnesisWizard = forwardRef<
         {step === 6 && (
           <div className="space-y-5">
             <div>
-              <h3 className="font-serif text-base font-medium text-charcoal">Modelo comercial</h3>
+              <h3 className="font-serif text-base font-medium text-charcoal">Contrato financeiro</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-charcoal-muted">
-                Defina se o atendimento será avulso, por pacote mensal ou sessão social. Esses dados
-                alimentam o Financeiro e a projeção de faturamento.
+                Obrigatório para cadastrar o paciente. Particular ou convênio, avulso ou mensalidade —
+                esses dados alimentam o caixa e, se for mensal, a agenda recorrente.
               </p>
             </div>
-
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-charcoal">Tipo de acordo *</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {(
-                  [
-                    { value: 'avulso', label: 'Avulso', hint: 'Paga por sessão' },
-                    { value: 'pacote', label: 'Pacote', hint: 'Crédito antecipado' },
-                    { value: 'social', label: 'Social', hint: 'Valor simbólico/zero' },
-                  ] as const
-                ).map((option) => {
-                  const selected = form.financeiro_modelo === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => patch('financeiro_modelo', option.value)}
-                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
-                        selected
-                          ? 'border-primary bg-primary-50 ring-1 ring-primary/25'
-                          : 'border-slate-200 bg-white hover:border-primary/30'
-                      }`}
-                    >
-                      <span className="block text-sm font-medium text-charcoal">{option.label}</span>
-                      <span className="mt-0.5 block text-[11px] text-charcoal-muted">{option.hint}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.financeiro_modelo && (
-                <p className="text-xs text-error" role="alert">
-                  {errors.financeiro_modelo}
-                </p>
-              )}
-            </fieldset>
-
-            <Field label="Valor da sessão (R$)">
-              <input
-                className={inputClass}
-                value={form.financeiro_valor_sessao}
-                onChange={(e) => patch('financeiro_valor_sessao', e.target.value)}
-                placeholder="150,00"
-                inputMode="decimal"
-              />
-            </Field>
-
-            {form.financeiro_modelo === 'pacote' && (
-              <div className="space-y-3 rounded-xl border border-slate-100 bg-white p-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="Quantidade de sessões *" error={errors.financeiro_pacote_qtd}>
-                    <input
-                      className={inputClass}
-                      value={form.financeiro_pacote_qtd}
-                      onChange={(e) => patch('financeiro_pacote_qtd', e.target.value)}
-                      inputMode="numeric"
-                    />
-                  </Field>
-                  <Field label="Valor do pacote (R$)">
-                    <input
-                      className={inputClass}
-                      value={form.financeiro_pacote_valor}
-                      onChange={(e) => patch('financeiro_pacote_valor', e.target.value)}
-                      inputMode="decimal"
-                    />
-                  </Field>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-charcoal">
-                  <input
-                    type="checkbox"
-                    checked={form.financeiro_registrar_pacote_pago}
-                    onChange={(e) => patch('financeiro_registrar_pacote_pago', e.target.checked)}
-                    className="rounded border-slate-300 text-primary"
-                  />
-                  Pacote já pago — creditar saldo agora
-                </label>
-              </div>
-            )}
-
-            <Field label="Observações comerciais (opcional)">
-              <textarea
-                className={textareaClass}
-                rows={2}
-                value={form.financeiro_observacoes}
-                onChange={(e) => patch('financeiro_observacoes', e.target.value)}
-                placeholder="Ex.: reajuste em 90 dias, desconto familiar..."
-              />
-            </Field>
+            <PatientContractFields
+              value={{
+                model_type: form.financeiro_model_type,
+                billing_type: form.financeiro_billing_type,
+                valor: form.financeiro_valor_sessao,
+                due_day: form.financeiro_due_day,
+                sessions_per_month: form.financeiro_sessions_per_month,
+                sessions_custom: form.financeiro_sessions_custom,
+                duration_months: form.financeiro_duration_months,
+                pacote_qtd: form.financeiro_pacote_qtd,
+                pacote_valor: form.financeiro_pacote_valor,
+                registrar_pacote_pago: form.financeiro_registrar_pacote_pago,
+                observacoes: form.financeiro_observacoes,
+              }}
+              onChange={(next: Partial<PatientContractFormValues>) => {
+                setForm((current) => {
+                  const updated = {
+                    ...current,
+                    financeiro_model_type: next.model_type ?? current.financeiro_model_type,
+                    financeiro_billing_type: next.billing_type ?? current.financeiro_billing_type,
+                    financeiro_valor_sessao: next.valor ?? current.financeiro_valor_sessao,
+                    financeiro_due_day: next.due_day ?? current.financeiro_due_day,
+                    financeiro_sessions_per_month: next.sessions_per_month ?? current.financeiro_sessions_per_month,
+                    financeiro_sessions_custom: next.sessions_custom ?? current.financeiro_sessions_custom,
+                    financeiro_duration_months: next.duration_months ?? current.financeiro_duration_months,
+                    financeiro_pacote_qtd: next.pacote_qtd ?? current.financeiro_pacote_qtd,
+                    financeiro_pacote_valor: next.pacote_valor ?? current.financeiro_pacote_valor,
+                    financeiro_registrar_pacote_pago:
+                      next.registrar_pacote_pago ?? current.financeiro_registrar_pacote_pago,
+                    financeiro_observacoes: next.observacoes ?? current.financeiro_observacoes,
+                    financeiro_modelo:
+                      (next.billing_type ?? current.financeiro_billing_type) === 'PACOTE'
+                        ? 'pacote'
+                        : (next.billing_type ?? current.financeiro_billing_type)
+                          ? 'avulso'
+                          : current.financeiro_modelo,
+                  };
+                  const result = validateAnamnesisStep(6, updated);
+                  setErrors(result.errors);
+                  return updated;
+                });
+              }}
+              errors={errors}
+            />
           </div>
         )}
       </div>

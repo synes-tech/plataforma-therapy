@@ -1,3 +1,5 @@
+import type { FinanceBillingType, FinanceModelType } from '@containers/financeiro/financeiro.types';
+
 export type PatientContactScope = 'patient' | 'responsible' | 'both';
 
 export interface PatientAnamnesisForm {
@@ -21,7 +23,13 @@ export interface PatientAnamnesisForm {
   email_responsavel: string;
   telefone_responsavel: string;
   financeiro_modelo: 'avulso' | 'pacote' | 'social' | '';
+  financeiro_model_type: FinanceModelType | '';
+  financeiro_billing_type: FinanceBillingType | '';
   financeiro_valor_sessao: string;
+  financeiro_due_day: string;
+  financeiro_sessions_per_month: string;
+  financeiro_sessions_custom: boolean;
+  financeiro_duration_months: string;
   financeiro_pacote_qtd: string;
   financeiro_pacote_valor: string;
   financeiro_registrar_pacote_pago: boolean;
@@ -49,7 +57,13 @@ export const EMPTY_ANAMNESIS_FORM: PatientAnamnesisForm = {
   email_responsavel: '',
   telefone_responsavel: '',
   financeiro_modelo: '',
+  financeiro_model_type: '',
+  financeiro_billing_type: '',
   financeiro_valor_sessao: '150,00',
+  financeiro_due_day: '10',
+  financeiro_sessions_per_month: '4',
+  financeiro_sessions_custom: false,
+  financeiro_duration_months: '',
   financeiro_pacote_qtd: '4',
   financeiro_pacote_valor: '600,00',
   financeiro_registrar_pacote_pago: false,
@@ -62,7 +76,7 @@ export const WIZARD_STEPS = [
   { id: 3, label: 'Dinâmica Familiar' },
   { id: 4, label: 'Parametrização IA' },
   { id: 5, label: 'Contato' },
-  { id: 6, label: 'Comercial' },
+  { id: 6, label: 'Financeiro' },
 ] as const;
 
 export const CONTACT_SCOPE_OPTIONS: { value: PatientContactScope; label: string; hint: string }[] = [
@@ -163,7 +177,13 @@ export function patientInfoToForm(p: PatientInfoLike): PatientAnamnesisForm {
     email_responsavel: '',
     telefone_responsavel: '',
     financeiro_modelo: '',
+    financeiro_model_type: '',
+    financeiro_billing_type: '',
     financeiro_valor_sessao: '150,00',
+    financeiro_due_day: '10',
+    financeiro_sessions_per_month: '4',
+    financeiro_sessions_custom: false,
+    financeiro_duration_months: '',
     financeiro_pacote_qtd: '4',
     financeiro_pacote_valor: '600,00',
     financeiro_registrar_pacote_pago: false,

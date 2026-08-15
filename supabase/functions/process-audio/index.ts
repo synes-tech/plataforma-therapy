@@ -3,6 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 import { ProcessAudioSchema } from './schema.ts';
 import { processAudio } from './service.ts';
 
@@ -26,8 +27,8 @@ serve(async (req: Request) => {
       return errorResponse(new ValidationError({ method: 'Only POST is allowed' }), req);
     }
 
-    // Authenticate caller (professional or service role)
-    await authenticateRequest(req);
+    const user = await authenticateRequest(req);
+    await assertAiRateLimit(user, 'session');
 
     const body = await req.json();
     const parseResult = ProcessAudioSchema.safeParse(body);

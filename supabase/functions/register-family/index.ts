@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { ValidationError } from '../_shared/errors.ts';
+import { assertIpRateLimit } from '../_shared/rate-limit.ts';
 import { RegisterFamilySchema } from './schema.ts';
 import { registerFamily } from './service.ts';
 
@@ -17,6 +18,8 @@ serve(async (req: Request) => {
     if (req.method !== 'POST') {
       return errorResponse(new ValidationError({ method: 'Only POST is allowed' }), req);
     }
+
+    await assertIpRateLimit(req, { bucket: 'register_family', limit: 10, windowSec: 60 * 60 });
 
     const body = await req.json();
     const parseResult = RegisterFamilySchema.safeParse(body);

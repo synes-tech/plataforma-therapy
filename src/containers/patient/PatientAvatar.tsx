@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@shared/lib/supabase';
+import { getSignedReadUrl } from '@shared/lib/signed-read-url';
 import { getInitials } from '@shared/lib/greeting';
 
-const AVATAR_BUCKET = 'pacientes-avatars';
+const AVATAR_BUCKET = 'pacientes-avatars' as const;
 
 interface PatientAvatarProps {
   name: string;
@@ -34,11 +34,11 @@ export function PatientAvatar({
     queryKey: ['patient-avatar-url', fotoUrl],
     queryFn: async () => {
       if (!fotoUrl) return null;
-      const { data, error } = await supabase.storage
-        .from(AVATAR_BUCKET)
-        .createSignedUrl(fotoUrl, 3600);
-      if (error || !data?.signedUrl) return null;
-      return data.signedUrl;
+      try {
+        return await getSignedReadUrl(AVATAR_BUCKET, fotoUrl, 3600);
+      } catch {
+        return null;
+      }
     },
     enabled: !!fotoUrl && !previewUrl,
     staleTime: 45 * 60 * 1000,

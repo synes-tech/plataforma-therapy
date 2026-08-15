@@ -1,4 +1,9 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import {
+  createIdpUser,
+  deleteIdpUser,
+  isIdpEmailExistsError,
+} from '../_shared/identity-platform-admin.ts';
 import { assertCanAddProfessional } from '../_shared/plan-quotas.ts';
 import { AppError, ConflictError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
@@ -32,25 +37,26 @@ export async function registerProfessional(
     throw new ConflictError('A professional with this email already exists');
   }
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: payload.email,
-    password: payload.password,
-    email_confirm: true,
-    app_metadata: { role: 'professional', clinic_id: clinicId },
-  });
-
-  if (authError || !authData.user) {
-    if (authError?.message?.includes('already been registered')) {
+  let userId: string;
+  try {
+    const user = await createIdpUser({
+      email: payload.email,
+      password: payload.password,
+      displayName: payload.name,
+      emailVerified: true,
+      claims: { role: 'professional', clinic_id: clinicId },
+    });
+    userId = user.id;
+  } catch (err) {
+    if (isIdpEmailExistsError(err)) {
       throw new ConflictError('An account with this email already exists');
     }
     throw new AppError({
       code: 'AUTH_CREATE_FAILED',
-      message: authError?.message ?? 'Failed to create auth user',
+      message: err instanceof Error ? err.message : 'Failed to create auth user',
       statusCode: 500,
     });
   }
-
-  const userId = authData.user.id;
 
   const { data: professional, error: profError } = await supabase
     .from('professionals')
@@ -68,7 +74,7 @@ export async function registerProfessional(
     .single();
 
   if (profError || !professional) {
-    await supabase.auth.admin.deleteUser(userId);
+    await deleteIdpUser(userId);
     throw new AppError({
       code: 'PROFESSIONAL_CREATE_FAILED',
       message: profError?.message ?? 'Failed to create professional',

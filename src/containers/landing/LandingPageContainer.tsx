@@ -16,8 +16,6 @@ import {
   type LandingPillar,
 } from './landing-content';
 
-const CONTACT_EMAIL = 'contact@unithery.com';
-
 /* ---------- Ícones ---------- */
 
 function FeatureIcon({ icon, className = 'h-5 w-5' }: { icon: LandingPillar['icon']; className?: string }) {
@@ -133,6 +131,9 @@ function Header() {
           <a href="#faq" className="text-sm font-medium text-charcoal-muted transition-colors hover:text-charcoal">
             Dúvidas
           </a>
+          <Link to="/ajuda" className="text-sm font-medium text-charcoal-muted transition-colors hover:text-charcoal">
+            Fale conosco
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -178,14 +179,7 @@ function HeroSection() {
       <div className="relative z-10 mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-10 lg:py-24">
         {/* Copy */}
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-charcoal/10 bg-white/70 px-4 py-1.5 text-[11px] font-medium text-charcoal-muted backdrop-blur-sm sm:text-xs">
-            <svg className="h-3.5 w-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            {HERO.badge}
-          </p>
-
-          <h1 className="mt-6 font-serif text-4xl font-medium leading-[1.1] tracking-tight text-charcoal sm:text-5xl xl:text-6xl">
+          <h1 className="font-serif text-4xl font-medium leading-[1.1] tracking-tight text-charcoal sm:text-5xl xl:text-6xl">
             {HERO.titleLines[0]}
             <br />
             <span className="italic text-primary-dark">{HERO.titleLines[1]}</span>{' '}
@@ -638,12 +632,12 @@ function Footer({ onOpenTerms }: { onOpenTerms: () => void }) {
           >
             Contrato de Adesão e Termo de Uso Integrado
           </button>
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
+          <Link
+            to="/ajuda"
             className="text-sm text-charcoal-muted transition-colors hover:text-charcoal"
           >
-            Contato — {CONTACT_EMAIL}
-          </a>
+            Fale conosco
+          </Link>
         </nav>
       </div>
 

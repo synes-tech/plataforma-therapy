@@ -6,7 +6,7 @@ export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-idempotency-key, x-request-id',
+    'authorization, x-client-info, apikey, content-type, accept, prefer, accept-profile, content-profile, x-supabase-api-version, x-retry-count, x-cron-secret, x-idempotency-key, x-request-id, range',
   'Access-Control-Max-Age': '86400',
 };
 

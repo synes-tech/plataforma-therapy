@@ -4,6 +4,7 @@ import { assertCanCreatePatientPaywall } from '../_shared/paywall.ts';
 import { anamnesisToDbRow } from '../_shared/patient-anamnesis-schema.ts';
 import { AppError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
+import { contractFromCreatePayload, upsertFinancialContract } from '../_shared/financeiro-contract.ts';
 import type { CreatePatientPayload, CreatePatientResponse } from './types.ts';
 
 export async function createPatient(
@@ -83,36 +84,23 @@ export async function createPatient(
     });
   }
 
-  const modelo = payload.financeiro_modelo as 'avulso' | 'pacote' | 'social' | undefined;
-  if (modelo) {
-    await supabase.from('financeiro_planos_paciente').insert({
-      clinic_id: clinicId,
-      patient_id: patient.id,
-      professional_id: professional.id,
-      modelo,
-      valor_sessao_cents: Number(payload.financeiro_valor_sessao_cents ?? 0),
-      pacote_qtd_sessoes: modelo === 'pacote' ? payload.financeiro_pacote_qtd_sessoes ?? null : null,
-      pacote_valor_cents: modelo === 'pacote' ? payload.financeiro_pacote_valor_cents ?? null : null,
-      observacoes: payload.financeiro_observacoes ?? null,
-      created_by: caller.id,
+  let contractResult: Awaited<ReturnType<typeof upsertFinancialContract>>;
+  try {
+    const input = contractFromCreatePayload(payload as Record<string, unknown>);
+    input.patient_id = patient.id;
+    contractResult = await upsertFinancialContract({
+      clinicId,
+      professionalId: professional.id,
+      createdBy: caller.id,
+      input,
     });
-
-    if (
-      modelo === 'pacote' &&
-      payload.financeiro_registrar_pacote_pago &&
-      payload.financeiro_pacote_qtd_sessoes &&
-      payload.financeiro_pacote_valor_cents != null
-    ) {
-      await supabase.rpc('financeiro_vender_pacote', {
-        p_clinic_id: clinicId,
-        p_patient_id: patient.id,
-        p_professional_id: professional.id,
-        p_qtd: payload.financeiro_pacote_qtd_sessoes,
-        p_valor_cents: payload.financeiro_pacote_valor_cents,
-        p_descricao: `Pacote de ${payload.financeiro_pacote_qtd_sessoes} sessões`,
-        p_created_by: caller.id,
-      });
-    }
+  } catch (err) {
+    await supabase
+      .from('patients')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', patient.id)
+      .eq('clinic_id', clinicId);
+    throw err;
   }
 
   await supabase.from('audit_logs').insert({
@@ -125,12 +113,16 @@ export async function createPatient(
       diagnoses: payload.diagnoses,
       anamnesis_complete: Boolean((payload as Record<string, unknown>).queixa_principal),
       possui_cpf_proprio: payload.possui_cpf_proprio,
-      financeiro_modelo: modelo ?? null,
+      billing_type: contractResult.contract.billing_type ?? null,
+      needs_windows: contractResult.needs_windows,
     },
   });
 
   return {
     patient_id: patient.id,
     message: 'Paciente cadastrado com sucesso',
+    contract: contractResult.contract,
+    needs_windows: contractResult.needs_windows,
+    next_step: contractResult.next_step,
   };
 }

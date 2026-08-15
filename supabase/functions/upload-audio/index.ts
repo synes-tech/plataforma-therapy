@@ -6,6 +6,7 @@ import { ValidationError } from '../_shared/errors.ts';
 import { UploadAudioSchema } from './schema.ts';
 import { initiateAudioUpload } from './service.ts';
 import { extractToken } from '../_shared/supabase.ts';
+import { assertAiRateLimit } from '../_shared/rate-limit.ts';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
@@ -18,6 +19,7 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['professional']);
+    await assertAiRateLimit(user, 'session');
     logAuthEvent('upload_audio.attempt', user, 'upload-audio');
 
     const body = await req.json();

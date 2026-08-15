@@ -61,6 +61,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      // Firebase Google popup precisa inspecionar window.closed no opener
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      },
       proxy: supabaseUrl
         ? {
             '/api/functions': {

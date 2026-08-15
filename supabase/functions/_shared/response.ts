@@ -70,14 +70,24 @@ export function errorResponse(error: unknown, req: Request): Response {
     error_code: code,
     message,
     status_code: statusCode,
+    cause: error instanceof Error && !(error instanceof AppError) ? error.message : undefined,
     timestamp: body.meta.timestamp,
   }));
+
+  const retryAfter =
+    details &&
+    typeof details === 'object' &&
+    'retry_after_seconds' in details &&
+    typeof (details as { retry_after_seconds?: unknown }).retry_after_seconds === 'number'
+      ? String(Math.max(1, Math.ceil((details as { retry_after_seconds: number }).retry_after_seconds)))
+      : null;
 
   return new Response(JSON.stringify(body), {
     status: statusCode,
     headers: {
       'Content-Type': 'application/json',
       ...getCorsHeaders(origin),
+      ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
     },
   });
 }

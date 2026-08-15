@@ -11,16 +11,36 @@ import {
   getPatientPlan,
   resolveProfessionalId,
 } from '../_shared/financeiro.ts';
+import {
+  FinancialContractInputSchema,
+  RecurrenceWindowsPayloadSchema,
+  getFinancialContract,
+  syncRecurrenceWindows,
+  upsertFinancialContract,
+} from '../_shared/financeiro-contract.ts';
 
 const planSchema = z.object({
   action: z.literal('upsert_plan').optional(),
   patient_id: z.string().uuid(),
-  modelo: z.enum(['avulso', 'pacote', 'social']),
-  valor_sessao_cents: z.number().int().min(0).default(0),
+  modelo: z.enum(['avulso', 'pacote', 'social']).optional(),
+  model_type: z.enum(['PARTICULAR', 'CONVENIO']).optional(),
+  billing_type: z.enum(['AVULSO', 'MENSAL_RECORRENTE', 'PACOTE']).optional(),
+  valor_acordado_cents: z.number().int().min(0).optional(),
+  valor_sessao_cents: z.number().int().min(0).optional(),
+  due_day: z.number().int().min(1).max(28).optional().nullable(),
+  sessions_per_month: z.number().int().positive().optional().nullable(),
+  sessions_custom: z.boolean().optional(),
+  contract_duration_months: z.number().int().positive().optional().nullable(),
+  contract_starts_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   pacote_qtd_sessoes: z.number().int().positive().optional().nullable(),
   pacote_valor_cents: z.number().int().min(0).optional().nullable(),
   observacoes: z.string().max(2000).optional().nullable(),
   registrar_pacote_pago: z.boolean().optional().default(false),
+});
+
+const getContractSchema = z.object({
+  action: z.literal('get_contract'),
+  patient_id: z.string().uuid(),
 });
 
 const confirmSchema = z.object({
@@ -47,6 +67,70 @@ serve(async (req) => {
     const action = body.action ?? 'upsert_plan';
     const supabase = createServiceClient();
     const professionalId = await resolveProfessionalId(user, clinicId);
+
+    if (action === 'get_contract') {
+      const parsed = getContractSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new AppError({
+          code: 'VALIDATION_ERROR',
+          message: 'patient_id inválido',
+          statusCode: 400,
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('id, name')
+        .eq('id', parsed.data.patient_id)
+        .eq('clinic_id', clinicId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!patient) {
+        throw new AppError({ code: 'PATIENT_NOT_FOUND', message: 'Paciente não encontrado', statusCode: 404 });
+      }
+      const detail = await getFinancialContract(parsed.data.patient_id, clinicId);
+      return successResponse({ patient, ...detail }, req);
+    }
+
+    if (action === 'upsert_windows') {
+      const parsed = RecurrenceWindowsPayloadSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new AppError({
+          code: 'VALIDATION_ERROR',
+          message: 'Informe o paciente e ao menos um horário semanal válido',
+          statusCode: 400,
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('id, name')
+        .eq('id', parsed.data.patient_id)
+        .eq('clinic_id', clinicId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!patient) {
+        throw new AppError({ code: 'PATIENT_NOT_FOUND', message: 'Paciente não encontrado', statusCode: 404 });
+      }
+      const result = await syncRecurrenceWindows({
+        clinicId,
+        createdBy: user.id,
+        patientId: parsed.data.patient_id,
+        janelas: parsed.data.janelas,
+      });
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        clinic_id: clinicId,
+        action: 'financeiro.sync_recurrence',
+        resource_type: 'financeiro_planos_paciente',
+        resource_id: String((result.contract as { id?: string } | null)?.id ?? parsed.data.patient_id),
+        metadata: {
+          janelas_count: result.janelas_count,
+          sync: result.sync,
+        },
+      });
+      return successResponse({ patient, ...result }, req);
+    }
 
     if (action === 'confirm_session_payment') {
       const parsed = confirmSchema.safeParse(body);
@@ -210,77 +294,33 @@ serve(async (req) => {
       });
     }
     const p = parsed.data;
-    if (p.modelo === 'pacote' && (!p.pacote_qtd_sessoes || p.pacote_valor_cents == null)) {
-      throw new AppError({
-        code: 'VALIDATION_ERROR',
-        message: 'Pacote exige quantidade e valor',
-        statusCode: 400,
-      });
-    }
+    const billingType = p.billing_type
+      ?? (p.modelo === 'pacote' ? 'PACOTE' : 'AVULSO');
+    const modelType = p.model_type ?? 'PARTICULAR';
+    const valor = p.valor_acordado_cents ?? p.valor_sessao_cents ?? p.pacote_valor_cents ?? 0;
 
-    const { data: patient } = await supabase
-      .from('patients')
-      .select('id')
-      .eq('id', p.patient_id)
-      .eq('clinic_id', clinicId)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (!patient) {
-      throw new AppError({ code: 'PATIENT_NOT_FOUND', message: 'Paciente não encontrado', statusCode: 404 });
-    }
-
-    const row = {
-      clinic_id: clinicId,
+    const input = FinancialContractInputSchema.parse({
       patient_id: p.patient_id,
-      professional_id: professionalId,
-      modelo: p.modelo,
-      valor_sessao_cents: p.valor_sessao_cents,
-      pacote_qtd_sessoes: p.modelo === 'pacote' ? p.pacote_qtd_sessoes : null,
-      pacote_valor_cents: p.modelo === 'pacote' ? p.pacote_valor_cents : null,
+      model_type: modelType,
+      billing_type: billingType,
+      valor_acordado_cents: valor,
+      due_day: p.due_day ?? null,
+      sessions_per_month: p.sessions_per_month ?? p.pacote_qtd_sessoes ?? null,
+      sessions_custom: p.sessions_custom ?? false,
+      contract_duration_months: p.contract_duration_months ?? null,
+      contract_starts_on: p.contract_starts_on ?? null,
       observacoes: p.observacoes ?? null,
-      created_by: user.id,
-      deleted_at: null,
-    };
+      pacote_qtd_sessoes: p.pacote_qtd_sessoes ?? null,
+      pacote_valor_cents: p.pacote_valor_cents ?? null,
+      registrar_pacote_pago: p.registrar_pacote_pago ?? false,
+    });
 
-    const { data: existing } = await supabase
-      .from('financeiro_planos_paciente')
-      .select('id')
-      .eq('patient_id', p.patient_id)
-      .is('deleted_at', null)
-      .maybeSingle();
-
-    let plan;
-    if (existing) {
-      const res = await supabase
-        .from('financeiro_planos_paciente')
-        .update(row)
-        .eq('id', existing.id)
-        .select('*')
-        .single();
-      if (res.error) throw new AppError({ code: 'UPDATE_FAILED', message: res.error.message, statusCode: 500 });
-      plan = res.data;
-    } else {
-      const res = await supabase.from('financeiro_planos_paciente').insert(row).select('*').single();
-      if (res.error) throw new AppError({ code: 'CREATE_FAILED', message: res.error.message, statusCode: 500 });
-      plan = res.data;
-    }
-
-    let package_tx_id: string | null = null;
-    if (p.modelo === 'pacote' && p.registrar_pacote_pago && p.pacote_qtd_sessoes && p.pacote_valor_cents != null) {
-      const { data: txId, error: rpcErr } = await supabase.rpc('financeiro_vender_pacote', {
-        p_clinic_id: clinicId,
-        p_patient_id: p.patient_id,
-        p_professional_id: professionalId,
-        p_qtd: p.pacote_qtd_sessoes,
-        p_valor_cents: p.pacote_valor_cents,
-        p_descricao: `Pacote de ${p.pacote_qtd_sessoes} sessões`,
-        p_created_by: user.id,
-      });
-      if (rpcErr) {
-        throw new AppError({ code: 'PACKAGE_SALE_FAILED', message: rpcErr.message, statusCode: 500 });
-      }
-      package_tx_id = txId as string;
-    }
+    const result = await upsertFinancialContract({
+      clinicId,
+      professionalId,
+      createdBy: user.id,
+      input,
+    });
 
     const { data: saldo } = await supabase
       .from('financeiro_saldos_pacientes')
@@ -290,9 +330,14 @@ serve(async (req) => {
 
     return successResponse(
       {
-        plan,
+        plan: result.contract,
+        contract: result.contract,
+        archived_contract_id: result.archived_contract_id,
+        needs_windows: result.needs_windows,
+        next_step: result.next_step,
+        janelas_count: result.janelas_count,
         sessoes_disponiveis: Number(saldo?.sessoes_disponiveis ?? 0),
-        package_tx_id,
+        package_tx_id: result.package_tx_id,
       },
       req,
     );

@@ -1,0 +1,16 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_IMAGE}
+      - -f
+      - cloud-run/api/Dockerfile
+      - .
+images:
+  - ${_IMAGE}
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/plataforma-therapy-ai/unithery-docker/api:staging
+timeout: 1200s
+options:
+  logging: CLOUD_LOGGING_ONLY

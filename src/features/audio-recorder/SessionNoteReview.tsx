@@ -7,6 +7,7 @@ import {
   type SessionReportContentFields,
 } from '@containers/patient/session/session-report-sections';
 import { supabase } from '@shared/lib/supabase';
+import { useAuthStore } from '@shared/lib/auth-store';
 
 interface SessionNote {
   id: string;
@@ -89,7 +90,7 @@ function NoteCard({ note, patientId }: { note: SessionNote; patientId: string })
         .update({
           status: 'approved',
           approved_at: new Date().toISOString(),
-          approved_by: (await supabase.auth.getUser()).data.user?.id,
+          approved_by: useAuthStore.getState().user?.id,
         })
         .eq('id', note.id);
       if (error) throw error;

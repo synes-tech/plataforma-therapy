@@ -77,14 +77,14 @@ export async function initiateFamilyAudio(
   const storagePath = `${clinicId}/${payload.patient_id}/family/${timestamp}.${ext}`;
 
   const supabase = createServiceClient();
-  const { data: signed, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUploadUrl(storagePath);
-
-  if (error || !signed) {
+  const { createUploadUrl } = await import('../_shared/object-storage.ts');
+  let signed: { signedUrl: string };
+  try {
+    signed = await createUploadUrl(BUCKET, storagePath);
+  } catch (error) {
     throw new AppError({
       code: 'UPLOAD_URL_FAILED',
-      message: error?.message ?? 'Falha ao gerar URL de upload',
+      message: error instanceof Error ? error.message : 'Falha ao gerar URL de upload',
       statusCode: 500,
     });
   }
@@ -123,19 +123,17 @@ export async function completeFamilyAudio(
 
   const supabase = createServiceClient();
 
-  const { data: fileData, error: downloadError } = await supabase.storage
-    .from(BUCKET)
-    .download(payload.storage_path);
-
-  if (downloadError || !fileData) {
+  const { downloadBytes } = await import('../_shared/object-storage.ts');
+  let bytes: Uint8Array;
+  try {
+    bytes = await downloadBytes(BUCKET, payload.storage_path);
+  } catch {
     throw new AppError({
       code: 'AUDIO_NOT_FOUND',
       message: 'Áudio não encontrado. Envie novamente.',
       statusCode: 404,
     });
   }
-
-  const bytes = new Uint8Array(await fileData.arrayBuffer());
 
   if (bytes.byteLength === 0) {
     throw new AppError({

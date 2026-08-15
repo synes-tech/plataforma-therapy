@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import { InviteCodeField } from '@containers/family/invite-link/InviteCodeField';
 import { InvitePatientSafetyCheck } from '@containers/family/invite-link/InvitePatientSafetyCheck';
 import { useInviteCodePreview } from '@containers/family/invite-link/useInviteCodePreview';
-import { supabase } from '@shared/lib/supabase';
 import { useAuth } from '@shared/hooks/useAuth';
 import { callFunction } from '@shared/lib/api';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { getFirebaseIdToken } from '@shared/lib/firebase';
 
 const codeInputClass =
   'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-mono text-lg tracking-[0.3em] text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10';
@@ -17,7 +16,6 @@ const codeInputClass =
  * não associou nenhum paciente. Reusa link-family-account.
  */
 export default function LinkInvite() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -38,8 +36,10 @@ export default function LinkInvite() {
         invite_code: preview.normalizedCode,
         name: name.trim(),
       });
-      await supabase.auth.refreshSession();
-      navigate('/family/diary', { replace: true });
+      // Força JWT com claims atualizados (role/clinic_id)
+      await getFirebaseIdToken(true);
+      window.location.replace('/family/diary');
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao validar convite');
     } finally {
@@ -101,6 +101,7 @@ export default function LinkInvite() {
               status={preview.status}
               patientName={preview.patientName}
               error={preview.error}
+              retryAfterSeconds={preview.retryAfterSeconds}
             />
 
             <LoadingButton

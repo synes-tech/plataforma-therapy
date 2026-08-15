@@ -1,5 +1,7 @@
 export const PATIENT_COPILOT_QUICK_PROMPTS = [
   'Resuma as últimas 3 sessões',
+  'Quantas sessões já foram realizadas com este paciente?',
+  'Quais padrões de comportamento a família relatou?',
   'Há padrões de crise?',
   'Sugira atividades para hoje',
   'Combinados para regulação emocional',

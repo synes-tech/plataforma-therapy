@@ -58,15 +58,13 @@ export async function processPatientAttachment(
 ): Promise<ProcessPatientAttachmentResult> {
   const supabase = createServiceClient();
 
-  const { data: fileBlob, error: downloadError } = await supabase.storage
-    .from(BUCKET)
-    .download(params.storage_path);
-
-  if (downloadError || !fileBlob) {
-    throw new Error(downloadError?.message ?? 'Falha ao baixar anexo do storage');
+  const { downloadBytes } = await import('./object-storage.ts');
+  let bytes: Uint8Array;
+  try {
+    bytes = await downloadBytes(BUCKET, params.storage_path);
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Falha ao baixar anexo do storage');
   }
-
-  const bytes = new Uint8Array(await fileBlob.arrayBuffer());
   const extractedText = await extractDocumentText(bytes, params.mime_type, params.file_name);
   const chunks = chunkTextForRag(extractedText);
 

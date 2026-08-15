@@ -6,7 +6,8 @@ export interface RegisterClinicPayload {
   clinic_phone?: string;
   admin_name: string;
   admin_email: string;
-  admin_password: string;
+  admin_password?: string;
+  google_id_token?: string;
   specialty?: string;
   email_redirect_to?: string;
 }

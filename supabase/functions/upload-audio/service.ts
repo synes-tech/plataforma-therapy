@@ -109,13 +109,17 @@ export async function initiateAudioUpload(
     throw new AppError({ code: 'RECORDING_CREATE_FAILED', message: recordingError?.message ?? 'Failed', statusCode: 500 });
   }
 
-  // 5. Create signed upload URL (client uploads directly to Storage)
-  const { data: signedUrl, error: signError } = await serviceClient.storage
-    .from('audio-recordings')
-    .createSignedUploadUrl(storagePath);
-
-  if (signError || !signedUrl) {
-    throw new AppError({ code: 'UPLOAD_URL_FAILED', message: signError?.message ?? 'Failed to create upload URL', statusCode: 500 });
+  // 5. Create signed upload URL (GCS ou Supabase — client faz PUT direto)
+  const { createUploadUrl } = await import('../_shared/object-storage.ts');
+  let signedUrl: { signedUrl: string };
+  try {
+    signedUrl = await createUploadUrl('audio-recordings', storagePath);
+  } catch (err) {
+    throw new AppError({
+      code: 'UPLOAD_URL_FAILED',
+      message: err instanceof Error ? err.message : 'Failed to create upload URL',
+      statusCode: 500,
+    });
   }
 
   // 6. Create the AI job (pending — will trigger after upload completes)

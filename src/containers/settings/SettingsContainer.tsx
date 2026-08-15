@@ -4,6 +4,7 @@ import { LoadingButton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { OwnerProfilePhotoUpload } from './OwnerProfilePhotoUpload';
 import { uploadOwnerAvatarFile } from './owner-avatar.upload';
+import { MfaSettingsSection } from './MfaSettingsSection';
 
 interface OwnerProfile {
   kind: 'professional' | 'clinic_admin';
@@ -390,6 +391,7 @@ export default function SettingsContainer() {
             </p>
             <p className="mt-1 text-sm text-charcoal-muted">{profile.email}</p>
           </div>
+          <MfaSettingsSection />
           <a
             href="/login"
             className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50 sm:w-auto sm:self-start"

@@ -57,16 +57,13 @@ export async function processClinicalReturn(input: ProcessClinicalReturnInput): 
 
     if (!recording) throw new Error('Audio recording not found');
 
-    // Download audio from Storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('audio-recordings')
-      .download(recording.storage_path);
-
-    if (downloadError || !fileData) {
-      throw new Error(`Failed to download audio: ${downloadError?.message}`);
+    const { downloadBytes } = await import('../_shared/object-storage.ts');
+    let bytes: Uint8Array;
+    try {
+      bytes = await downloadBytes('audio-recordings', recording.storage_path);
+    } catch (err) {
+      throw new Error(`Failed to download audio: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    const bytes = new Uint8Array(await fileData.arrayBuffer());
     const startTime = Date.now();
 
     console.log(JSON.stringify({

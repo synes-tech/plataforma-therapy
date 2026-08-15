@@ -1,4 +1,9 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+/**
+ * Validates the JWT from the Authorization header and extracts user info.
+ * Aceita apenas Identity Platform / Firebase (Google + e-mail).
+ * GoTrue / Supabase Auth removido no cutover 100% GCP.
+ */
+import * as jose from 'https://esm.sh/jose@5.9.6';
 import { UnauthorizedError, ForbiddenError } from './errors.ts';
 
 export type UserRole = 'master' | 'clinic_admin' | 'professional' | 'family';
@@ -11,10 +16,94 @@ export interface AuthenticatedUser {
   is_solo: boolean;
 }
 
-/**
- * Validates the JWT from the Authorization header and extracts user info.
- * Throws UnauthorizedError if token is missing or invalid.
- */
+const GOOGLE_JWKS = jose.createRemoteJWKSet(
+  new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
+);
+
+function claimsToUser(payload: jose.JWTPayload): AuthenticatedUser | null {
+  const sub = typeof payload.sub === 'string' ? payload.sub : null;
+  if (!sub) return null;
+
+  const appMeta = (payload.app_metadata && typeof payload.app_metadata === 'object')
+    ? payload.app_metadata as Record<string, unknown>
+    : {};
+
+  const role = (payload.role as UserRole | undefined)
+    ?? (appMeta.role as UserRole | undefined)
+    ?? null;
+  if (!role) return null;
+
+  const clinicRaw = payload.clinic_id ?? appMeta.clinic_id ?? null;
+  const isSolo = payload.is_solo === true || appMeta.is_solo === true;
+
+  return {
+    id: sub,
+    email: typeof payload.email === 'string' ? payload.email : '',
+    role,
+    clinic_id: typeof clinicRaw === 'string' ? clinicRaw : null,
+    is_solo: isSolo,
+  };
+}
+
+export interface FirebaseIdentity {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name: string | null;
+}
+
+function firebaseProjectId(): string {
+  return Deno.env.get('FIREBASE_PROJECT_ID')
+    ?? Deno.env.get('GCP_PROJECT')
+    ?? Deno.env.get('GOOGLE_CLOUD_PROJECT')
+    ?? 'plataforma-therapy-ai';
+}
+
+async function verifyFirebaseJwt(token: string): Promise<jose.JWTPayload> {
+  const projectId = firebaseProjectId();
+  const { payload } = await jose.jwtVerify(token, GOOGLE_JWKS, {
+    issuer: `https://securetoken.google.com/${projectId}`,
+    audience: projectId,
+  });
+  return payload;
+}
+
+/** Valida o ID token do Identity Platform sem exigir claims de role (cadastro Google). */
+export async function verifyFirebaseIdentity(token: string): Promise<FirebaseIdentity> {
+  try {
+    const payload = await verifyFirebaseJwt(token);
+    const id = typeof payload.sub === 'string' ? payload.sub : null;
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    if (!id || !email) {
+      throw new UnauthorizedError('Token Google sem e-mail válido.');
+    }
+    return {
+      id,
+      email,
+      emailVerified: payload.email_verified === true,
+      name: typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : null,
+    };
+  } catch (err) {
+    if (err instanceof UnauthorizedError) throw err;
+    throw new UnauthorizedError('Token Google inválido ou expirado.');
+  }
+}
+
+async function authenticateFirebaseToken(token: string): Promise<AuthenticatedUser | null> {
+  try {
+    const payload = await verifyFirebaseJwt(token);
+    return claimsToUser(payload);
+  } catch (err) {
+    console.error(JSON.stringify({
+      level: 'warn',
+      action: 'firebase_jwt_verify_failed',
+      project_id: firebaseProjectId(),
+      message: err instanceof Error ? err.message : String(err),
+    }));
+    return null;
+  }
+}
+
 export async function authenticateRequest(req: Request): Promise<AuthenticatedUser> {
   const authHeader = req.headers.get('Authorization');
 
@@ -23,36 +112,10 @@ export async function authenticateRequest(req: Request): Promise<AuthenticatedUs
   }
 
   const token = authHeader.replace('Bearer ', '');
+  const firebaseUser = await authenticateFirebaseToken(token);
+  if (firebaseUser) return firebaseUser;
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) {
-    throw new UnauthorizedError('Invalid or expired token');
-  }
-
-  // Extract custom claims from user metadata (set via Database Hook on auth.users)
-  const role = (user.app_metadata?.role as UserRole) ?? 'family';
-  const clinicId = (user.app_metadata?.clinic_id as string) ?? null;
-  const isSolo = user.app_metadata?.is_solo === true;
-
-  return {
-    id: user.id,
-    email: user.email ?? '',
-    role,
-    clinic_id: clinicId,
-    is_solo: isSolo,
-  };
+  throw new UnauthorizedError('Invalid or expired token');
 }
 
 /**
@@ -88,7 +151,7 @@ export function requireRole(user: AuthenticatedUser, allowedRoles: UserRole[]): 
  * Throws ForbiddenError if clinic_id doesn't match.
  */
 export function requireClinic(user: AuthenticatedUser, clinicId: string): void {
-  if (user.role === 'master') return; // Master has global access
+  if (user.role === 'master') return;
   if (user.clinic_id !== clinicId) {
     throw new ForbiddenError('Access denied: clinic mismatch');
   }

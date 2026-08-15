@@ -59,14 +59,14 @@ export async function initiateCopilotAudio(
   const storagePath = `${access.clinic_id}/${payload.patient_id}/copilot/${timestamp}.wav`;
 
   const supabase = createServiceClient();
-  const { data: signed, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUploadUrl(storagePath);
-
-  if (error || !signed) {
+  const { createUploadUrl } = await import('../_shared/object-storage.ts');
+  let signed: { signedUrl: string };
+  try {
+    signed = await createUploadUrl(BUCKET, storagePath);
+  } catch (error) {
     throw new AppError({
       code: 'UPLOAD_URL_FAILED',
-      message: error?.message ?? 'Falha ao gerar URL de upload',
+      message: error instanceof Error ? error.message : 'Falha ao gerar URL de upload',
       statusCode: 500,
     });
   }
@@ -102,19 +102,17 @@ export async function completeCopilotAudio(
 
   const supabase = createServiceClient();
 
-  const { data: fileData, error: downloadError } = await supabase.storage
-    .from(BUCKET)
-    .download(payload.storage_path);
-
-  if (downloadError || !fileData) {
+  const { downloadBytes, removePaths } = await import('../_shared/object-storage.ts');
+  let bytes: Uint8Array;
+  try {
+    bytes = await downloadBytes(BUCKET, payload.storage_path);
+  } catch {
     throw new AppError({
       code: 'AUDIO_NOT_FOUND',
       message: 'Áudio não encontrado. Grave novamente.',
       statusCode: 404,
     });
   }
-
-  const bytes = new Uint8Array(await fileData.arrayBuffer());
 
   if (bytes.byteLength === 0) {
     throw new AppError({
@@ -141,7 +139,7 @@ export async function completeCopilotAudio(
     });
   }
 
-  await supabase.storage.from(BUCKET).remove([payload.storage_path]);
+  await removePaths(BUCKET, [payload.storage_path]);
 
   await supabase.from('audit_logs').insert({
     user_id: caller.id,

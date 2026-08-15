@@ -2,82 +2,73 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
-import { supabase } from '@shared/lib/supabase';
-import {
-  isRecoveryConfirmType,
-  mapAuthConfirmOtpType,
-  resolveAuthConfirmRedirectPath,
-} from './auth-confirm.utils';
+import { applyFirebaseEmailActionCode, isFirebaseAuthConfigured } from '@shared/lib/firebase';
 
-type Phase = 'ready' | 'loading' | 'error';
+type Phase = 'ready' | 'loading' | 'error' | 'success';
 
 export default function AuthConfirmContainer() {
   const [phase, setPhase] = useState<Phase>('ready');
   const [message, setMessage] = useState('');
-  const [rawType, setRawType] = useState<string | null>(null);
-  const [redirectPath, setRedirectPath] = useState('/');
-
-  const tokenHashRef = useRef<string | null>(null);
-  const otpTypeRef = useRef(mapAuthConfirmOtpType('email'));
+  const [mode, setMode] = useState<string | null>(null);
+  const oobCodeRef = useRef<string | null>(null);
   const verifyingRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get('token_hash');
-    const type = params.get('type');
-    const redirectTo = params.get('redirect_to');
+    const oobCode = params.get('oobCode') ?? params.get('oob_code') ?? params.get('token_hash');
+    const actionMode = params.get('mode') ?? params.get('type');
 
-    if (!tokenHash || !type) {
+    if (!oobCode || !isFirebaseAuthConfigured()) {
       setPhase('error');
       setMessage('Este link é inválido ou está incompleto.');
       return;
     }
 
-    tokenHashRef.current = tokenHash;
-    otpTypeRef.current = mapAuthConfirmOtpType(type);
-    setRawType(type);
-    setRedirectPath(resolveAuthConfirmRedirectPath(redirectTo));
+    oobCodeRef.current = oobCode;
+    setMode(actionMode);
   }, []);
 
   async function handleConfirm() {
-    if (verifyingRef.current || !tokenHashRef.current) return;
+    if (verifyingRef.current || !oobCodeRef.current) return;
     verifyingRef.current = true;
     setPhase('loading');
     setMessage('Validando…');
 
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHashRef.current,
-      type: otpTypeRef.current,
-    });
-
-    if (error) {
+    try {
+      await applyFirebaseEmailActionCode(oobCodeRef.current);
+      setPhase('success');
+      setMessage('E-mail confirmado com sucesso. Você já pode entrar.');
+      window.setTimeout(() => {
+        window.location.replace('/login?confirmed=1');
+      }, 1500);
+    } catch (err) {
       setPhase('error');
+      const msg = err instanceof Error ? err.message : 'Não foi possível confirmar.';
       setMessage(
-        error.message.includes('expired') || error.message.includes('invalid')
+        /expired|invalid|EXPIRED|INVALID/i.test(msg)
           ? 'Este link expirou ou já foi usado. Solicite um novo e-mail.'
-          : error.message,
+          : msg,
       );
       verifyingRef.current = false;
-      return;
     }
-
-    window.location.replace(redirectPath);
   }
 
-  const isRecovery = isRecoveryConfirmType(rawType);
+  const isRecovery = mode === 'resetPassword' || mode === 'recovery';
   const title =
     phase === 'loading'
       ? 'Validando…'
       : phase === 'error'
         ? 'Não foi possível confirmar'
-        : isRecovery
-          ? 'Redefinir senha'
-          : 'Confirme seu e-mail';
+        : phase === 'success'
+          ? 'Confirmado'
+          : isRecovery
+            ? 'Redefinir senha'
+            : 'Confirme seu e-mail';
 
   const lead =
     phase === 'ready'
       ? isRecovery
-        ? 'Clique no botão abaixo para validar o link de recuperação e continuar para a nova senha.'
+        ? 'Clique no botão abaixo para validar o link de recuperação.'
         : 'Clique no botão abaixo para confirmar seu e-mail e ativar sua conta.'
       : message;
 
@@ -98,7 +89,7 @@ export default function AuthConfirmContainer() {
               className="mt-6 h-12"
               onClick={() => void handleConfirm()}
             >
-              {isRecovery ? 'Continuar para nova senha' : 'Confirmar e-mail'}
+              {isRecovery ? 'Continuar' : 'Confirmar e-mail'}
             </LoadingButton>
           )}
 
@@ -106,7 +97,7 @@ export default function AuthConfirmContainer() {
             <p className="mt-6 text-sm text-charcoal-muted">Aguarde um instante…</p>
           )}
 
-          {phase === 'error' && (
+          {(phase === 'error' || phase === 'success') && (
             <div className="mt-6 flex flex-col gap-3">
               {isRecovery ? (
                 <Link

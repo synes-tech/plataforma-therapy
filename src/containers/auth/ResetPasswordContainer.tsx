@@ -2,51 +2,31 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
-import { supabase } from '@shared/lib/supabase';
+import { confirmFirebasePasswordReset, isFirebaseAuthConfigured } from '@shared/lib/firebase';
+
+function readOobCode(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('oobCode') ?? params.get('oob_code');
+}
 
 export default function ResetPasswordContainer() {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [oobCode, setOobCode] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    async function resolveRecoverySession() {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (!active) return;
-        if (event === 'PASSWORD_RECOVERY' || session) {
-          setReady(true);
-          setCheckingSession(false);
-        }
-      });
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!active) return;
-
-      if (session) {
-        setReady(true);
-      }
-      setCheckingSession(false);
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-
-    const cleanupPromise = resolveRecoverySession();
-
-    return () => {
-      active = false;
-      void cleanupPromise.then((cleanup) => cleanup?.());
-    };
+    const code = readOobCode();
+    setOobCode(code);
+    setCheckingSession(false);
   }, []);
+
+  const ready = Boolean(oobCode) && isFirebaseAuthConfigured();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -62,15 +42,15 @@ export default function ResetPasswordContainer() {
       return;
     }
 
+    if (!oobCode) {
+      setError('Link inválido ou expirado.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-
-      if (updateError) {
-        throw updateError;
-      }
-
+      await confirmFirebasePasswordReset(oobCode, password);
       setSuccess(true);
       setTimeout(() => {
         navigate('/login', { replace: true });

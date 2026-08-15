@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { supabase } from '@shared/lib/supabase';
+import { useAuthStore } from '@shared/lib/auth-store';
 import { blobToWav, pickRecorderMime } from '@shared/lib/audio-wav';
 import { fetchSessionNoteContent, useAudioJobWatcher } from '@features/audio-recorder/useAudioJobWatcher';
 
@@ -183,7 +184,7 @@ export function StudioRecorder({ patientId, patientName, enableReview = true, on
   const saveMutation = useMutation({
     mutationFn: async ({ approve }: { approve: boolean }) => {
       if (!noteId || !soap) return;
-      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const userId = useAuthStore.getState().user?.id;
       const update: Record<string, unknown> = { content: soap, updated_at: new Date().toISOString() };
       if (approve) {
         update.status = 'approved';

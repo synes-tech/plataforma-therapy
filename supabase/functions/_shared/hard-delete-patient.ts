@@ -1,21 +1,21 @@
 import { createServiceClient } from './supabase.ts';
+import { removePaths, type LogicalBucket } from './object-storage.ts';
 
-const AUDIO_BUCKET = 'audio-recordings';
-const AVATAR_BUCKET = 'pacientes-avatars';
-const FAMILY_AUDIO_BUCKET = 'family-diary-audio';
-const ATTACHMENTS_BUCKET = 'pacientes-anexos';
+const AUDIO_BUCKET: LogicalBucket = 'audio-recordings';
+const AVATAR_BUCKET: LogicalBucket = 'pacientes-avatars';
+const FAMILY_AUDIO_BUCKET: LogicalBucket = 'family-diary-audio';
+const ATTACHMENTS_BUCKET: LogicalBucket = 'pacientes-anexos';
 
-async function removeStoragePaths(bucket: string, paths: string[]): Promise<void> {
+async function removeStoragePaths(bucket: LogicalBucket, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
-  const supabase = createServiceClient();
   const unique = [...new Set(paths.filter(Boolean))];
-  const chunkSize = 50;
-  for (let i = 0; i < unique.length; i += chunkSize) {
-    const chunk = unique.slice(i, i + chunkSize);
-    const { error } = await supabase.storage.from(bucket).remove(chunk);
-    if (error) {
-      console.error(`storage.remove failed bucket=${bucket}`, error.message);
-    }
+  try {
+    await removePaths(bucket, unique);
+  } catch (err) {
+    console.error(
+      `storage.remove failed bucket=${bucket}`,
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }
 

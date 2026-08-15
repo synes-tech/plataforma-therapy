@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireRole, logAuthEvent } from '../_shared/auth.ts';
 import { ValidationError } from '../_shared/errors.ts';
 import { extractToken } from '../_shared/supabase.ts';
+import { assertRateLimit } from '../_shared/rate-limit.ts';
 import { GenerateInviteSchema } from './schema.ts';
 import { generateInvite } from './service.ts';
 
@@ -18,6 +19,12 @@ serve(async (req: Request) => {
 
     const user = await authenticateRequest(req);
     requireRole(user, ['professional', 'clinic_admin', 'master']);
+    await assertRateLimit({
+      bucket: 'generate_invite',
+      key: `user:${user.id}`,
+      limit: 20,
+      windowSec: 60 * 60,
+    });
     logAuthEvent('generate_invite.attempt', user, 'generate-invite');
 
     const body = await req.json();

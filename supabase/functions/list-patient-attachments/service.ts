@@ -1,5 +1,6 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { verifyPatientAccess } from '../_shared/verify-patient-access.ts';
+import { createReadUrl } from '../_shared/object-storage.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
 import type { ListPatientAttachmentsSchema } from './schema.ts';
@@ -46,10 +47,12 @@ export async function listPatientAttachments(
   for (const row of data ?? []) {
     let downloadUrl: string | null = null;
     if (row.status === 'ready') {
-      const { data: signed } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(row.storage_path as string, 3600);
-      downloadUrl = signed?.signedUrl ?? null;
+      try {
+        const signed = await createReadUrl(BUCKET, row.storage_path as string, 3600);
+        downloadUrl = signed.signedUrl;
+      } catch {
+        downloadUrl = null;
+      }
     }
 
     items.push({

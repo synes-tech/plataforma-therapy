@@ -1,8 +1,13 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { verifyFirebaseIdentity } from '../_shared/auth.ts';
 import {
   buildSignupConfirmRedirect,
-  sendSignupConfirmationEmail,
-} from '../_shared/auth-signup-confirmation.ts';
+  createIdpUser,
+  deleteIdpUser,
+  isIdpEmailExistsError,
+  sendIdpEmailVerification,
+  setIdpClaims,
+} from '../_shared/identity-platform-admin.ts';
 import { AppError, ConflictError } from '../_shared/errors.ts';
 import { applyPlanoToClinicSettings } from '../_shared/plan-quotas.ts';
 import { computeTrialEndsAt, defaultTrialPlanId } from '../_shared/trial.ts';
@@ -10,13 +15,18 @@ import type { RegisterClinicPayload, RegisterClinicResponse } from './types.ts';
 
 export async function registerClinic(payload: RegisterClinicPayload): Promise<RegisterClinicResponse> {
   const supabase = createServiceClient();
+  const isGoogleSignup = Boolean(payload.google_id_token);
   const isSoloProfessional = payload.account_type === 'solo';
   const trialEndsAt = computeTrialEndsAt();
   const trialEndsIso = trialEndsAt.toISOString();
   const planId = defaultTrialPlanId(payload.account_type);
 
+  let adminEmail = payload.admin_email.trim().toLowerCase();
+  let adminName = payload.admin_name.trim();
+  let clinicEmail = payload.clinic_email.trim().toLowerCase();
+
   const clinicName = isSoloProfessional
-    ? `Consultório ${payload.admin_name}`.slice(0, 200)
+    ? `Consultório ${adminName}`.slice(0, 200)
     : (payload.clinic_name ?? '').trim();
 
   if (!isSoloProfessional && clinicName.length < 2) {
@@ -27,10 +37,42 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     });
   }
 
+  const userRole = isSoloProfessional ? 'professional' : 'clinic_admin';
+  let userId: string;
+
+  if (isGoogleSignup) {
+    const identity = await verifyFirebaseIdentity(payload.google_id_token!);
+    if (!identity.emailVerified) {
+      throw new AppError({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Confirme o e-mail da conta Google para continuar.',
+        statusCode: 400,
+      });
+    }
+    userId = identity.id;
+    adminEmail = identity.email;
+    clinicEmail = identity.email;
+    adminName = identity.name ?? adminName;
+
+    const { data: existingProf } = await supabase
+      .from('professionals')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const { data: existingAdmin } = await supabase
+      .from('clinic_admins')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (existingProf || existingAdmin) {
+      throw new ConflictError('Já existe uma conta Unithery com este Google. Faça login.');
+    }
+  }
+
   const { data: existingClinic } = await supabase
     .from('clinics')
     .select('id')
-    .eq('email', payload.clinic_email)
+    .eq('email', clinicEmail)
     .is('deleted_at', null)
     .single();
 
@@ -38,34 +80,41 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     throw new ConflictError('Já existe um espaço cadastrado com este email.');
   }
 
-  const userRole = isSoloProfessional ? 'professional' : 'clinic_admin';
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: payload.admin_email,
-    password: payload.admin_password,
-    email_confirm: false,
-    user_metadata: { full_name: payload.admin_name },
-    app_metadata: { role: userRole },
-  });
-
-  if (authError || !authData.user) {
-    if (authError?.message?.includes('already been registered')) {
-      throw new ConflictError('Já existe uma conta com este email.');
+  if (!isGoogleSignup) {
+    if (!payload.admin_password) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        message: 'Informe senha ou cadastro com Google.',
+        statusCode: 400,
+      });
     }
-    throw new AppError({
-      code: 'AUTH_CREATE_FAILED',
-      message: authError?.message ?? 'Falha ao criar conta',
-      statusCode: 500,
-    });
+    try {
+      const user = await createIdpUser({
+        email: adminEmail,
+        password: payload.admin_password,
+        displayName: adminName,
+        emailVerified: false,
+        claims: { role: userRole },
+      });
+      userId = user.id;
+    } catch (err) {
+      if (isIdpEmailExistsError(err)) {
+        throw new ConflictError('Já existe uma conta com este email.');
+      }
+      throw new AppError({
+        code: 'AUTH_CREATE_FAILED',
+        message: err instanceof Error ? err.message : 'Falha ao criar conta',
+        statusCode: 500,
+      });
+    }
   }
-
-  const userId = authData.user.id;
 
   const { data: clinic, error: clinicError } = await supabase
     .from('clinics')
     .insert({
-      name: clinicName,
+      name: isSoloProfessional ? `Consultório ${adminName}`.slice(0, 200) : clinicName,
       document: isSoloProfessional ? null : (payload.clinic_document ?? null),
-      email: payload.clinic_email,
+      email: clinicEmail,
       phone: payload.clinic_phone ?? null,
       status: 'active',
       subscription_plan: planId,
@@ -79,7 +128,7 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     .single();
 
   if (clinicError || !clinic) {
-    await supabase.auth.admin.deleteUser(userId);
+    if (!isGoogleSignup) await deleteIdpUser(userId);
     throw new AppError({
       code: 'CLINIC_CREATE_FAILED',
       message: clinicError?.message ?? 'Falha ao criar espaço',
@@ -104,8 +153,8 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
       .insert({
         user_id: userId,
         clinic_id: clinic.id,
-        name: payload.admin_name,
-        email: payload.admin_email,
+        name: adminName,
+        email: adminEmail,
         specialty: payload.specialty ?? null,
         status: 'active',
         created_by: userId,
@@ -113,33 +162,29 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
 
     if (profError) {
       await supabase.from('clinics').delete().eq('id', clinic.id);
-      await supabase.auth.admin.deleteUser(userId);
+      if (!isGoogleSignup) await deleteIdpUser(userId);
       throw new AppError({ code: 'PROFESSIONAL_CREATE_FAILED', message: profError.message, statusCode: 500 });
     }
 
-    await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { role: 'professional', clinic_id: clinic.id, is_solo: true },
-    });
+    await setIdpClaims(userId, { role: 'professional', clinic_id: clinic.id, is_solo: true });
   } else {
     const { error: adminError } = await supabase
       .from('clinic_admins')
       .insert({
         user_id: userId,
         clinic_id: clinic.id,
-        name: payload.admin_name,
-        email: payload.admin_email,
+        name: adminName,
+        email: adminEmail,
         created_by: userId,
       });
 
     if (adminError) {
       await supabase.from('clinics').delete().eq('id', clinic.id);
-      await supabase.auth.admin.deleteUser(userId);
+      if (!isGoogleSignup) await deleteIdpUser(userId);
       throw new AppError({ code: 'ADMIN_LINK_FAILED', message: adminError.message, statusCode: 500 });
     }
 
-    await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { role: 'clinic_admin', clinic_id: clinic.id },
-    });
+    await setIdpClaims(userId, { role: 'clinic_admin', clinic_id: clinic.id });
   }
 
   await supabase.from('audit_logs').insert({
@@ -156,34 +201,38 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     },
   });
 
-  const confirmRedirect = payload.email_redirect_to
-    ?? buildSignupConfirmRedirect(Deno.env.get('PUBLIC_APP_URL') ?? 'https://www.unithery.com');
+  if (!isGoogleSignup) {
+    const confirmRedirect = payload.email_redirect_to
+      ?? buildSignupConfirmRedirect(Deno.env.get('PUBLIC_APP_URL') ?? 'https://www.unithery.com');
 
-  try {
-    await sendSignupConfirmationEmail(payload.admin_email, confirmRedirect);
-  } catch (emailErr) {
-    await supabase.from('clinics').delete().eq('id', clinic.id);
-    if (isSoloProfessional) {
-      await supabase.from('professionals').delete().eq('user_id', userId);
-    } else {
-      await supabase.from('clinic_admins').delete().eq('user_id', userId);
+    try {
+      await sendIdpEmailVerification(adminEmail, confirmRedirect);
+    } catch (emailErr) {
+      await supabase.from('clinics').delete().eq('id', clinic.id);
+      if (isSoloProfessional) {
+        await supabase.from('professionals').delete().eq('user_id', userId);
+      } else {
+        await supabase.from('clinic_admins').delete().eq('user_id', userId);
+      }
+      await deleteIdpUser(userId);
+      throw new AppError({
+        code: 'CONFIRMATION_EMAIL_FAILED',
+        message: emailErr instanceof Error
+          ? emailErr.message
+          : 'Não foi possível enviar o e-mail de confirmação.',
+        statusCode: 500,
+      });
     }
-    await supabase.auth.admin.deleteUser(userId);
-    throw new AppError({
-      code: 'CONFIRMATION_EMAIL_FAILED',
-      message: emailErr instanceof Error
-        ? emailErr.message
-        : 'Não foi possível enviar o e-mail de confirmação.',
-      statusCode: 500,
-    });
   }
 
   return {
     clinic_id: clinic.id,
     admin_user_id: userId,
-    message: 'Conta criada! Verifique seu e-mail para confirmar o cadastro.',
+    message: isGoogleSignup
+      ? 'Conta criada. Você já pode usar a plataforma.'
+      : 'Conta criada. Confirme seu e-mail para acessar a plataforma.',
     trial_ends_at: trialEndsIso,
     subscription_status: 'trialing',
-    requires_email_confirmation: true,
+    requires_email_confirmation: !isGoogleSignup,
   };
 }

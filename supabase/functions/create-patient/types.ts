@@ -24,4 +24,7 @@ export type CreatePatientPayload =
 export interface CreatePatientResponse {
   patient_id: string;
   message: string;
+  contract?: Record<string, unknown>;
+  needs_windows?: boolean;
+  next_step?: string | null;
 }

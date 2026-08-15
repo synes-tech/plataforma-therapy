@@ -38,3 +38,4 @@ playwright-report/
 
 # PWA generated
 dev-dist/
+infra/gcp/dumps/

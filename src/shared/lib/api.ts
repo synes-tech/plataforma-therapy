@@ -3,8 +3,15 @@ import type { ApiResponse } from '@shared/types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+/** API GCP (Cloud Run) — obrigatória para sessão Firebase/Google enquanto Supabase não tem auth.ts em 100% das functions */
+const GCP_API_URL = (import.meta.env.VITE_GCP_API_URL as string | undefined)?.replace(/\/$/, '');
 
 function edgeFunctionUrl(functionName: string, options?: { stream?: boolean }): string {
+  // Plano GCP: sempre Cloud Run quando VITE_GCP_API_URL está definido
+  if (GCP_API_URL) {
+    return `${GCP_API_URL}/functions/v1/${functionName}`;
+  }
+
   const useDevProxy = import.meta.env.DEV && !options?.stream;
   const base = useDevProxy ? '/api/functions' : `${SUPABASE_URL}/functions/v1`;
   return `${base}/${functionName}`;
@@ -40,6 +47,21 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
 /**
  * Translates Zod field errors into PT-BR messages
  */
+function makeFunctionError(code: string, message: string, details?: unknown): Error & {
+  code?: string;
+  retryAfterSeconds?: number;
+} {
+  const err = new Error(message) as Error & { code?: string; retryAfterSeconds?: number };
+  err.code = code;
+  if (details && typeof details === 'object' && details !== null && 'retry_after_seconds' in details) {
+    const n = Number((details as { retry_after_seconds?: unknown }).retry_after_seconds);
+    if (Number.isFinite(n) && n > 0) {
+      err.retryAfterSeconds = Math.ceil(n);
+    }
+  }
+  return err;
+}
+
 function translateFieldErrors(details: Record<string, string[]>): string {
   const translations: string[] = [];
 
@@ -188,13 +210,14 @@ export async function callFunction<T>(
 
     // Use translated message or fallback to backend message
     const message =
-      (code === 'QUOTA_EXCEEDED' || code === 'REACTIVATION_COOLDOWN' || code === 'BACKUP_QUOTA_EXCEEDED') &&
+      (code === 'QUOTA_EXCEEDED' ||
+        code === 'REACTIVATION_COOLDOWN' ||
+        code === 'BACKUP_QUOTA_EXCEEDED' ||
+        code === 'RATE_LIMITED') &&
       data.error?.message
         ? data.error.message
         : ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
-    const err = new Error(message) as Error & { code?: string };
-    err.code = code;
-    throw err;
+    throw makeFunctionError(code, message, data.error?.details);
   }
 
   return data.data as T;
@@ -252,10 +275,11 @@ export async function callPublicFunction<T>(
       throw new Error(translateFieldErrors(details));
     }
 
-    const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
-    const err = new Error(message) as Error & { code?: string };
-    err.code = code;
-    throw err;
+    const message =
+      code === 'RATE_LIMITED' && data.error?.message
+        ? data.error.message
+        : ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
+    throw makeFunctionError(code, message, data.error?.details);
   }
 
   return data.data as T;
@@ -318,11 +342,15 @@ function parseNdjsonEvents(
 
   if (event.type === 'error') {
     const code = String(event.code ?? 'LLM_ERROR');
-    const err = new Error(ERROR_TRANSLATIONS[code] ?? String(event.message ?? 'Erro no stream.')) as Error & {
-      code?: string;
-    };
-    err.code = code;
-    handlers.onError(err);
+    handlers.onError(
+      makeFunctionError(
+        code,
+        code === 'RATE_LIMITED' && event.message
+          ? String(event.message)
+          : ERROR_TRANSLATIONS[code] ?? String(event.message ?? 'Erro no stream.'),
+        event.details,
+      ),
+    );
     return true;
   }
 
@@ -383,10 +411,11 @@ export async function callFunctionStream(
         handlers.onError(new AuthSessionError());
         return;
       }
-      const message = ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
-      const err = new Error(message) as Error & { code?: string };
-      err.code = code;
-      handlers.onError(err);
+      const message =
+        code === 'RATE_LIMITED' && data.error?.message
+          ? data.error.message
+          : ERROR_TRANSLATIONS[code] ?? data.error?.message ?? 'Erro inesperado. Tente novamente.';
+      handlers.onError(makeFunctionError(code, message, data.error?.details));
     } catch {
       if (response.status === 401) {
         await clearAuthSession();

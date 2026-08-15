@@ -3,9 +3,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingButton } from '@containers/loading';
 import { AuthLoginModeToggle } from '@containers/auth/AuthLoginModeToggle';
 import type { AuthLoginMode } from '@containers/auth/AuthLoginModeToggle';
+import { MfaSmsChallengeModal } from '@containers/auth/MfaSmsChallengeModal';
 import { useAuth } from '@shared/hooks/useAuth';
 import { useAuthStore } from '@shared/lib/auth-store';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { isMfaRequiredError } from '@shared/lib/firebase-mfa';
+import { isFirebaseAuthConfigured } from '@shared/lib/firebase';
+import { getRetryAfterSeconds, isRateLimitedError } from '@shared/lib/rate-limit-message';
+import { RateLimitMessage } from '@shared/ui/RateLimitMessage';
+import { GoogleContinueButton } from './GoogleContinueButton';
 
 function resolvePostLoginPath(role: string | undefined): string {
   return role === 'family' ? '/family/diary' : '/dashboard';
@@ -23,9 +29,13 @@ export default function LoginContainer() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const [mfaOpen, setMfaOpen] = useState(false);
+  const { login, loginWithGoogle, completeMfaLogin, clearPendingMfa, pendingMfaResolver } = useAuth();
   const navigate = useNavigate();
+  const googleEnabled = isFirebaseAuthConfigured();
 
   const isFamilyMode = loginMode === 'family';
 
@@ -41,37 +51,82 @@ export default function LoginContainer() {
     setSearchParams(next, { replace: true });
   }
 
+  function mapLoginError(err: unknown): string {
+    if (isMfaRequiredError(err)) return '';
+    if (!(err instanceof Error)) return 'Erro inesperado. Tente novamente.';
+    const msg = err.message;
+    if (msg === 'Invalid login credentials') return 'Email ou senha incorretos.';
+    if (msg === 'Email not confirmed' || msg.toLowerCase().includes('email not confirmed')) {
+      return 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.';
+    }
+    if (msg.includes('Tempo limite')) return 'Servidor demorou para responder. Tente novamente.';
+    return msg;
+  }
+
+  function goAfterLogin() {
+    const role = useAuthStore.getState().user?.role;
+    navigate(resolvePostLoginPath(role), { replace: true });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setRetryAfterSeconds(null);
     setIsSubmitting(true);
 
     try {
       await login(email, password);
-      const role = useAuthStore.getState().user?.role;
-      navigate(resolvePostLoginPath(role), { replace: true });
+      goAfterLogin();
     } catch (err) {
-      if (err instanceof Error) {
-        const msg = err.message;
-        if (msg === 'Invalid login credentials') {
-          setError('Email ou senha incorretos.');
-        } else if (msg === 'Email not confirmed' || msg.toLowerCase().includes('email not confirmed')) {
-          setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.');
-        } else if (msg.includes('Tempo limite')) {
-          setError('Servidor demorou para responder. Tente novamente.');
-        } else {
-          setError(msg);
-        }
+      if (isMfaRequiredError(err)) {
+        setMfaOpen(true);
+      } else if (isRateLimitedError(err)) {
+        setRetryAfterSeconds(getRetryAfterSeconds(err));
       } else {
-        setError('Erro inesperado. Tente novamente.');
+        setError(mapLoginError(err));
       }
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  async function handleGoogleLogin() {
+    setError(null);
+    setRetryAfterSeconds(null);
+    setIsGoogleSubmitting(true);
+    try {
+      await loginWithGoogle();
+      goAfterLogin();
+    } catch (err) {
+      if (isMfaRequiredError(err)) {
+        setMfaOpen(true);
+      } else {
+        setError(mapLoginError(err));
+      }
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  }
+
+  function handleMfaClose() {
+    setMfaOpen(false);
+    clearPendingMfa();
+  }
+
+  async function handleMfaVerify(verificationId: string, code: string) {
+    await completeMfaLogin(verificationId, code);
+    setMfaOpen(false);
+    goAfterLogin();
+  }
+
   return (
     <div className="relative flex min-h-dvh">
+      <MfaSmsChallengeModal
+        isOpen={mfaOpen && Boolean(pendingMfaResolver)}
+        resolver={pendingMfaResolver}
+        onClose={handleMfaClose}
+        onVerify={handleMfaVerify}
+      />
       {/* Mobile: fundo dividido — metade branca, metade pastel (igual planos/cadastro) */}
       <div className="absolute inset-0 lg:hidden">
         <div className="h-1/2 bg-white" />
@@ -219,6 +274,21 @@ export default function LoginContainer() {
 
           <AuthLoginModeToggle mode={loginMode} onChange={handleLoginModeChange} />
 
+          {googleEnabled && (
+            <div className="mb-5 w-full space-y-4">
+              <GoogleContinueButton
+                onClick={() => void handleGoogleLogin()}
+                disabled={isSubmitting}
+                loading={isGoogleSubmitting}
+              />
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-medium uppercase tracking-wide text-charcoal-muted/60">ou</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            </div>
+          )}
+
           {emailJustConfirmed && !isFamilyMode && (
             <div
               role="status"
@@ -231,7 +301,7 @@ export default function LoginContainer() {
           )}
 
           {/* Error */}
-          {error && (
+          {(error || retryAfterSeconds != null) && (
             <div
               role="alert"
               className="mb-6 flex w-full items-start gap-3 rounded-xl border border-error/10 bg-error-light/50 px-4 py-3"
@@ -239,7 +309,9 @@ export default function LoginContainer() {
               <svg className="mt-0.5 h-4 w-4 shrink-0 text-error" viewBox="0 0 16 16" fill="currentColor">
                 <path fillRule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.25 5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zm.75 6.5a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
               </svg>
-              <p className="text-sm text-error">{error}</p>
+              <p className="text-sm text-error">
+                {retryAfterSeconds != null ? <RateLimitMessage seconds={retryAfterSeconds} /> : error}
+              </p>
             </div>
           )}
 

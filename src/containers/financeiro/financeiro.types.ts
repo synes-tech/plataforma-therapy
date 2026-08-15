@@ -1,6 +1,77 @@
 export type FinanceModelo = 'avulso' | 'pacote' | 'social';
+export type FinanceModelType = 'PARTICULAR' | 'CONVENIO';
+export type FinanceBillingType = 'AVULSO' | 'MENSAL_RECORRENTE' | 'PACOTE';
 export type FinanceTipo = 'ENTRADA' | 'SAIDA';
+/** PENDENTE = "A Receber" na UI */
 export type FinanceStatus = 'PAGO' | 'PENDENTE' | 'ATRASADO' | 'CANCELADO';
+export type FinanceExpenseKind = 'FIXA' | 'VARIAVEL_PARCELADA' | 'PONTUAL';
+
+export const EXPENSE_KIND_LABEL: Record<FinanceExpenseKind, string> = {
+  FIXA: 'Fixa',
+  VARIAVEL_PARCELADA: 'Parcelada',
+  PONTUAL: 'Pontual',
+};
+
+export const EXPENSE_STATUS_LABEL: Record<FinanceStatus, string> = {
+  PENDENTE: 'A pagar',
+  PAGO: 'Pago',
+  ATRASADO: 'Atrasado',
+  CANCELADO: 'Cancelado',
+};
+
+export const STATUS_LABEL: Record<FinanceStatus, string> = {
+  PENDENTE: 'A receber',
+  PAGO: 'Pago',
+  ATRASADO: 'Atrasado',
+  CANCELADO: 'Cancelado',
+};
+
+export const MODEL_TYPE_LABEL: Record<FinanceModelType, string> = {
+  PARTICULAR: 'Particular',
+  CONVENIO: 'Convênio',
+};
+
+export const BILLING_TYPE_LABEL: Record<FinanceBillingType, string> = {
+  AVULSO: 'Avulso',
+  MENSAL_RECORRENTE: 'Mensal recorrente',
+  PACOTE: 'Pacote',
+};
+
+export const CATEGORIA_LABEL: Record<string, string> = {
+  MENSALIDADE: 'Mensalidade',
+  CONVENIO_MENSAL: 'Convênio (mensal)',
+  CONVENIO_AVULSO: 'Convênio (avulso)',
+  SESSAO_AVULSA: 'Sessão avulsa',
+  SESSAO_MANUAL: 'Sessão extra',
+  SESSAO_SOCIAL: 'Sessão social',
+  PACOTE: 'Pacote',
+  RENDIMENTO_EXTRA: 'Rendimento extra',
+};
+
+export const STATUS_BADGE: Record<FinanceStatus, string> = {
+  PENDENTE: 'bg-amber-50 text-amber-800',
+  ATRASADO: 'bg-red-50 text-red-700',
+  PAGO: 'bg-emerald-50 text-emerald-700',
+  CANCELADO: 'bg-slate-100 text-slate-500',
+};
+
+export interface FinanceReceivableItem extends FinanceTransacao {
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface FinanceReceivablesResponse {
+  mode: 'receivables';
+  month: string;
+  items: FinanceReceivableItem[];
+  summary: {
+    a_receber_cents: number;
+    atrasado_cents: number;
+    pago_cents: number;
+    count_a_receber: number;
+    count_atrasado: number;
+    count_pago: number;
+  };
+}
 
 export interface FinanceDashboard {
   month: string;
@@ -36,7 +107,19 @@ export interface FinanceTransacao {
   data_pagamento: string | null;
   paciente_id: string | null;
   paciente_nome?: string | null;
+  contract_id?: string | null;
+  competence_month?: string | null;
+  installment_current?: number | null;
+  installment_total?: number | null;
+  source?: string | null;
   created_at: string;
+}
+
+export interface FinanceContractWindow {
+  id: string;
+  weekday: number;
+  start_time: string;
+  duration_minutes: number;
 }
 
 export interface FinancePatientPlanRow {
@@ -45,10 +128,19 @@ export interface FinancePatientPlanRow {
   plan: {
     id: string;
     modelo: FinanceModelo;
+    model_type?: FinanceModelType;
+    billing_type?: FinanceBillingType;
     valor_sessao_cents: number;
+    valor_acordado_cents?: number;
+    due_day?: number | null;
+    sessions_per_month?: number | null;
+    sessions_custom?: boolean;
+    contract_duration_months?: number | null;
+    contract_starts_on?: string | null;
     pacote_qtd_sessoes: number | null;
     pacote_valor_cents: number | null;
     observacoes: string | null;
+    janelas?: FinanceContractWindow[];
   } | null;
   sessoes_disponiveis: number;
 }
@@ -66,9 +158,13 @@ export interface PaymentPrompt {
 export interface FinanceCustoRecorrente {
   id: string;
   descricao: string;
-  categoria: 'CUSTO_FIXO' | 'IMPOSTO' | 'OUTROS';
+  categoria: 'CUSTO_FIXO' | 'CUSTO_VARIAVEL' | 'IMPOSTO' | 'DESPESA_PARCELADA' | 'DESPESA_PONTUAL' | 'OUTROS';
+  kind?: FinanceExpenseKind;
   valor_cents: number;
   dia_vencimento: number;
+  starts_on?: string | null;
+  months_total?: number | null;
+  ends_on?: string | null;
   ativo: boolean;
   observacoes: string | null;
   created_at: string;
@@ -78,6 +174,7 @@ export interface FinanceCustoRecorrente {
 export interface FinanceCustoTitulo extends FinanceTransacao {
   recorrente?: boolean;
   recorrencia_chave?: string | null;
+  parcela_label?: string | null;
 }
 
 export interface FinanceCustosResponse {
@@ -85,6 +182,14 @@ export interface FinanceCustosResponse {
   month: string;
   templates: FinanceCustoRecorrente[];
   titulos_mes: FinanceCustoTitulo[];
+  summary?: {
+    a_pagar_cents: number;
+    atrasado_cents: number;
+    pago_cents: number;
+    count_a_pagar: number;
+    count_atrasado: number;
+    count_pago: number;
+  };
 }
 
 export interface PendingSessionItem {

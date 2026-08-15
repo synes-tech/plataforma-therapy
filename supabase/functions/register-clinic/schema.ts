@@ -9,11 +9,22 @@ export const RegisterClinicSchema = z
     clinic_phone: z.string().optional(),
     admin_name: z.string().min(2).max(100),
     admin_email: z.string().email(),
-    admin_password: z.string().min(6).max(128),
+    admin_password: z.string().min(6).max(128).optional(),
+    google_id_token: z.string().min(40).optional(),
     specialty: z.string().max(100).optional(),
     email_redirect_to: z.string().url().optional(),
   })
   .superRefine((data, ctx) => {
+    const hasPassword = Boolean(data.admin_password);
+    const hasGoogle = Boolean(data.google_id_token);
+    if (hasPassword === hasGoogle) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Informe senha ou cadastro com Google.',
+        path: hasGoogle ? ['admin_password'] : ['google_id_token'],
+      });
+    }
+
     const isSolo = data.account_type === 'solo';
 
     if (!isSolo && (!data.clinic_name || data.clinic_name.trim().length < 2)) {

@@ -304,6 +304,7 @@ export default function RegisterFamily() {
                     status={invitePreview.status}
                     patientName={invitePreview.patientName}
                     error={invitePreview.error}
+                    retryAfterSeconds={invitePreview.retryAfterSeconds}
                   />
 
                   <LoadingButton

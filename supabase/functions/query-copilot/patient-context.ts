@@ -5,7 +5,10 @@ import {
 } from '../_shared/patient-ai-context.ts';
 
 export const DIARY_CONTEXT_LIMIT = 5;
-export const SESSION_CONTEXT_LIMIT = 2;
+/** Conteúdo detalhado (SOAP/resumo) das sessões mais recentes injetado no prompt. */
+export const SESSION_CONTEXT_LIMIT = 10;
+/** Inventário leve: todas as datas/status (sem corpo) — fonte autoritativa para contagens. */
+export const SESSION_INVENTORY_LIMIT = 500;
 
 export interface DiaryEntryRow {
   entry_date: string;
@@ -21,6 +24,12 @@ export interface SessionNoteRow {
   created_at: string;
   status: string;
   content: unknown;
+}
+
+/** Linha leve do inventário histórico (sem content). */
+export interface SessionInventoryRow {
+  created_at: string;
+  status: string;
 }
 
 export interface PatientBaseRow extends PatientAnamnesisRow {
@@ -145,10 +154,67 @@ export function formatSessionsContextBlock(notes: SessionNoteRow[]): string {
   return notes.map((note, index) => formatSessionNoteBlock(note, index)).join('\n\n');
 }
 
+function monthKeyPt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'data inválida';
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+}
+
+function dateKeyPt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(d);
+}
+
+/**
+ * Inventário completo do prontuário (todas as datas, independente do mês).
+ * Fonte autoritativa para perguntas de quantidade / período.
+ */
+export function formatSessionInventoryBlock(rows: SessionInventoryRow[]): string {
+  if (rows.length === 0) {
+    return 'Total de sessões registradas no prontuário: 0.';
+  }
+
+  const byMonth = new Map<string, number>();
+  for (const row of rows) {
+    const key = monthKeyPt(row.created_at);
+    byMonth.set(key, (byMonth.get(key) ?? 0) + 1);
+  }
+
+  const monthLines = [...byMonth.entries()]
+    .map(([month, count]) => `• ${month}: ${count} sessão(ões)`)
+    .join('\n');
+
+  const timeline = rows
+    .map((row) => `• ${dateKeyPt(row.created_at)} — status: ${row.status}`)
+    .join('\n');
+
+  return [
+    `Total de sessões registradas no prontuário: ${rows.length}`,
+    '',
+    'Distribuição por mês (histórico completo, sem filtro de mês atual):',
+    monthLines,
+    '',
+    'Linha do tempo (mais recente → mais antiga):',
+    timeline,
+  ].join('\n');
+}
+
 export interface BuildSystemInstructionInput {
   patient: PatientBaseRow;
   diaryEntries: DiaryEntryRow[];
   sessionNotes: SessionNoteRow[];
+  /** Inventário completo (datas/status) — contagem autoritativa. */
+  sessionInventory: SessionInventoryRow[];
   ragContext: string;
   professional?: {
     name: string;
@@ -158,13 +224,15 @@ export interface BuildSystemInstructionInput {
 }
 
 export function buildCopilotSystemInstruction(input: BuildSystemInstructionInput): string {
-  const { patient, diaryEntries, sessionNotes, ragContext } = input;
+  const { patient, diaryEntries, sessionNotes, sessionInventory, ragContext } = input;
   const age = calculatePatientAge(patient.birth_date);
   const ageLabel = age !== null ? `${age}` : 'idade não informada';
   const contextSummary = formatPatientContextSummary(patient);
   const diaryBlock = formatDiaryContextBlock(diaryEntries);
   const sessionsBlock = formatSessionsContextBlock(sessionNotes);
+  const inventoryBlock = formatSessionInventoryBlock(sessionInventory);
   const anamnesisBlock = formatAnamnesisBlock(patient);
+  const totalSessions = sessionInventory.length;
 
   const professionalBlock = input.professional
     ? `TERAPEUTA RESPONSÁVEL (use estes dados reais em relatórios/orientações para pais — NUNCA placeholders):
@@ -180,6 +248,8 @@ INSTRUÇÃO DE MEMÓRIA (CRÍTICA):
 - Use ativamente o diário familiar e as sessões ao responder perguntas sobre comportamento recente, humor, crises ou evolução — mesmo que o terapeuta não cite o nome do paciente.
 - Se houver entradas no diário, NUNCA diga "não tenho informações sobre o diário". Sintetize os relatos com datas.
 - Se não houver entradas no diário, diga explicitamente que não há registros recentes no diário familiar.
+- Para perguntas de QUANTIDADE, TOTAL ou HISTÓRICO de sessões (ex.: "quantas sessões", "em que meses", "já atendemos quantas vezes"), use EXCLUSIVAMENTE o bloco "INVENTÁRIO COMPLETO DE SESSÕES". O total autoritativo é ${totalSessions}. NÃO conte apenas as sessões detalhadas recentes nem chunks do RAG.
+- O inventário cobre TODA a base histórica do prontuário, independente do mês atual. Nunca diga que só há sessões do mês corrente se o inventário listar outros meses.
 
 REGRAS INVIOLÁVEIS (GUARDRAILS DE ENTRADA — cumpra na PRIMEIRA resposta, sem reescrever depois):
 - NUNCA mencione nomes de medicamentos (ritalina, risperidona, metilfenidato, sertralina, etc.).
@@ -188,7 +258,7 @@ REGRAS INVIOLÁVEIS (GUARDRAILS DE ENTRADA — cumpra na PRIMEIRA resposta, sem 
 - NUNCA faça diagnóstico definitivo/conclusivo ("confirmado", "definitivo", "conclusivo").
 - NUNCA use absolutismos como "cura definitiva", "sempre será", "nunca vai".
 - Foque em: atividades terapêuticas, análise comportamental, estratégias de manejo, padrões observados e sugestões práticas para a sessão.
-- Sempre cite a fonte dos dados (ex: "Conforme diário de 04/06...", "Na sessão de 12/05...").
+- Sempre cite a fonte dos dados (ex: "Conforme diário de 04/06...", "Na sessão de 12/05...", "Conforme inventário do prontuário (${totalSessions} sessões)...").
 - Se não houver dados suficientes no histórico deste paciente para um aspecto específico, diga explicitamente o que falta.
 - Responda em português brasileiro, tom profissional mas acessível.
 - Se o terapeuta perguntar algo fora do escopo clínico, redirecione educadamente.
@@ -200,7 +270,10 @@ ${ANAMNESIS_AI_INSTRUCTIONS}
 
 ${professionalBlock ? `\n=== ${professionalBlock}\n` : ''}
 
-=== ÚLTIMAS SESSÕES REGISTRADAS (${sessionNotes.length}) ===
+=== INVENTÁRIO COMPLETO DE SESSÕES (fonte autoritativa — histórico total) ===
+${inventoryBlock}
+
+=== DETALHE DAS SESSÕES MAIS RECENTES (${sessionNotes.length} com conteúdo clínico) ===
 ${sessionsBlock}
 
 === FICHA CLÍNICA DETALHADA ===

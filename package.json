@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.21.0",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.56.0",
@@ -28,6 +29,8 @@
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "dompurify": "^3.1.0",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
