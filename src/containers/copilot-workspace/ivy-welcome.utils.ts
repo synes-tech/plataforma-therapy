@@ -99,7 +99,7 @@ export function ivyConfettiPieces(): IvyConfettiPiece[] {
   return seeds.map(([dx, dy, rotate, delay, duration, radius], index) => ({
     id: index,
     left: `${48 + (index % 7) * 2}%`,
-    color: IVY_CONFETTI_COLORS[index % IVY_CONFETTI_COLORS.length],
+    color: IVY_CONFETTI_COLORS[index % IVY_CONFETTI_COLORS.length] ?? IVY_CONFETTI_COLORS[0],
     dx: `${dx}px`,
     dy: `${dy}px`,
     rotate: `${rotate}deg`,

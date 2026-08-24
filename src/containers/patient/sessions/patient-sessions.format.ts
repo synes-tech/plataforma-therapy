@@ -98,5 +98,5 @@ export function resolveSessionSavedArtifactId(
   const byDate = artifacts.filter(
     (item) => item.tipo_artefato === 'relatorio_sessao' && (item.titulo ?? '').includes(dateLabel),
   );
-  return byDate.length === 1 ? byDate[0].id : null;
+  return byDate.length === 1 ? byDate[0]?.id ?? null : null;
 }

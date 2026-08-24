@@ -5,6 +5,7 @@ import { sessionWorkspacePath } from '@containers/session-workspace/session-work
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
 import { LoadingButton } from '@containers/loading';
 import { StandardModal } from '@shared/ui/StandardModal';
+import { callFunction } from '@shared/lib/api';
 
 interface Contact {
   name: string;
