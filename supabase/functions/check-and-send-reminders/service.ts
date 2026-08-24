@@ -66,7 +66,7 @@ export async function checkAndSendReminders(
         {
           title,
           body,
-          url: '/family/diary',
+          url: '/portal/diary',
           tag: `diary-reminder-${row.patient_id}`,
         },
       );

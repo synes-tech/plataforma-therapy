@@ -37,12 +37,12 @@ export function buildSessionApprovalToast(
   shareMode?: 'as_is' | 'refined' | null,
 ): string {
   if (!shared) {
-    return 'Relatório salvo no prontuário (uso interno)';
+    return 'Relatório salvo no prontuário e em Documentos salvos (uso interno)';
   }
 
   if (shareMode === 'refined') {
-    return 'Versão refinada enviada para a família; o relatório clínico bruto permanece privado';
+    return 'Versão refinada enviada para a família; o relatório clínico bruto permanece em Documentos salvos';
   }
 
-  return 'Relatório enviado para a família como gerado';
+  return 'Relatório enviado para a família como gerado e salvo em Documentos salvos';
 }

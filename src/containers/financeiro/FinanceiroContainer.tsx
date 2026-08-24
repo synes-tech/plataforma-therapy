@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { formatCurrency } from '@features/billing/format';
+import { PageHeader } from '@containers/layout';
 import { StandardModal } from '@shared/ui/StandardModal';
-import { LoadingButton } from '@containers/loading';
 import type {
   FinanceDashboard,
   FinancePatientPlanRow,
@@ -18,17 +18,23 @@ import {
   MODEL_TYPE_LABEL,
   STATUS_BADGE,
   STATUS_LABEL,
-  reaisInputToCents,
 } from './financeiro.types';
 import { invalidateFinanceQueries } from './invalidate-finance';
 import { SessionPaymentModal } from './SessionPaymentModal';
 import { CustosMensaisTab } from './CustosMensaisTab';
 import { ReceivablesTab } from './ReceivablesTab';
+import { SessionsToClassifyTab } from './SessionsToClassifyTab';
 import { AvulsoSessionModal } from './AvulsoSessionModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
+import { ExpenseFormModal, EMPTY_EXPENSE_FORM } from './ExpenseFormModal';
+import type { ExpenseFormValues } from './expense-form.schema';
+import { IncomeFormModal } from './IncomeFormModal';
 import { PatientFinancialSetupModal } from '@containers/patient/PatientFinancialSetupModal';
-
-type TabKey = 'executivo' | 'extrato' | 'recebimentos' | 'custos' | 'planos';
+import { FinanceiroDashboard } from './FinanceiroDashboard';
+import { FinanceiroTabs, type FinanceiroTabKey } from './FinanceiroTabs';
+import { financeiroPageTitle } from './dashboard.utils';
+import { useReceivables } from './useReceivables';
+import { useExpenses } from './useExpenses';
 
 function currentMonth(): string {
   const d = new Date();
@@ -37,19 +43,15 @@ function currentMonth(): string {
 
 export default function FinanceiroContainer() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<TabKey>('executivo');
+  const [tab, setTab] = useState<FinanceiroTabKey>('executivo');
   const [month, setMonth] = useState(currentMonth());
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [paymentPrompt, setPaymentPrompt] = useState<PaymentPrompt | null>(null);
-  const [txModalOpen, setTxModalOpen] = useState(false);
-  const [txForm, setTxForm] = useState({
-    tipo: 'SAIDA' as 'ENTRADA' | 'SAIDA',
-    categoria: 'CUSTO_FIXO',
-    descricao: '',
-    valor: '',
-    status: 'PAGO' as const,
-  });
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
+  const [expenseForm, setExpenseForm] = useState<ExpenseFormValues>(EMPTY_EXPENSE_FORM);
+  const [incomeOpen, setIncomeOpen] = useState(false);
   const [contractModal, setContractModal] = useState<{
     patientId: string;
     patientName: string;
@@ -63,11 +65,11 @@ export default function FinanceiroContainer() {
   const [payItem, setPayItem] = useState<FinanceReceivableItem | null>(null);
 
   const dashboardQuery = useQuery({
-    queryKey: ['financeiro-dashboard', month, tab === 'recebimentos'],
+    queryKey: ['financeiro-dashboard', month, tab === 'classificar'],
     queryFn: () =>
       callFunction<FinanceDashboard & { pending_items?: PendingSessionItem[] }>(
         'financeiro-get-dashboard',
-        { month, include_pending_items: tab === 'recebimentos' || tab === 'executivo' },
+        { month, include_pending_items: tab === 'classificar' },
       ),
   });
 
@@ -79,169 +81,72 @@ export default function FinanceiroContainer() {
         tipo: tipoFilter || undefined,
         status: statusFilter || undefined,
       }),
-    enabled: tab === 'extrato' || tab === 'executivo',
+    enabled: tab === 'extrato',
   });
+
+  const receivablesOverview = useReceivables(month, 'all', '');
+  const expensesOverview = useExpenses(month, 'all', '');
 
   const pendingItems = dashboardQuery.data?.pending_items ?? [];
 
   const plansQuery = useQuery({
     queryKey: ['financeiro-plans'],
     queryFn: () => callFunction<{ items: FinancePatientPlanRow[] }>('financeiro-list-patient-plans', {}),
-    enabled: tab === 'planos',
-  });
-
-  const upsertTx = useMutation({
-    mutationFn: () =>
-      callFunction('financeiro-upsert-transacao', {
-        tipo: txForm.tipo,
-        categoria: txForm.categoria,
-        descricao: txForm.descricao,
-        valor_cents: reaisInputToCents(txForm.valor),
-        status: txForm.status,
-      }),
-    onSuccess: () => {
-      setTxModalOpen(false);
-      invalidateFinanceQueries(qc);
-    },
+    enabled: tab === 'planos' || tab === 'executivo',
   });
 
   const dash = dashboardQuery.data;
-  const maxTrend = useMemo(() => {
-    const vals = (dash?.tendencia ?? []).flatMap((t) => [t.receita, t.despesa]);
-    return Math.max(1, ...vals);
-  }, [dash]);
-
-  const tabs: { id: TabKey; label: string }[] = [
-    { id: 'executivo', label: 'Visão geral' },
-    { id: 'extrato', label: 'Extrato' },
-    { id: 'recebimentos', label: 'Receitas' },
-    { id: 'custos', label: 'Despesas' },
-    { id: 'planos', label: 'Pacientes & planos' },
-  ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-serif text-2xl font-medium text-charcoal">Financeiro</h1>
-          <p className="mt-1 text-sm text-charcoal-muted">
-            Contas a receber, extrato e custos do consultório.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-charcoal-muted">
-            Mês
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="mt-1 block h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => setTxModalOpen(true)}
-            className="mt-5 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90"
-          >
-            Nova lançamento
-          </button>
-        </div>
-      </header>
-
-      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/80 p-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.id ? 'bg-white text-primary shadow-sm' : 'text-charcoal-muted hover:text-charcoal'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {(tab === 'executivo') && (
-        <section className="space-y-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="Receita projetada"
-              value={formatCurrency(dash?.receita_projetada_cents ?? 0)}
-              hint="Agenda × valores"
-            />
-            <MetricCard
-              label="Receita realizada"
-              value={formatCurrency(dash?.receita_realizada_cents ?? 0)}
-              hint="Entradas pagas"
-            />
-            <MetricCard
-              label="Despesas"
-              value={formatCurrency(dash?.despesas_cents ?? 0)}
-              hint="Saídas pagas"
-            />
-            <MetricCard
-              label="Lucro líquido"
-              value={formatCurrency(dash?.lucro_liquido_cents ?? 0)}
-              hint="Realizada − despesas"
-              emphasize
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 lg:col-span-2">
-              <h2 className="text-sm font-medium text-charcoal">Tendência (6 meses)</h2>
-              <div className="mt-4 flex h-40 items-end gap-2">
-                {(dash?.tendencia ?? []).map((t) => (
-                  <div key={t.month} className="flex flex-1 flex-col items-center gap-1">
-                    <div className="flex h-28 w-full items-end justify-center gap-0.5">
-                      <div
-                        className="w-2 rounded-t bg-primary/80"
-                        style={{ height: `${(t.receita / maxTrend) * 100}%` }}
-                        title={`Receita ${formatCurrency(t.receita)}`}
-                      />
-                      <div
-                        className="w-2 rounded-t bg-slate-300"
-                        style={{ height: `${(t.despesa / maxTrend) * 100}%` }}
-                        title={`Despesa ${formatCurrency(t.despesa)}`}
-                      />
-                    </div>
-                    <span className="text-[10px] text-charcoal-muted">{t.month.slice(5)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3 rounded-2xl border border-slate-100 bg-[#F8FAF9] p-4">
-              <h2 className="text-sm font-medium text-charcoal">Alertas</h2>
-              <AlertRow
-                title="Sessões sem status"
-                body={`${dash?.alertas.sessoes_sem_status ?? 0} sessões · ${formatCurrency(dash?.alertas.sessoes_sem_status_total_cents ?? 0)}`}
-                onClick={() => setTab('recebimentos')}
+    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+      <PageHeader
+        title={financeiroPageTitle(tab, month)}
+        subtitle="Caixa, receitas, despesas e contratos do consultório."
+        actions={
+          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+            <label className="flex items-center gap-2 text-xs text-charcoal-muted">
+              <span className="lg:hidden">Mês</span>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                aria-label="Mês"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm"
               />
-              <AlertRow
-                title="Inadimplência"
-                body={`${dash?.alertas.inadimplentes ?? 0} títulos · ${formatCurrency(dash?.alertas.inadimplentes_total_cents ?? 0)}`}
-                onClick={() => setTab('recebimentos')}
-              />
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-xs font-medium text-charcoal">A pagar (7 dias)</p>
-                <ul className="mt-2 space-y-1.5">
-                  {(dash?.alertas.vencimentos_7d ?? []).length === 0 && (
-                    <li className="text-xs text-charcoal-muted">Nenhum vencimento próximo.</li>
-                  )}
-                  {(dash?.alertas.vencimentos_7d ?? []).map((v) => (
-                    <li key={v.id} className="flex justify-between gap-2 text-xs text-charcoal">
-                      <span className="truncate">{v.descricao || 'Despesa'}</span>
-                      <span className="shrink-0 font-medium">{formatCurrency(v.valor_cents)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => setChooserOpen(true)}
+              className="inline-flex h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 lg:h-9 lg:text-xs lg:font-semibold"
+            >
+              Novo lançamento
+            </button>
           </div>
-        </section>
+        }
+      />
+
+      <div className="mt-4 space-y-6 pb-6 sm:mt-6 lg:mt-8 lg:pb-8">
+      <FinanceiroTabs
+        active={tab}
+        onChange={setTab}
+        pendingCount={dash?.alertas.sessoes_sem_status ?? 0}
+      />
+
+      {tab === 'executivo' && (
+        <FinanceiroDashboard
+          month={month}
+          dash={dash}
+          loading={dashboardQuery.isLoading || receivablesOverview.isLoading || expensesOverview.isLoading}
+          receivables={receivablesOverview.items}
+          receivableSummary={receivablesOverview.summary}
+          expenses={expensesOverview.items}
+          expenseSummary={expensesOverview.summary}
+          plans={plansQuery.data?.items ?? []}
+          onGoReceitas={() => setTab('recebimentos')}
+          onGoClassificar={() => setTab('classificar')}
+          onGoDespesas={() => setTab('custos')}
+          onGoPlanos={() => setTab('planos')}
+        />
       )}
 
       {tab === 'extrato' && (
@@ -286,7 +191,7 @@ export default function FinanceiroContainer() {
                       {STATUS_LABEL[t.status] ?? t.status}
                     </span>
                     <p
-                      className={`text-sm font-semibold ${
+                      className={`font-display text-sm font-bold tabular-nums tracking-tight ${
                         t.tipo === 'ENTRADA' ? 'text-emerald-600' : 'text-charcoal'
                       }`}
                     >
@@ -316,9 +221,13 @@ export default function FinanceiroContainer() {
       )}
 
       {tab === 'recebimentos' && (
-        <ReceivablesTab
-          month={month}
-          pendingItems={pendingItems}
+        <ReceivablesTab month={month} />
+      )}
+
+      {tab === 'classificar' && (
+        <SessionsToClassifyTab
+          items={pendingItems}
+          loading={dashboardQuery.isLoading}
           onConfirmSession={setPaymentPrompt}
         />
       )}
@@ -373,90 +282,61 @@ export default function FinanceiroContainer() {
           </ul>
         </section>
       )}
+      </div>
 
       <StandardModal
-        isOpen={txModalOpen}
-        onClose={() => setTxModalOpen(false)}
+        isOpen={chooserOpen}
+        onClose={() => setChooserOpen(false)}
         title="Novo lançamento"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setTxModalOpen(false)}
-              className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm text-charcoal-muted hover:bg-slate-100"
-            >
-              Cancelar
-            </button>
-            <LoadingButton
-              type="button"
-              loading={upsertTx.isPending}
-              onClick={() => upsertTx.mutate()}
-            >
-              Salvar
-            </LoadingButton>
-          </>
-        }
       >
         <div className="space-y-3">
-          <Field label="Tipo">
-            <select
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
-              value={txForm.tipo}
-              onChange={(e) =>
-                setTxForm((f) => ({
-                  ...f,
-                  tipo: e.target.value as 'ENTRADA' | 'SAIDA',
-                  categoria: e.target.value === 'ENTRADA' ? 'RENDIMENTO_EXTRA' : 'CUSTO_FIXO',
-                }))
-              }
+          <p className="text-sm text-charcoal-muted">
+            Escolha o tipo. O formulário é o mesmo das abas Receitas e Despesas.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setChooserOpen(false);
+                setIncomeOpen(true);
+              }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left hover:border-primary/30"
             >
-              <option value="ENTRADA">Entrada</option>
-              <option value="SAIDA">Saída</option>
-            </select>
-          </Field>
-          <Field label="Categoria">
-            <select
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
-              value={txForm.categoria}
-              onChange={(e) => setTxForm((f) => ({ ...f, categoria: e.target.value }))}
+              <span className="block text-sm font-medium text-charcoal">Receita</span>
+              <span className="mt-0.5 block text-xs text-charcoal-muted">
+                Rendimento extra ou outro valor a receber, com ou sem paciente.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setChooserOpen(false);
+                setExpenseForm({
+                  ...EMPTY_EXPENSE_FORM,
+                  kind: 'FIXA',
+                  categoria: 'CUSTO_FIXO',
+                });
+                setExpenseOpen(true);
+              }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left hover:border-primary/30"
             >
-              {txForm.tipo === 'ENTRADA' ? (
-                <>
-                  <option value="RENDIMENTO_EXTRA">Rendimento extra</option>
-                  <option value="SESSAO_AVULSA">Sessão avulsa</option>
-                  <option value="PACOTE">Pacote</option>
-                  <option value="OUTROS">Outros</option>
-                </>
-              ) : (
-                <>
-                  <option value="CUSTO_FIXO">Custo fixo</option>
-                  <option value="CUSTO_VARIAVEL">Custo variável</option>
-                  <option value="IMPOSTO">Impostos</option>
-                  <option value="REPASSE_PROFISSIONAL">Repasse profissional</option>
-                  <option value="OUTROS">Outros</option>
-                </>
-              )}
-            </select>
-          </Field>
-          <Field label="Descrição">
-            <input
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
-              value={txForm.descricao}
-              onChange={(e) => setTxForm((f) => ({ ...f, descricao: e.target.value }))}
-              placeholder="Ex.: Aluguel do consultório"
-            />
-          </Field>
-          <Field label="Valor (R$)">
-            <input
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
-              value={txForm.valor}
-              onChange={(e) => setTxForm((f) => ({ ...f, valor: e.target.value }))}
-              placeholder="150,00"
-              inputMode="decimal"
-            />
-          </Field>
+              <span className="block text-sm font-medium text-charcoal">Despesa</span>
+              <span className="mt-0.5 block text-xs text-charcoal-muted">
+                Fixa, parcelada ou pontual — o mesmo fluxo de Nova despesa.
+              </span>
+            </button>
+          </div>
         </div>
       </StandardModal>
+
+      <ExpenseFormModal
+        isOpen={expenseOpen}
+        value={expenseForm}
+        onChange={(patch) => setExpenseForm((current) => ({ ...current, ...patch }))}
+        onClose={() => setExpenseOpen(false)}
+      />
+
+      <IncomeFormModal isOpen={incomeOpen} onClose={() => setIncomeOpen(false)} />
 
       <PatientFinancialSetupModal
         isOpen={Boolean(contractModal)}
@@ -496,43 +376,6 @@ export default function FinanceiroContainer() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  hint,
-  emphasize,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  emphasize?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        emphasize ? 'border-primary/20 bg-primary-50/60' : 'border-slate-100 bg-white'
-      }`}
-    >
-      <p className="text-xs font-medium text-charcoal-muted">{label}</p>
-      <p className="mt-1 font-serif text-xl text-charcoal">{value}</p>
-      <p className="mt-1 text-[11px] text-charcoal-muted">{hint}</p>
-    </div>
-  );
-}
-
-function AlertRow({ title, body, onClick }: { title: string; body: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-primary/30"
-    >
-      <p className="text-xs font-medium text-charcoal">{title}</p>
-      <p className="mt-0.5 text-xs text-charcoal-muted">{body}</p>
-    </button>
-  );
-}
-
 function SelectChip({
   value,
   onChange,
@@ -557,11 +400,3 @@ function SelectChip({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-charcoal">{label}</label>
-      {children}
-    </div>
-  );
-}

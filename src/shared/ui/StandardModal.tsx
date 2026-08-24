@@ -9,11 +9,15 @@ interface StandardModalProps {
   /** Optional action buttons rendered in the standardized footer. */
   footer?: React.ReactNode;
   /** Max width of the desktop dialog. Defaults to a balanced 'lg'. */
-  size?: 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   /** When false, clicking the backdrop does not close the modal. Default: true. */
   closeOnBackdropClick?: boolean;
   /** When false, pressing Escape does not close the modal. Default: true. */
   closeOnEscape?: boolean;
+  /** Extra classes on the dialog shell (ex.: altura fixa). */
+  dialogClassName?: string;
+  /** Extra classes on the scrollable body. */
+  bodyClassName?: string;
 }
 
 const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
@@ -21,6 +25,7 @@ const SIZE_MAP: Record<NonNullable<StandardModalProps['size']>, string> = {
   lg: 'md:max-w-lg',
   xl: 'md:max-w-2xl',
   '2xl': 'md:max-w-4xl',
+  '3xl': 'md:max-w-5xl',
 };
 
 /**
@@ -42,6 +47,8 @@ export function StandardModal({
   size = 'lg',
   closeOnBackdropClick = true,
   closeOnEscape = true,
+  dialogClassName = '',
+  bodyClassName,
 }: StandardModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -84,7 +91,7 @@ export function StandardModal({
         aria-labelledby={titleId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[92dvh] w-full animate-slide-up flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl outline-none md:max-h-[90dvh] md:animate-scale-in md:rounded-2xl ${SIZE_MAP[size]}`}
+        className={`flex max-h-[92dvh] w-full animate-slide-up flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl outline-none md:max-h-[90dvh] md:animate-scale-in md:rounded-2xl ${SIZE_MAP[size]} ${dialogClassName}`.trim()}
       >
         {/* Puxador (mobile bottom sheet) */}
         <div className="mx-auto mb-1 mt-2 h-1.5 w-12 shrink-0 rounded-full bg-slate-200 md:hidden" />
@@ -107,7 +114,11 @@ export function StandardModal({
         </header>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">{children}</div>
+        <div
+          className={`min-h-0 flex-1 overscroll-contain px-6 py-6 ${bodyClassName ?? 'overflow-y-auto'}`}
+        >
+          {children}
+        </div>
 
         {/* Footer */}
         {footer && (

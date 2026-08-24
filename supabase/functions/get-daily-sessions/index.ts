@@ -164,28 +164,30 @@ async function fetchSessionsForRange(
     });
   }
 
-  return scheduleRows.map((r) => {
-    const patient = r.patient_id ? patientMap.get(r.patient_id) ?? null : null;
-    const contact = resolveContact(patient);
-    const effectiveStatus = resolveEffectiveScheduleStatus(
-      idsToMarkNotCompleted.includes(r.id) ? { ...r, status: 'not_completed' } : r,
-    );
-    return {
-      id: r.id,
-      scheduled_at: r.scheduled_at,
-      duration_minutes: r.duration_minutes,
-      status: effectiveStatus,
-      started_at: r.started_at,
-      completed_at: r.completed_at,
-      session_note_id: r.session_note_id,
-      title: r.title,
-      billing_status: billingMap.get(r.id) ?? null,
-      patient: patient
-        ? { id: patient.id, name: patient.name, birth_date: patient.birth_date, foto_url: patient.foto_url ?? null }
-        : null,
-      contact,
-    };
-  });
+  return scheduleRows
+    .map((r) => {
+      const patient = r.patient_id ? patientMap.get(r.patient_id) ?? null : null;
+      const contact = resolveContact(patient);
+      const effectiveStatus = resolveEffectiveScheduleStatus(
+        idsToMarkNotCompleted.includes(r.id) ? { ...r, status: 'not_completed' } : r,
+      );
+      return {
+        id: r.id,
+        scheduled_at: r.scheduled_at,
+        duration_minutes: r.duration_minutes,
+        status: effectiveStatus,
+        started_at: r.started_at,
+        completed_at: r.completed_at,
+        session_note_id: r.session_note_id,
+        title: r.title,
+        billing_status: billingMap.get(r.id) ?? null,
+        patient: patient
+          ? { id: patient.id, name: patient.name, birth_date: patient.birth_date, foto_url: patient.foto_url ?? null }
+          : null,
+        contact,
+      };
+    })
+    .filter((s) => !['cancelled', 'canceled'].includes(s.status));
 }
 
 serve(async (req: Request) => {

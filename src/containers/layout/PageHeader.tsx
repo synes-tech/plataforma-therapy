@@ -8,13 +8,18 @@ export interface PageHeaderBackButton {
 export interface PageHeaderProps {
   /** Título principal da tela. */
   title: ReactNode;
-  /** Texto ou conteúdo de apoio abaixo do título. */
+  /**
+   * Título exibido só no desktop. No mobile continua `title`.
+   * Use quando a barra compacta pede um nome curto (ex.: "Agenda").
+   */
+  desktopTitle?: string;
+  /** Texto ou conteúdo de apoio abaixo do título — visível só no mobile. */
   subtitle?: ReactNode;
   /** Botões de ação alinhados à direita (ex.: Novo Paciente). */
   actions?: ReactNode;
-  /** Navegação interna (tabs) na base do cabeçalho. */
+  /** Navegação interna (tabs). No desktop fica na mesma linha, à direita. */
   tabs?: ReactNode;
-  /** Exibe link/botão de voltar acima do título. */
+  /** Exibe link/botão de voltar acima do título no mobile e ao lado no desktop. */
   backButton?: PageHeaderBackButton;
   /** Classes extras no elemento raiz. */
   className?: string;
@@ -39,10 +44,12 @@ function BackChevron() {
 
 /**
  * Cabeçalho de página reutilizável para telas internas.
- * Mobile: rola com o conteúdo (não sticky). Desktop (lg+): fixo no topo da área de scroll.
+ * Mobile: título maior, subtítulo e blocos empilhados (sem sticky).
+ * Desktop (lg+): barra compacta de uma linha, colada no topo, título à esquerda e ações à direita.
  */
 export function PageHeader({
   title,
+  desktopTitle,
   subtitle,
   actions,
   tabs,
@@ -54,46 +61,72 @@ export function PageHeader({
 
   return (
     <header
-      className={`shrink-0 border-b border-slate-100 bg-white/90 backdrop-blur-md lg:sticky lg:top-0 lg:z-40 ${bleedClass} ${className}`.trim()}
+      className={`shrink-0 border-b border-slate-100 bg-white/90 backdrop-blur-md lg:sticky lg:top-0 lg:z-40 lg:border-slate-200/80 ${bleedClass} ${className}`.trim()}
     >
-      <div className="py-4 lg:py-5">
-        {backButton && (
-          <button
-            type="button"
-            onClick={backButton.onClick}
-            className="mb-3 inline-flex items-center gap-1 text-xs text-charcoal-muted transition-colors hover:text-primary"
-          >
-            <BackChevron />
-            {backButton.label ?? 'Voltar'}
-          </button>
-        )}
+      {backButton ? (
+        <button
+          type="button"
+          onClick={backButton.onClick}
+          className="mt-4 inline-flex items-center gap-1 text-xs text-charcoal-muted transition-colors hover:text-primary lg:hidden"
+        >
+          <BackChevron />
+          {backButton.label ?? 'Voltar'}
+        </button>
+      ) : null}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 lg:h-14 lg:flex-nowrap lg:items-center lg:justify-start lg:gap-3 lg:py-0">
+        <div className="flex min-w-0 items-center gap-3">
+          {backButton ? (
+            <button
+              type="button"
+              onClick={backButton.onClick}
+              className="hidden shrink-0 items-center gap-1 text-xs font-medium text-charcoal-muted transition-colors hover:text-primary lg:inline-flex"
+            >
+              <BackChevron />
+              {backButton.label ?? 'Voltar'}
+            </button>
+          ) : null}
+
+          <div className="min-w-0">
             {typeof title === 'string' ? (
-              <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-                {title}
-              </h1>
+              <>
+                <h1
+                  className={`truncate font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl lg:font-display lg:text-[20px] lg:font-semibold lg:leading-none lg:tracking-tight ${
+                    desktopTitle ? 'lg:hidden' : ''
+                  }`}
+                >
+                  {title}
+                </h1>
+                {desktopTitle ? (
+                  <h1 className="hidden truncate font-display text-[20px] font-semibold leading-none tracking-tight text-charcoal lg:block">
+                    {desktopTitle}
+                  </h1>
+                ) : null}
+              </>
             ) : (
               title
             )}
-            {subtitle != null && (
+            {subtitle != null ? (
               typeof subtitle === 'string' ? (
-                <p className="mt-0.5 text-sm text-charcoal-muted">{subtitle}</p>
+                <p className="mt-0.5 text-sm text-charcoal-muted lg:hidden">{subtitle}</p>
               ) : (
-                <div className="mt-1.5">{subtitle}</div>
+                <div className="mt-1.5 lg:hidden">{subtitle}</div>
               )
-            )}
+            ) : null}
           </div>
-
-          {actions && (
-            <div className="flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
-              {actions}
-            </div>
-          )}
         </div>
 
-        {tabs && <div className="mt-4">{tabs}</div>}
+        {actions ? (
+          <div className={`flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end lg:order-2 lg:flex-nowrap ${tabs ? '' : 'lg:ml-auto'}`}>
+            {actions}
+          </div>
+        ) : null}
+
+        {tabs ? (
+          <div className="min-w-0 sm:basis-full lg:order-1 lg:ml-auto lg:basis-auto lg:overflow-x-auto">
+            {tabs}
+          </div>
+        ) : null}
       </div>
     </header>
   );

@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, logAuthEvent } from '../_shared/auth.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureAuthUser } from '../_shared/ensure-auth-user.ts';
 import { assertIpRateLimit } from '../_shared/rate-limit.ts';
 import { setIdpClaims } from '../_shared/identity-platform-admin.ts';
 
@@ -38,6 +39,7 @@ serve(async (req: Request) => {
     }
 
     const supabase = createServiceClient();
+    await ensureAuthUser(user.id, user.email);
 
     const { data, error } = await supabase.rpc('consume_invite', {
       p_code: code,

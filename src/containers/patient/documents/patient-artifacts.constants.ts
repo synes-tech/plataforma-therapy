@@ -1,3 +1,4 @@
+import { getFamilyShareStatusLabel } from '../copilot/patient-copilot-family-share.utils';
 import type { AiArtifactType } from '../copilot/patient-copilot.types';
 import type { ArtifactFilterValue } from './patient-artifacts.types';
 
@@ -28,6 +29,6 @@ export const ARTIFACT_BADGE_CONFIG: Record<
 
 export function getArtifactVisibilityBadge(shared: boolean): { label: string; className: string } {
   return shared
-    ? { label: '📱 Visível para a família', className: 'bg-mint-50 text-mint-dark ring-mint/20' }
-    : { label: '🔒 Apenas visualização interna', className: 'bg-slate-100 text-charcoal-muted ring-slate-200' };
+    ? { label: getFamilyShareStatusLabel(true), className: 'bg-mint-50 text-mint-dark ring-mint/20' }
+    : { label: getFamilyShareStatusLabel(false), className: 'bg-slate-100 text-charcoal-muted ring-slate-200' };
 }

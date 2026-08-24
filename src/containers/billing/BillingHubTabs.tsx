@@ -40,7 +40,7 @@ export function BillingHubTabs({ active }: BillingHubTabsProps) {
               role="tab"
               aria-selected={active === tab.id}
               className={({ isActive }) =>
-                `flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-1 ${
+                `flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-1 lg:flex-initial lg:px-3 lg:py-1.5 lg:text-xs ${
                   isActive
                     ? 'bg-white text-charcoal shadow-sm'
                     : 'text-charcoal-muted hover:text-charcoal'

@@ -83,6 +83,29 @@ export function resolveSessionEmailRecipients(
   return recipients;
 }
 
+export function appendProfessionalRecipient(
+  recipients: SessionEmailRecipient[],
+  professional: { email?: string | null; name?: string | null },
+): SessionEmailRecipient[] {
+  const email = normalizeEmail(professional.email);
+  if (!email) return recipients;
+  if (recipients.some((r) => r.email === email)) return recipients;
+  return [
+    ...recipients,
+    {
+      email,
+      name: professional.name?.trim() || 'Profissional',
+      role: 'professional',
+    },
+  ];
+}
+
+export function sessionEmailAudience(
+  role: SessionEmailRecipientRole | undefined,
+): 'contact' | 'professional' {
+  return role === 'professional' ? 'professional' : 'contact';
+}
+
 /** Contato de exibição na agenda (prioriza paciente → responsável → família). */
 export function pickDisplayContact(
   patient: PatientContactRow,

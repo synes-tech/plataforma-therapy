@@ -1,7 +1,9 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { sendSesEmail } from './aws-ses.ts';
 import {
+  appendProfessionalRecipient,
   resolveSessionEmailRecipients,
+  sessionEmailAudience,
   type PatientContactRow,
   type SessionEmailRecipient,
 } from './session-email-recipients.ts';
@@ -141,7 +143,7 @@ export async function sendSessionEmailNow(params: {
     sessionAtIso: params.sessionAtIso,
     durationMinutes: params.durationMinutes,
     previousSessionAtIso: params.previousSessionAtIso,
-    audience: params.audience,
+    audience: params.audience ?? sessionEmailAudience(params.recipient.role),
   });
 
   await sendSesEmail({
@@ -160,21 +162,27 @@ export async function notifySessionScheduled(params: {
   clinicId: string;
   professionalId: string;
   professionalName: string;
+  professionalEmail?: string | null;
   scheduledAtIso: string;
   durationMinutes: number | null;
 }): Promise<{ confirmation_sent: number; reminder_24h_queued: number }> {
   const resolved = await resolveRecipientsForPatient(params.supabase, params.patientId);
-  if (!resolved || resolved.recipients.length === 0) {
+  const patientName = resolved?.patient.name ?? 'Paciente';
+  const recipients = appendProfessionalRecipient(resolved?.recipients ?? [], {
+    email: params.professionalEmail,
+    name: params.professionalName,
+  });
+  if (recipients.length === 0) {
     return { confirmation_sent: 0, reminder_24h_queued: 0 };
   }
 
   let confirmationSent = 0;
-  for (const recipient of resolved.recipients) {
+  for (const recipient of recipients) {
     try {
       await sendSessionEmailNow({
         kind: 'booking_confirmation',
         recipient,
-        patientName: resolved.patient.name,
+        patientName,
         professionalName: params.professionalName,
         sessionAtIso: params.scheduledAtIso,
         durationMinutes: params.durationMinutes,
@@ -227,7 +235,7 @@ export async function notifySessionScheduled(params: {
       professionalId: params.professionalId,
       kind: 'reminder_24h',
       sendAt: sendAt24h,
-      recipients: resolved.recipients,
+      recipients,
       metadata: { channel: 'ses', trigger: 'create-schedule' },
     });
   }
@@ -241,11 +249,17 @@ export async function requeueReminder24hAfterReschedule(params: {
   patientId: string;
   clinicId: string;
   professionalId: string;
+  professionalName?: string | null;
+  professionalEmail?: string | null;
   scheduledAtIso: string;
 }): Promise<number> {
   await cancelPendingAutoReminders(params.supabase, params.scheduleId, ['reminder_24h']);
   const resolved = await resolveRecipientsForPatient(params.supabase, params.patientId);
-  if (!resolved || resolved.recipients.length === 0) return 0;
+  const recipients = appendProfessionalRecipient(resolved?.recipients ?? [], {
+    email: params.professionalEmail,
+    name: params.professionalName,
+  });
+  if (recipients.length === 0) return 0;
 
   const sendAt = computeReminder24hSendAt(params.scheduledAtIso);
   if (!sendAt) return 0;
@@ -258,7 +272,7 @@ export async function requeueReminder24hAfterReschedule(params: {
     professionalId: params.professionalId,
     kind: 'reminder_24h',
     sendAt,
-    recipients: resolved.recipients,
+    recipients,
     metadata: { channel: 'ses', trigger: 'reschedule-session' },
   });
 }
@@ -410,6 +424,91 @@ export async function notifySessionRescheduled(params: {
     } else {
       // Mesmo e-mail já recebeu versão "contact"; conta como enviado ao profissional também.
       professionalSent = 1;
+    }
+  }
+
+  return { contact_sent: contactSent, professional_sent: professionalSent };
+}
+
+/** Aviso imediato de cancelamento para contatos do paciente + profissional. */
+export async function notifySessionCancelled(params: {
+  supabase: SupabaseClient;
+  scheduleId: string;
+  patientId: string;
+  clinicId: string;
+  professionalId: string;
+  professionalName: string;
+  professionalEmail: string | null;
+  scheduledAtIso: string;
+  durationMinutes: number | null;
+}): Promise<{ contact_sent: number; professional_sent: number }> {
+  const resolved = await resolveRecipientsForPatient(params.supabase, params.patientId);
+  const patientName = resolved?.patient.name ?? 'Paciente';
+  const recipients = appendProfessionalRecipient(resolved?.recipients ?? [], {
+    email: params.professionalEmail,
+    name: params.professionalName,
+  });
+
+  let contactSent = 0;
+  let professionalSent = 0;
+
+  for (const recipient of recipients) {
+    const audience = sessionEmailAudience(recipient.role);
+    try {
+      await sendSessionEmailNow({
+        kind: 'cancel_notice',
+        audience,
+        recipient,
+        patientName,
+        professionalName: params.professionalName,
+        sessionAtIso: params.scheduledAtIso,
+        durationMinutes: params.durationMinutes,
+      });
+      if (audience === 'professional') professionalSent += 1;
+      else contactSent += 1;
+
+      await params.supabase.from('session_email_jobs').insert({
+        schedule_id: params.scheduleId,
+        patient_id: params.patientId,
+        clinic_id: params.clinicId,
+        professional_id: params.professionalId,
+        kind: 'cancel_notice',
+        send_at: new Date().toISOString(),
+        status: 'sent',
+        recipient_email: recipient.email,
+        recipient_name: recipient.name,
+        recipient_role: recipient.role,
+        sent_at: new Date().toISOString(),
+        attempts: 1,
+        metadata: {
+          channel: 'ses',
+          trigger: 'cancel-session',
+          cancelled_scheduled_at: params.scheduledAtIso,
+          audience,
+        },
+      });
+    } catch (err) {
+      console.error('[notifySessionCancelled] send failed', err);
+      await params.supabase.from('session_email_jobs').insert({
+        schedule_id: params.scheduleId,
+        patient_id: params.patientId,
+        clinic_id: params.clinicId,
+        professional_id: params.professionalId,
+        kind: 'cancel_notice',
+        send_at: new Date().toISOString(),
+        status: 'failed',
+        recipient_email: recipient.email,
+        recipient_name: recipient.name,
+        recipient_role: recipient.role,
+        attempts: 1,
+        last_error: err instanceof Error ? err.message : 'SES send failed',
+        metadata: {
+          channel: 'ses',
+          trigger: 'cancel-session',
+          cancelled_scheduled_at: params.scheduledAtIso,
+          audience,
+        },
+      });
     }
   }
 

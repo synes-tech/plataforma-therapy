@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { callFunction } from '@shared/lib/api';
+import { sessionWorkspacePath } from '@containers/session-workspace/session-workspace.utils';
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
+import { LoadingButton } from '@containers/loading';
+import { StandardModal } from '@shared/ui/StandardModal';
 
 interface Contact {
   name: string;
@@ -93,6 +95,7 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
   const [reminderMode, setReminderMode] = useState<'now' | 'at'>('now');
   const [reminderDate, setReminderDate] = useState(date);
   const [reminderTime, setReminderTime] = useState('09:00');
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const name = session.patient?.name ?? session.title ?? 'Sessão';
   const meta = STATUS_META[session.status] ?? { label: session.status, className: 'bg-slate-100 text-slate-500' };
@@ -120,13 +123,25 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
   const canStartSession =
     !!session.patient &&
     !['completed', 'cancelled', 'canceled', 'no_show'].includes(session.status);
+  const canCancelSession = !['completed', 'cancelled', 'canceled'].includes(session.status);
+
+  const cancelMutation = useMutation({
+    mutationFn: () => callFunction('cancel-session', { session_id: session.id }),
+    onSuccess: () => {
+      setCancelOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['daily-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['list-sessions'] });
+      onRescheduled?.();
+    },
+  });
 
   const startSessionMutation = useMutation({
     mutationFn: async () => {
       await callFunction('start-schedule-session', { schedule_id: session.id });
     },
     onSuccess: () => {
-      navigate(`/session/${session.patient!.id}?scheduleId=${session.id}`);
+      navigate(sessionWorkspacePath(session.patient!.id, session.id));
     },
   });
 
@@ -256,6 +271,19 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
           </svg>
           {reminderSent ? 'Lembrete enviado' : 'Enviar lembrete'}
         </button>
+
+        {canCancelSession && (
+          <button
+            type="button"
+            onClick={() => setCancelOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-error/80 transition-colors hover:bg-error-light hover:text-error"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Cancelar
+          </button>
+        )}
       </div>
 
       {reminderPanelOpen && !reminderSent && (
@@ -382,6 +410,52 @@ function SessionRow({ session, date, onRescheduled }: { session: DailySession; d
           )}
         </div>
       )}
+
+      <StandardModal
+        isOpen={cancelOpen}
+        onClose={() => {
+          if (!cancelMutation.isPending) setCancelOpen(false);
+        }}
+        title="Cancelar atendimento?"
+        size="md"
+        closeOnBackdropClick={!cancelMutation.isPending}
+        closeOnEscape={!cancelMutation.isPending}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setCancelOpen(false)}
+              disabled={cancelMutation.isPending}
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-charcoal-muted hover:bg-white disabled:opacity-50 md:w-auto"
+            >
+              Voltar
+            </button>
+            <LoadingButton
+              type="button"
+              variant="danger"
+              loading={cancelMutation.isPending}
+              loadingLabel="Cancelando…"
+              onClick={() => cancelMutation.mutate()}
+              className="h-11 font-semibold md:w-auto"
+            >
+              Confirmar cancelamento
+            </LoadingButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-charcoal-muted">
+            O atendimento de <span className="font-semibold text-charcoal">{name}</span> às{' '}
+            <span className="font-semibold text-charcoal">{formatTime(session.scheduled_at)}</span> será
+            removido desta agenda. Paciente e psicólogo receberão um e-mail avisando o cancelamento.
+          </p>
+          {cancelMutation.isError && (
+            <div role="alert" className="rounded-xl border border-error/20 bg-error-light px-4 py-3 text-sm text-error">
+              {(cancelMutation.error as Error)?.message ?? 'Não foi possível cancelar o atendimento.'}
+            </div>
+          )}
+        </div>
+      </StandardModal>
     </li>
   );
 }

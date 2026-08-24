@@ -57,11 +57,4 @@ export const SLEEP_LABELS: Record<number, string> = {
   5: 'Ótimo',
 };
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  sono: 'Sono',
-  escola: 'Escola',
-  alimentacao: 'Alimentação',
-  social: 'Social',
-  hiperatividade: 'Agitação',
-  sensorial: 'Sensorial',
-};
+export { DIARY_CATEGORY_LABELS as CATEGORY_LABELS } from '@shared/lib/portal-diary';

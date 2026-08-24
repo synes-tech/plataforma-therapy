@@ -1,4 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureAuthUser } from '../_shared/ensure-auth-user.ts';
 import {
   createIdpUser,
   deleteIdpUser,
@@ -46,6 +47,7 @@ export async function registerFamily(payload: RegisterFamilyPayload): Promise<Re
       claims: { role: 'family' },
     });
     userId = user.id;
+    await ensureAuthUser(userId, email);
   } catch (err) {
     if (isIdpEmailExistsError(err)) {
       throw new ConflictError('Já existe uma conta com este e-mail. Faça login para vincular o convite.');

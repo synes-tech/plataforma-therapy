@@ -8,48 +8,54 @@ interface PayReceivableInput {
   item: FinanceReceivableItem;
   paidOn: string;
   forma: 'pix' | 'cartao' | 'dinheiro' | 'outro';
+  valorCents: number;
 }
 
 export function usePayReceivable() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ item, paidOn, forma }: PayReceivableInput) =>
+    mutationFn: ({ item, paidOn, forma, valorCents }: PayReceivableInput) =>
       callFunction('financeiro-upsert-transacao', {
         action: 'baixar_recebivel',
         id: item.id,
         data_pagamento: paidOn,
         forma_pagamento: forma,
+        valor_cents: valorCents,
       }),
-    onMutate: async ({ item, paidOn }) => {
+    onMutate: async ({ item, paidOn, valorCents }) => {
       await qc.cancelQueries({ queryKey: ['financeiro-receivables'] });
       const snapshots = qc.getQueriesData<FinanceReceivablesResponse>({ queryKey: ['financeiro-receivables'] });
       for (const [key, data] of snapshots) {
-        if (data) qc.setQueryData(key, applyReceivablePaid(data, item.id, paidOn));
+        if (data) qc.setQueryData(key, applyReceivablePaid(data, item.id, paidOn, valorCents));
       }
 
       const ledgerSnapshots = qc.getQueriesData<{
-        transacoes?: Array<{ id: string; status: FinanceStatus; data_pagamento: string | null }>;
+        transacoes?: Array<{ id: string; status: FinanceStatus; data_pagamento: string | null; valor_cents?: number }>;
       }>({ queryKey: ['financeiro-ledger-txs'] });
       for (const [key, data] of ledgerSnapshots) {
         if (!data?.transacoes) continue;
         qc.setQueryData(key, {
           ...data,
           transacoes: data.transacoes.map((row) =>
-            row.id === item.id ? { ...row, status: 'PAGO' as const, data_pagamento: paidOn } : row,
+            row.id === item.id
+              ? { ...row, status: 'PAGO' as const, data_pagamento: paidOn, valor_cents: valorCents }
+              : row,
           ),
         });
       }
 
       const historySnapshots = qc.getQueriesData<{
-        transacoes?: Array<{ id: string; status: FinanceStatus; data_pagamento: string | null }>;
+        transacoes?: Array<{ id: string; status: FinanceStatus; data_pagamento: string | null; valor_cents?: number }>;
       }>({ queryKey: ['financeiro-patient-history'] });
       for (const [key, data] of historySnapshots) {
         if (!data?.transacoes) continue;
         qc.setQueryData(key, {
           ...data,
           transacoes: data.transacoes.map((row) =>
-            row.id === item.id ? { ...row, status: 'PAGO' as const, data_pagamento: paidOn } : row,
+            row.id === item.id
+              ? { ...row, status: 'PAGO' as const, data_pagamento: paidOn, valor_cents: valorCents }
+              : row,
           ),
         });
       }

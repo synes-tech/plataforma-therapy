@@ -33,6 +33,50 @@ export function buildMonthGrid(
   return cells;
 }
 
+export function monthDateRange(year: number, month0: number): { start: string; end: string } {
+  const lastDay = new Date(year, month0 + 1, 0).getDate();
+  return {
+    start: `${year}-${pad(month0 + 1)}-01`,
+    end: `${year}-${pad(month0 + 1)}-${pad(lastDay)}`,
+  };
+}
+
+export interface MonthSessionChip {
+  id: string;
+  name: string;
+  status: string;
+  time: string;
+}
+
+export function groupMonthSessionChips(
+  sessions: Array<{
+    id: string;
+    scheduled_at: string;
+    status: string;
+    title: string | null;
+    patient: { id: string; name: string } | null;
+  }>,
+  toDayISO: (iso: string) => string,
+  toTime: (iso: string) => string,
+): Map<string, MonthSessionChip[]> {
+  const map = new Map<string, MonthSessionChip[]>();
+  for (const session of sessions) {
+    const day = toDayISO(session.scheduled_at);
+    const list = map.get(day) ?? [];
+    list.push({
+      id: session.id,
+      name: session.patient?.name ?? session.title ?? 'Sessão',
+      status: session.status,
+      time: toTime(session.scheduled_at),
+    });
+    map.set(day, list);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.time.localeCompare(b.time));
+  }
+  return map;
+}
+
 export function formatDayTitle(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y!, (m ?? 1) - 1, d);

@@ -1,6 +1,5 @@
 import Stripe from 'npm:stripe@17.7.0';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { AppError } from '../_shared/errors.ts';
 import { getStripeClient } from '../_shared/stripe.ts';
 import {
   billingWebhookSecretForMode,
@@ -10,11 +9,24 @@ import {
   findClinicByStripeRefs,
   mapStripeSubscriptionStatus,
   paymentMethodOnFileForStatus,
-  provisionClinicFromStripe,
   syncClinicFromStripeSubscription,
 } from '../_shared/stripe-billing-provision.ts';
 import { provisionFromCheckoutSession } from '../_shared/stripe-checkout-complete.ts';
 import { sendSesEmail } from '../_shared/aws-ses.ts';
+import { notifyBillingPlanChanged, notifyBillingWelcome } from '../_shared/billing-email.ts';
+import {
+  claimStripeWebhookEvent,
+  findPatientSubscriptionRefs,
+  invoiceSubscriptionId,
+  markStripeWebhookEvent,
+  resolveStripeAccountType,
+  upsertPatientSubscription,
+  type StripeAccountType,
+} from '../_shared/b2c-billing.ts';
+import {
+  notifyPatientTheryWelcome,
+  notifyPatientTrialEnding,
+} from '../_shared/b2c-billing-email.ts';
 
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
@@ -45,7 +57,6 @@ export async function handleStripeBillingWebhook(req: Request): Promise<Response
     return new Response('Webhook signature verification failed', { status: 400 });
   }
 
-  // Confirma evento na API Stripe (anti-forgery)
   try {
     event = await stripe.events.retrieve(event.id);
   } catch (err) {
@@ -57,6 +68,11 @@ export async function handleStripeBillingWebhook(req: Request): Promise<Response
     await processStripeBillingEvent(stripe, event);
   } catch (err) {
     console.error(`[stripe-webhook] handler error for ${event.type}`, err);
+    await markStripeWebhookEvent(
+      event.id,
+      'failed',
+      err instanceof Error ? err.message : String(err),
+    ).catch(() => undefined);
     return new Response('Webhook handler failed', { status: 500 });
   }
 
@@ -66,34 +82,271 @@ export async function handleStripeBillingWebhook(req: Request): Promise<Response
   });
 }
 
+function metadataOf(obj: { metadata?: Stripe.Metadata | null } | null | undefined): Record<string, string> {
+  return { ...(obj?.metadata ?? {}) };
+}
+
+async function resolveEventAccountType(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<StripeAccountType> {
+  const object = event.data.object as {
+    metadata?: Stripe.Metadata | null;
+    customer?: string | { id: string } | null;
+    subscription?: string | { id: string } | null;
+    id?: string;
+  };
+
+  const fromObject = resolveStripeAccountType(metadataOf(object));
+  if (fromObject !== 'unknown') return fromObject;
+
+  if (event.type.startsWith('invoice.')) {
+    const invoice = event.data.object as Stripe.Invoice;
+    const subscriptionId = invoiceSubscriptionId(invoice);
+    if (subscriptionId) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const fromSub = resolveStripeAccountType(metadataOf(subscription));
+        if (fromSub !== 'unknown') return fromSub;
+      } catch {
+        /* lookup local abaixo */
+      }
+    }
+    const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+    const patient = await findPatientSubscriptionRefs(customerId, subscriptionId);
+    if (patient) return 'patient';
+    const clinic = await findClinicByStripeRefs(customerId, subscriptionId);
+    if (clinic) return 'clinic';
+  }
+
+  if (event.type.startsWith('customer.subscription.')) {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId =
+      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+    const patient = await findPatientSubscriptionRefs(customerId, subscription.id);
+    if (patient) return 'patient';
+    const clinic = await findClinicByStripeRefs(customerId, subscription.id);
+    if (clinic) return 'clinic';
+  }
+
+  return 'unknown';
+}
+
 async function processStripeBillingEvent(
   stripe: Stripe,
   event: Stripe.Event,
 ): Promise<void> {
-  switch (event.type) {
+  const accountType = await resolveEventAccountType(stripe, event);
+  const claim = await claimStripeWebhookEvent({
+    eventId: event.id,
+    eventType: event.type,
+    accountType,
+    livemode: event.livemode,
+  });
+
+  if (claim === 'duplicate') {
+    console.log(`[stripe-webhook] skip duplicate ${event.id} ${event.type}`);
+    return;
+  }
+
+  const eventType =
+    (event.type as string) === 'invoice.payment_succeeded' ? 'invoice.paid' : event.type;
+
+  switch (eventType) {
     case 'checkout.session.completed':
-      await handleCheckoutSessionCompleted(stripe, event);
+      if (accountType === 'patient') {
+        await handlePatientCheckoutCompleted(stripe, event);
+      } else {
+        await handleClinicCheckoutSessionCompleted(stripe, event);
+      }
       break;
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
-      await handleSubscriptionChange(event);
+      if (accountType === 'patient') {
+        await handlePatientSubscriptionChange(stripe, event);
+      } else {
+        await handleClinicSubscriptionChange(event);
+      }
       break;
     case 'customer.subscription.trial_will_end':
-      await handleTrialWillEnd(event);
+      if (accountType === 'patient') {
+        await handlePatientTrialWillEnd(event);
+      } else {
+        await handleClinicTrialWillEnd(event);
+      }
       break;
     case 'invoice.payment_failed':
-      await handleInvoicePaymentFailed(event);
+      if (accountType === 'patient') {
+        await handlePatientInvoicePaymentFailed(stripe, event);
+      } else {
+        await handleClinicInvoicePaymentFailed(event);
+      }
       break;
     case 'invoice.paid':
-      await handleInvoicePaid(stripe, event);
+      if (accountType === 'patient') {
+        await handlePatientInvoicePaid(stripe, event);
+      } else {
+        await handleClinicInvoicePaid(stripe, event);
+      }
       break;
     default:
+      await markStripeWebhookEvent(event.id, 'ignored');
       console.log(`[stripe-webhook] ignored event ${event.type}`);
+      return;
   }
+
+  await markStripeWebhookEvent(event.id, 'processed');
 }
 
-async function handleCheckoutSessionCompleted(
+async function resolvePatientFromMetadata(
+  metadata: Record<string, string>,
+  customerId: string | null,
+  subscriptionId: string | null,
+): Promise<{
+  patientId: string;
+  clinicId: string;
+  portalLinkId: string | null;
+  userId: string | null;
+} | null> {
+  if (metadata.patient_id && metadata.clinic_id) {
+    return {
+      patientId: metadata.patient_id,
+      clinicId: metadata.clinic_id,
+      portalLinkId: metadata.portal_link_id ?? null,
+      userId: metadata.user_id ?? null,
+    };
+  }
+
+  const refs = await findPatientSubscriptionRefs(customerId, subscriptionId);
+  if (!refs) return null;
+  return {
+    patientId: refs.patient_id,
+    clinicId: refs.clinic_id,
+    portalLinkId: refs.portal_link_id,
+    userId: refs.user_id,
+  };
+}
+
+async function syncPatientFromStripe(
+  stripe: Stripe,
+  params: {
+    metadata: Record<string, string>;
+    customerId: string | null;
+    subscriptionId: string | null;
+  },
+): Promise<void> {
+  if (!params.subscriptionId || !params.customerId) return;
+  const identity = await resolvePatientFromMetadata(
+    params.metadata,
+    params.customerId,
+    params.subscriptionId,
+  );
+  if (!identity) {
+    console.log('[stripe-webhook] patient sync — paciente não resolvido');
+    return;
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(params.subscriptionId);
+  await upsertPatientSubscription({
+    patientId: identity.patientId,
+    clinicId: identity.clinicId,
+    portalLinkId: identity.portalLinkId,
+    userId: identity.userId,
+    customerId: params.customerId,
+    subscription,
+  });
+}
+
+async function handlePatientCheckoutCompleted(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const metadata = metadataOf(session);
+  const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+  let subscriptionId =
+    typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+
+  if (!subscriptionId && session.mode === 'subscription') {
+    const expanded = await stripe.checkout.sessions.retrieve(session.id, { expand: ['subscription'] });
+    const sub = expanded.subscription;
+    subscriptionId = typeof sub === 'string' ? sub : sub?.id;
+  }
+
+  await syncPatientFromStripe(stripe, { metadata, customerId: customerId ?? null, subscriptionId: subscriptionId ?? null });
+
+  if (subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    await notifyPatientTheryWelcome({
+      userId: metadata.user_id ?? null,
+      trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    }).catch((err) => {
+      console.error('[stripe-webhook] e-mail de boas-vindas B2C falhou', err);
+    });
+  }
+
+  console.log(`[stripe-webhook] provisioned patient=${metadata.patient_id}`);
+}
+
+async function handlePatientSubscriptionChange(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  const subscription = event.data.object as Stripe.Subscription;
+  const customerId =
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+  await syncPatientFromStripe(stripe, {
+    metadata: metadataOf(subscription),
+    customerId: customerId ?? null,
+    subscriptionId: subscription.id,
+  });
+}
+
+async function handlePatientTrialWillEnd(event: Stripe.Event): Promise<void> {
+  const subscription = event.data.object as Stripe.Subscription;
+  const metadata = metadataOf(subscription);
+  await notifyPatientTrialEnding({
+    userId: metadata.user_id ?? null,
+    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    daysBefore: 3,
+  }).catch((err) => {
+    console.error('[stripe-webhook] trial_will_end B2C falhou', err);
+  });
+}
+
+async function handlePatientInvoicePaid(stripe: Stripe, event: Stripe.Event): Promise<void> {
+  const invoice = event.data.object as Stripe.Invoice;
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  await syncPatientFromStripe(stripe, {
+    metadata: metadataOf(invoice),
+    customerId: customerId ?? null,
+    subscriptionId,
+  });
+}
+
+async function handlePatientInvoicePaymentFailed(stripe: Stripe, event: Stripe.Event): Promise<void> {
+  const invoice = event.data.object as Stripe.Invoice;
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId || !customerId) return;
+
+  const identity = await resolvePatientFromMetadata(metadataOf(invoice), customerId, subscriptionId);
+  if (!identity) return;
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  await upsertPatientSubscription({
+    patientId: identity.patientId,
+    clinicId: identity.clinicId,
+    portalLinkId: identity.portalLinkId,
+    userId: identity.userId,
+    customerId,
+    subscription: { ...subscription, status: 'past_due' },
+  });
+}
+
+async function handleClinicCheckoutSessionCompleted(
   stripe: Stripe,
   event: Stripe.Event,
 ): Promise<void> {
@@ -105,9 +358,24 @@ async function handleCheckoutSessionCompleted(
     event.id,
   );
   console.log(`[stripe-webhook] provisioned clinic=${session.metadata?.clinic_id}`);
+
+  const clinicId = session.metadata?.clinic_id;
+  const planId = session.metadata?.plan_id;
+  const billingCycle = session.metadata?.billing_cycle as 'monthly' | 'yearly' | undefined;
+  if (clinicId && planId) {
+    try {
+      await notifyBillingWelcome({
+        clinicId,
+        planId,
+        billingCycle: billingCycle ?? 'monthly',
+      });
+    } catch (err) {
+      console.error('[stripe-webhook] falha ao enviar e-mail de boas-vindas', err);
+    }
+  }
 }
 
-async function handleSubscriptionChange(event: Stripe.Event): Promise<void> {
+async function handleClinicSubscriptionChange(event: Stripe.Event): Promise<void> {
   const subscription = event.data.object as Stripe.Subscription;
   const customerId =
     typeof subscription.customer === 'string'
@@ -115,30 +383,42 @@ async function handleSubscriptionChange(event: Stripe.Event): Promise<void> {
       : subscription.customer?.id;
 
   const clinic = await findClinicByStripeRefs(customerId, subscription.id);
+  const clinicId = clinic?.id ?? subscription.metadata?.clinic_id;
+  const previousPlanId = clinic?.subscription_plan ?? null;
+  const nextPlanId = (subscription.metadata?.plan_id as string | undefined) ?? previousPlanId;
+  const billingCycle = subscription.metadata?.billing_cycle as 'monthly' | 'yearly' | undefined;
 
-  if (!clinic) {
-    const clinicIdFromMeta = subscription.metadata?.clinic_id;
-    if (!clinicIdFromMeta) {
-      console.log('[stripe-webhook] subscription change — clínica não encontrada');
-      return;
-    }
-    await syncClinicFromStripeSubscription(
-      clinicIdFromMeta,
-      subscription,
-      `stripe-webhook:${event.type}`,
-    );
+  if (!clinicId) {
+    console.log('[stripe-webhook] subscription change — clínica não encontrada');
     return;
   }
 
   await syncClinicFromStripeSubscription(
-    clinic.id,
+    clinicId,
     subscription,
     `stripe-webhook:${event.type}`,
   );
+
+  if (
+    event.type === 'customer.subscription.updated' &&
+    nextPlanId &&
+    previousPlanId &&
+    previousPlanId !== nextPlanId
+  ) {
+    try {
+      await notifyBillingPlanChanged({
+        clinicId,
+        previousPlanId,
+        nextPlanId,
+        billingCycle: billingCycle ?? 'monthly',
+      });
+    } catch (err) {
+      console.error('[stripe-webhook] falha ao enviar e-mail de alteração de plano', err);
+    }
+  }
 }
 
-/** Aviso 3 dias antes do fim do trial: e-mail com valor e data da 1ª cobrança. */
-async function handleTrialWillEnd(event: Stripe.Event): Promise<void> {
+async function handleClinicTrialWillEnd(event: Stripe.Event): Promise<void> {
   const subscription = event.data.object as Stripe.Subscription;
   const customerId =
     typeof subscription.customer === 'string'
@@ -188,25 +468,7 @@ async function handleTrialWillEnd(event: Stripe.Event): Promise<void> {
   }
 }
 
-/** Extrai o subscription id da invoice (compatível com API antiga e nova da Stripe). */
-function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const legacy = (invoice as unknown as { subscription?: string | { id: string } | null })
-    .subscription;
-  if (typeof legacy === 'string') return legacy;
-  if (legacy && typeof legacy === 'object') return legacy.id;
-
-  const parent = (invoice as unknown as {
-    parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
-  }).parent;
-  const nested = parent?.subscription_details?.subscription;
-  if (typeof nested === 'string') return nested;
-  if (nested && typeof nested === 'object') return nested.id;
-
-  return null;
-}
-
-/** Pagamento recuperado (retry bem-sucedido) → reativa a assinatura no DB. */
-async function handleInvoicePaid(stripe: Stripe, event: Stripe.Event): Promise<void> {
+async function handleClinicInvoicePaid(stripe: Stripe, event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
   const customerId =
     typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
@@ -225,7 +487,7 @@ async function handleInvoicePaid(stripe: Stripe, event: Stripe.Event): Promise<v
   );
 }
 
-async function handleInvoicePaymentFailed(event: Stripe.Event): Promise<void> {
+async function handleClinicInvoicePaymentFailed(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
   const customerId =
     typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;

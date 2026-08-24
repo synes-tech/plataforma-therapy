@@ -27,3 +27,23 @@ export interface ConversationTurn {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export type CopilotSurface = 'record' | 'workspace';
+
+export interface PersistedCopilotMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  input_source?: 'text' | 'audio';
+  sources?: CopilotSourceRef[];
+  guardrail_triggered?: boolean;
+  answer_incomplete?: boolean;
+  created_at?: string;
+}
+
+export interface CopilotThreadResponse {
+  thread_id: string;
+  patient_id: string;
+  patient_name?: string;
+  messages: PersistedCopilotMessage[];
+}

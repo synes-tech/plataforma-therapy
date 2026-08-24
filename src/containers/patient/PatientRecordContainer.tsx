@@ -12,6 +12,7 @@ import { PatientFinanceTab } from './PatientFinanceTab';
 import { PatientCrisisControlTab } from './PatientCrisisControlTab';
 import { PatientFamilyInviteModal, usePatientFamilyInvite } from './PatientFamilyInvite';
 import { PatientRecordPageHeader } from './PatientRecordPageHeader';
+import { PatientRecordTabs } from './PatientRecordTabs';
 import {
   normalizePatientInfo,
   type PatientInfo,
@@ -181,11 +182,18 @@ export default function PatientRecordContainer() {
         diaryCount={data.recent_diary.length}
         onDiaryOpen={() => setFamilyDiaryOpen(true)}
         onFamilyInvite={() => familyInvite.setOpen(true)}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        clinicalDirty={isDirty}
         bleed={!isCopilotTab}
       />
+
+      <div
+        className={
+          isCopilotTab
+            ? 'mt-4 shrink-0 px-4 sm:mt-6 sm:px-6 lg:mt-8 lg:px-8'
+            : 'mt-4 sm:mt-6 lg:mt-8'
+        }
+      >
+        <PatientRecordTabs active={activeTab} onChange={handleTabChange} clinicalDirty={isDirty} />
+      </div>
 
       <PatientFamilyInviteModal
         isOpen={familyInvite.open}

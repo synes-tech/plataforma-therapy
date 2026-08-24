@@ -167,3 +167,57 @@ export function contractSummary(form: PatientContractFormValues): string | null 
   }
   return `${who} · Avulso · R$ ${form.valor || '—'} por sessão`;
 }
+
+export type PackageAutoFillChanged = 'session' | 'quantity' | 'package';
+
+/** Cruza valor da sessão, quantidade e total do pacote — um lado preenche o outro. */
+export function applyPackageAutoFill(input: {
+  sessionValue: string;
+  quantity: string;
+  packageValue: string;
+  changed: PackageAutoFillChanged;
+}): { sessionValue: string; packageValue: string } {
+  const qty = Number.parseInt(input.quantity.trim(), 10);
+  if (!Number.isInteger(qty) || qty < 1) {
+    return { sessionValue: input.sessionValue, packageValue: input.packageValue };
+  }
+
+  const sessionCents = reaisInputToCents(input.sessionValue);
+  const packageCents = reaisInputToCents(input.packageValue);
+
+  if (input.changed === 'session') {
+    if (sessionCents <= 0) {
+      return { sessionValue: input.sessionValue, packageValue: input.packageValue };
+    }
+    return {
+      sessionValue: input.sessionValue,
+      packageValue: centsToInputReais(sessionCents * qty),
+    };
+  }
+
+  if (input.changed === 'package') {
+    if (packageCents <= 0) {
+      return { sessionValue: input.sessionValue, packageValue: input.packageValue };
+    }
+    return {
+      sessionValue: centsToInputReais(Math.round(packageCents / qty)),
+      packageValue: input.packageValue,
+    };
+  }
+
+  if (sessionCents > 0) {
+    return {
+      sessionValue: input.sessionValue,
+      packageValue: centsToInputReais(sessionCents * qty),
+    };
+  }
+
+  if (packageCents > 0) {
+    return {
+      sessionValue: centsToInputReais(Math.round(packageCents / qty)),
+      packageValue: input.packageValue,
+    };
+  }
+
+  return { sessionValue: input.sessionValue, packageValue: input.packageValue };
+}

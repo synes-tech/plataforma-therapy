@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
-import { ARTIFACT_BADGE_CONFIG, getArtifactVisibilityBadge } from './patient-artifacts.constants';
+import { ARTIFACT_BADGE_CONFIG } from './patient-artifacts.constants';
 import { PatientArtifactActions } from './PatientArtifactActions';
-import { PatientCopilotFamilyShareToggle } from '../copilot/PatientCopilotFamilyShareToggle';
+import { PatientArtifactVisibilitySwitch } from './PatientArtifactVisibilitySwitch';
 import {
   formatArtifactDate,
   resolveArtifactTitle,
@@ -14,31 +14,34 @@ interface PatientArtifactReadModalProps {
   artifact: PatientArtifact | null;
   onClose: () => void;
   onEdit?: (artifact: PatientArtifact) => void;
+  onDuplicate?: (artifact: PatientArtifact) => void;
   onExportPdf: (artifact: PatientArtifact) => void;
   onRequestDelete: (artifact: PatientArtifact) => void;
   onVisibilityChange?: (artifactId: string, shared: boolean) => void;
   isUpdatingVisibility?: boolean;
   exportingId: string | null;
   deletingId: string | null;
+  duplicatingId?: string | null;
 }
 
 export function PatientArtifactReadModal({
   artifact,
   onClose,
   onEdit,
+  onDuplicate,
   onExportPdf,
   onRequestDelete,
   onVisibilityChange,
   isUpdatingVisibility = false,
   exportingId,
   deletingId,
+  duplicatingId = null,
 }: PatientArtifactReadModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = artifact !== null;
 
   const badge = artifact ? ARTIFACT_BADGE_CONFIG[artifact.tipo_artefato] : null;
-  const visibilityBadge = artifact ? getArtifactVisibilityBadge(artifact.compartilhado_familia) : null;
   const title = artifact ? resolveArtifactTitle(artifact) : 'Documento';
   const dateLabel = artifact ? formatArtifactDate(artifact.criado_em) : '';
 
@@ -88,19 +91,21 @@ export function PatientArtifactReadModal({
             >
               {title}
             </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${badge.className}`}
               >
                 {badge.label}
               </span>
-              {visibilityBadge ? (
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${visibilityBadge.className}`}
-                >
-                  {visibilityBadge.label}
-                </span>
-              ) : null}
+              {onVisibilityChange && !artifact.is_legacy ? (
+                <PatientArtifactVisibilitySwitch
+                  shared={artifact.compartilhado_familia}
+                  disabled={isUpdatingVisibility}
+                  onChange={(shared) => onVisibilityChange(artifact.id, shared)}
+                />
+              ) : (
+                <PatientArtifactVisibilitySwitch shared={artifact.compartilhado_familia} />
+              )}
               {dateLabel ? (
                 <time dateTime={artifact.criado_em} className="text-xs text-charcoal-muted">
                   {dateLabel}
@@ -113,10 +118,12 @@ export function PatientArtifactReadModal({
             <PatientArtifactActions
               artifact={artifact}
               onEdit={onEdit}
+              onDuplicate={onDuplicate}
               onExportPdf={onExportPdf}
               onRequestDelete={onRequestDelete}
               exportingId={exportingId}
               deletingId={deletingId}
+              duplicatingId={duplicatingId}
               layout="modal"
             />
             <button
@@ -133,16 +140,6 @@ export function PatientArtifactReadModal({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 px-4 py-5 sm:px-6 sm:py-6">
-          {onVisibilityChange && !artifact.is_legacy ? (
-            <div className="mx-auto mb-4 max-w-4xl">
-              <PatientCopilotFamilyShareToggle
-                checked={artifact.compartilhado_familia}
-                onChange={(shared) => onVisibilityChange(artifact.id, shared)}
-                disabled={isUpdatingVisibility}
-              />
-            </div>
-          ) : null}
-
           <div className="mx-auto max-w-4xl rounded-xl border border-slate-100 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
             <AiMarkdownContent
               content={artifact.conteudo_texto}
@@ -157,10 +154,12 @@ export function PatientArtifactReadModal({
           <PatientArtifactActions
             artifact={artifact}
             onEdit={onEdit}
+            onDuplicate={onDuplicate}
             onExportPdf={onExportPdf}
             onRequestDelete={onRequestDelete}
             exportingId={exportingId}
             deletingId={deletingId}
+            duplicatingId={duplicatingId}
             layout="modal"
           />
         </footer>

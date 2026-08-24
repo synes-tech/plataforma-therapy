@@ -1,6 +1,7 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ForbiddenError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
+import { appendProfessionalRecipient } from '../_shared/session-email-recipients.ts';
 import {
   enqueueSessionEmailJobs,
   resolveRecipientsForPatient,
@@ -17,7 +18,7 @@ export async function sendSessionReminder(
 
   const { data: professional, error: profError } = await supabase
     .from('professionals')
-    .select('id, name, clinic_id')
+    .select('id, name, email, clinic_id')
     .eq('user_id', caller.id)
     .is('deleted_at', null)
     .single();
@@ -67,6 +68,10 @@ export async function sendSessionReminder(
       statusCode: 409,
     });
   }
+  const recipients = appendProfessionalRecipient(resolved.recipients, {
+    email: (professional.email as string) || caller.email,
+    name: (professional.name as string) || 'terapeuta',
+  });
 
   if (mode === 'at') {
     const sendAtRaw = payload.send_at;
@@ -108,7 +113,7 @@ export async function sendSessionReminder(
       professionalId: professional.id as string,
       kind: 'reminder_manual',
       sendAt,
-      recipients: resolved.recipients,
+      recipients,
       metadata: { channel: 'ses', trigger: 'send-session-reminder', mode: 'at' },
     });
 
@@ -121,7 +126,7 @@ export async function sendSessionReminder(
       metadata: {
         patient_id: session.patient_id,
         send_at: sendAt.toISOString(),
-        recipients: resolved.recipients.map((r) => r.email),
+        recipients: recipients.map((r) => r.email),
         queued,
       },
     });
@@ -130,14 +135,14 @@ export async function sendSessionReminder(
       mode: 'at',
       queued,
       send_at: sendAt.toISOString(),
-      sent_to: resolved.recipients.map((r) => r.email).join(', '),
-      contact_name: resolved.recipients.map((r) => r.name).join(', '),
+      sent_to: recipients.map((r) => r.email).join(', '),
+      contact_name: recipients.map((r) => r.name).join(', '),
       session_at: session.scheduled_at as string,
     };
   }
 
   const sentTo: string[] = [];
-  for (const recipient of resolved.recipients) {
+  for (const recipient of recipients) {
     await sendSessionEmailNow({
       kind: 'reminder_manual',
       recipient,
@@ -181,7 +186,7 @@ export async function sendSessionReminder(
   return {
     mode: 'now',
     sent_to: sentTo.join(', '),
-    contact_name: resolved.recipients.map((r) => r.name).join(', '),
+      contact_name: recipients.map((r) => r.name).join(', '),
     session_at: session.scheduled_at as string,
   };
 }

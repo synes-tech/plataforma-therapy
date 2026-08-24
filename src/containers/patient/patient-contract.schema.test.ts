@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_CONTRACT_FORM } from './PatientContractFields';
 import {
+  applyPackageAutoFill,
   contractFormToPayload,
   contractSummary,
   contractToForm,
@@ -103,5 +104,56 @@ describe('patient-contract.schema', () => {
     expect(payload.billing_type).toBe('MENSAL_RECORRENTE');
     expect(payload.valor_acordado_cents).toBe(80000);
     expect(payload.due_day).toBe(10);
+  });
+
+  it('preenche o valor do pacote a partir da sessão e da quantidade', () => {
+    expect(
+      applyPackageAutoFill({
+        sessionValue: '150,00',
+        quantity: '8',
+        packageValue: '600,00',
+        changed: 'session',
+      }),
+    ).toEqual({ sessionValue: '150,00', packageValue: '1200,00' });
+
+    expect(
+      applyPackageAutoFill({
+        sessionValue: '150,00',
+        quantity: '10',
+        packageValue: '600,00',
+        changed: 'quantity',
+      }).packageValue,
+    ).toBe('1500,00');
+  });
+
+  it('preenche o valor da sessão a partir do total do pacote e da quantidade', () => {
+    expect(
+      applyPackageAutoFill({
+        sessionValue: '150,00',
+        quantity: '4',
+        packageValue: '800,00',
+        changed: 'package',
+      }),
+    ).toEqual({ sessionValue: '200,00', packageValue: '800,00' });
+
+    expect(
+      applyPackageAutoFill({
+        sessionValue: '',
+        quantity: '5',
+        packageValue: '500,00',
+        changed: 'quantity',
+      }).sessionValue,
+    ).toBe('100,00');
+  });
+
+  it('não calcula pacote sem quantidade válida', () => {
+    expect(
+      applyPackageAutoFill({
+        sessionValue: '150,00',
+        quantity: '',
+        packageValue: '600,00',
+        changed: 'session',
+      }),
+    ).toEqual({ sessionValue: '150,00', packageValue: '600,00' });
   });
 });

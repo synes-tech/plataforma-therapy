@@ -27,7 +27,7 @@ test.describe('Clinical Session Workspace', () => {
     await expect(page.getByRole('heading', { name: 'Sessão clínica' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Workspace clínico' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Anotações da sessão' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Finalizar e Processar Sessão' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finalizar sessão' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Iniciar gravação' })).toBeVisible();
   });
 
@@ -38,7 +38,7 @@ test.describe('Clinical Session Workspace', () => {
     await page.locator('textarea').first().fill(
       'Sessão E2E: paciente colaborativo, trabalhamos regulação emocional e combinados com família.',
     );
-    await page.getByRole('button', { name: 'Finalizar e Processar Sessão' }).click();
+    await page.getByRole('button', { name: 'Finalizar sessão' }).click();
     await expect(page.getByText(/estruturando relatório|Processando sessão/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Revisão e aprovação' })).toBeVisible({
       timeout: 120_000,

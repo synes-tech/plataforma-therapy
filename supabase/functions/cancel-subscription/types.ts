@@ -15,6 +15,8 @@ export interface CancelSubscriptionPreview {
   fidelity_adjustment_cents: number;
   fidelity_months_used: number;
   requires_fidelity_acceptance: boolean;
+  billing_exempt: boolean;
+  has_stripe_subscription: boolean;
 }
 
 export interface CancelSubscriptionResult {

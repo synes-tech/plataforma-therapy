@@ -15,17 +15,17 @@ export function CalendarMonthSkeleton({
 }: CalendarMonthSkeletonProps) {
   return (
     <div
-      className={`relative w-full rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:p-4 ${className}`.trim()}
+      className={`relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white ${className}`.trim()}
       aria-busy="true"
       aria-live="polite"
       role="status"
       aria-label={label}
     >
-      <div className="mb-3 grid grid-cols-7 gap-1.5 md:mb-2 md:gap-1">
+      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/70">
         {WEEKDAYS.map((w) => (
           <div
             key={w}
-            className="pb-1 text-center text-xs font-semibold uppercase tracking-wider text-charcoal-muted/70 md:pb-1 md:text-sm"
+            className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-charcoal-muted sm:text-xs"
           >
             <span className="hidden sm:inline">{w}</span>
             <span className="sm:hidden">{w[0]}</span>
@@ -34,13 +34,13 @@ export function CalendarMonthSkeleton({
       </div>
 
       <div className="relative">
-        <div className="grid grid-cols-7 gap-1.5 md:gap-1">
-          {Array.from({ length: 35 }).map((_, i) => (
-            <SkeletonBlock key={i} className="min-h-[72px] rounded-xl md:h-16 md:min-h-0 md:rounded-lg lg:h-[4.5rem]" />
+        <div className="grid grid-cols-7">
+          {Array.from({ length: 42 }).map((_, i) => (
+            <SkeletonBlock key={i} className="min-h-[5.75rem] rounded-none border-b border-r border-slate-100 sm:min-h-[6.75rem] lg:min-h-[7.5rem]" />
           ))}
         </div>
 
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/55 backdrop-blur-[1px]">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/55">
           <Spinner size="md" />
           <p className="text-xs font-medium text-charcoal-muted">{label}</p>
         </div>

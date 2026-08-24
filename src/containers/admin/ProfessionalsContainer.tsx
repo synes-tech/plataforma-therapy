@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ListPageSkeleton, LoadingButton, PageLoader } from '@containers/loading';
+import { PageHeader } from '@containers/layout';
 import { callFunction } from '@shared/lib/api';
 import { getInitials } from '@shared/lib/greeting';
 import { StandardModal } from '@shared/ui/StandardModal';
@@ -99,25 +100,25 @@ export default function ProfessionalsContainer() {
   }
 
   return (
-    <div className="bg-[#F8FAF9] px-5 py-6 lg:px-8 lg:py-8">
-      {/* Page header */}
-      <header className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="font-serif text-2xl font-medium tracking-tight text-charcoal md:text-3xl">
-            Profissionais
-          </h1>
-          <p className="mt-1 text-sm text-charcoal-muted">Gerencie os terapeutas da sua clínica.</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] md:w-auto"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Novo Profissional
-        </button>
-      </header>
+    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Profissionais"
+        subtitle="Gerencie os terapeutas da sua clínica."
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] md:w-auto lg:h-9 lg:px-4 lg:text-xs lg:font-semibold"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Novo Profissional
+          </button>
+        }
+      />
+
+      <div className="pb-6 pt-6 lg:pt-8">
 
       {/* Create modal */}
       <StandardModal
@@ -255,6 +256,7 @@ export default function ProfessionalsContainer() {
         onClose={() => setUpgradeOpen(false)}
         message={upgradeMessage}
       />
+      </div>
     </div>
   );
 }

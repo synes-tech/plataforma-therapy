@@ -22,13 +22,21 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Unithery',
           short_name: 'Unithery',
-          description: 'Copiloto clínico com IA para terapeutas infantis',
+          description: 'Copiloto clínico e portal de acompanhamento Unithery',
           theme_color: '#1A1A2E',
           background_color: '#121212',
           display: 'standalone',
           orientation: 'portrait',
           scope: '/',
           start_url: '/',
+          shortcuts: [
+            {
+              name: 'Portal',
+              short_name: 'Portal',
+              description: 'Diário e acompanhamento',
+              url: '/portal/diary',
+            },
+          ],
           icons: [
             { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

@@ -10,6 +10,7 @@ export interface PatientArtifact {
   criado_em: string;
   is_legacy: boolean;
   compartilhado_familia: boolean;
+  session_note_id?: string | null;
 }
 
 export interface PatientArtifactsResponse {

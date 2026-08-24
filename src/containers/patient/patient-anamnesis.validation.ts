@@ -1,5 +1,5 @@
 import type { PatientAnamnesisForm } from './patient-anamnesis.types';
-import { parseDiagnoses } from './patient-anamnesis.types';
+import { parseDiagnoses, profileFromForm } from './patient-anamnesis.types';
 import { anamnesisToContractForm, validateContractForm } from './patient-contract.schema';
 
 export interface StepValidationResult {
@@ -15,6 +15,7 @@ function isValidEmail(value: string): boolean {
 
 export function validateAnamnesisStep(step: number, form: PatientAnamnesisForm): StepValidationResult {
   const errors: Record<string, string> = {};
+  const profile = profileFromForm(form);
 
   if (step === 1) {
     if (form.name.trim().length < 2) {
@@ -23,14 +24,28 @@ export function validateAnamnesisStep(step: number, form: PatientAnamnesisForm):
     if (!form.birth_date) {
       errors.birth_date = 'Informe a data de nascimento.';
     }
-    if (parseDiagnoses(form.diagnoses).length === 0) {
-      errors.diagnoses = 'Informe ao menos um diagnóstico.';
+    // Catálogo ou texto livre: 64 verbetes não cobrem a clínica inteira, e o terapeuta
+    // precisa poder registrar o que ainda não está lá.
+    if (form.conditions.length === 0 && parseDiagnoses(form.diagnoses).length === 0) {
+      errors.conditions = 'Selecione ao menos uma condição ou descreva o foco clínico.';
+    }
+  }
+
+  if (step === 3) {
+    // Sem responsável identificado, o portal de um menor não tem para quem ir.
+    if (profile && profile !== 'ADULT') {
+      if (!form.composicao_familiar.trim()) {
+        errors.composicao_familiar = 'Descreva a composição e a dinâmica familiar.';
+      }
+      if (!form.responsaveis.trim()) {
+        errors.responsaveis = 'Informe o(s) responsável(is) pelo acompanhamento.';
+      }
     }
   }
 
   if (step === 5) {
     if (!form.contact_scope) {
-      errors.contact_scope = 'Selecione quem terá informações de contato.';
+      errors.contact_scope = 'Selecione quem terá acesso ao portal.';
     } else {
       if (form.contact_scope === 'patient' || form.contact_scope === 'both') {
         if (!form.email_paciente.trim()) {
@@ -63,3 +78,6 @@ export function canAdvanceFromStep(step: number, form: PatientAnamnesisForm): bo
 export function validateClinicalRecordForm(form: PatientAnamnesisForm): StepValidationResult {
   return validateAnamnesisStep(1, form);
 }
+
+/** Passos que precisam ser revalidados no submit final, mesmo se o usuário pulou de volta. */
+export const REQUIRED_WIZARD_STEPS = [1, 3, 5, 6] as const;

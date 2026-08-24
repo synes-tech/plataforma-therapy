@@ -56,24 +56,24 @@ const PLANS = [
     productName: 'Unithery — Plano Standard',
     description: 'Até 10 pacientes ativos · 40 sessões/mês · 750 interações de IA/mês',
     patientLimit: 10,
-    monthlyCents: 23120,
-    yearlyMonthlyCents: 20346,
+    monthlyCents: 23700,
+    yearlyMonthlyCents: 20700,
   },
   {
     id: 'advanced',
     productName: 'Unithery — Plano Advanced',
     description: 'Até 20 pacientes ativos · 80 sessões/mês · 1.500 interações de IA/mês',
     patientLimit: 20,
-    monthlyCents: 46240,
-    yearlyMonthlyCents: 40691,
+    monthlyCents: 42700,
+    yearlyMonthlyCents: 37700,
   },
   {
     id: 'premium',
     productName: 'Unithery — Plano Premium',
     description: 'Até 30 pacientes ativos · 120 sessões/mês · 2.250 interações de IA/mês',
     patientLimit: 30,
-    monthlyCents: 69360,
-    yearlyMonthlyCents: 61037,
+    monthlyCents: 65700,
+    yearlyMonthlyCents: 57700,
   },
 ];
 
@@ -221,9 +221,16 @@ async function main() {
     for (const u of dbUpdates) {
       if (u.table === 'planos') {
         const col = mode === 'test' ? 'stripe_price_id_test' : 'stripe_price_id_live';
+        const plan = PLANS.find((p) => p.id === u.id);
         await client.query(
-          `UPDATE planos SET ${col} = $1, ${col}_anual = $2, updated_at = now() WHERE id = $3`,
-          [u.monthlyPriceId, u.yearlyPriceId, u.id]
+          `UPDATE planos
+              SET ${col} = $1,
+                  ${col}_anual = $2,
+                  preco_mensal_cents = COALESCE($4, preco_mensal_cents),
+                  preco_anual_mensal_cents = COALESCE($5, preco_anual_mensal_cents),
+                  updated_at = now()
+            WHERE id = $3`,
+          [u.monthlyPriceId, u.yearlyPriceId, u.id, plan?.monthlyCents ?? null, plan?.yearlyMonthlyCents ?? null]
         );
       } else {
         const prefix = mode === 'test' ? 'stripe_price_id_test' : 'stripe_price_id_live';

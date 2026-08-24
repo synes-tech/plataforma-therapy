@@ -139,7 +139,7 @@ export function PatientLinkManageFlow({
             : 'Limite do plano atingido'
         }
         message={upgradeMessage}
-        ctaHref="/assinatura?plans=1"
+        ctaHref="/settings?plans=1"
         ctaLabel="Contratar espaço de backup"
         helperText="Adicione licenças de Arquivo Clínico Seguro no Controle de Plano — sem sair da plataforma."
       />

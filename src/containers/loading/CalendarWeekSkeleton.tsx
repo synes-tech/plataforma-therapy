@@ -26,40 +26,35 @@ export function CalendarWeekSkeleton({
 }: CalendarWeekSkeletonProps) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+      className="relative flex max-h-[calc(100dvh-12.5rem)] min-h-[28rem] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white"
       aria-busy="true"
       aria-live="polite"
       role="status"
       aria-label={label}
     >
-      <div className="overflow-x-auto border-b border-slate-100 scrollbar-hide md:overflow-visible">
-        <div className="flex w-full min-w-[640px] md:grid md:min-w-0 md:grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] lg:grid-cols-[4rem_repeat(7,minmax(0,1fr))]">
-          <div className="w-14 shrink-0 md:w-auto" aria-hidden />
-          {weekDays.map((dayISO) => {
-            const { weekday, day, isToday } = formatDayHeader(dayISO, todayISO);
-            return (
-              <div
-                key={dayISO}
-                className="min-w-[calc(100vw-4rem)] flex-1 snap-center border-l border-slate-100 px-2 py-3 text-center md:min-w-0"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-charcoal-muted">
-                  {weekday}
-                </p>
-                <p
-                  className={`mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+      <div className="grid shrink-0 grid-cols-[2.75rem_repeat(7,minmax(0,1fr))] border-b border-slate-200 sm:grid-cols-[3.25rem_repeat(7,minmax(0,1fr))]">
+        <div aria-hidden />
+        {weekDays.map((dayISO) => {
+          const { weekday, day, isToday } = formatDayHeader(dayISO, todayISO);
+          return (
+            <div key={dayISO} className="border-l border-slate-100 px-0.5 py-1.5 text-center">
+              <p className="flex items-center justify-center gap-1 text-[11px] leading-none sm:gap-1.5 sm:text-xs">
+                <span className="font-semibold uppercase tracking-wide text-charcoal-muted">{weekday}</span>
+                <span
+                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-semibold tabular-nums ${
                     isToday ? 'bg-primary text-white' : 'text-charcoal'
                   }`}
                 >
                   {day}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+                </span>
+              </p>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="relative min-h-[320px] p-4 md:min-h-[420px]">
-        <SkeletonBlock className="h-full min-h-[280px] rounded-xl" />
+      <div className="relative min-h-0 flex-1 p-4">
+        <SkeletonBlock className="h-full min-h-[240px] rounded-xl" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60">
           <Spinner size="md" />
           <p className="text-xs font-medium text-charcoal-muted">{label}</p>

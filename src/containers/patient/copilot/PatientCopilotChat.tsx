@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { callFunctionStream, type CopilotStreamMeta } from '@shared/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { callFunction, callFunctionStream, type CopilotStreamMeta } from '@shared/lib/api';
 import { LoadingOverlay, TabPanelLoader } from '@containers/loading';
 import { PatientCopilotChatInput } from './PatientCopilotChatInput';
 import { PatientCopilotEmptyState } from './PatientCopilotEmptyState';
@@ -12,11 +13,11 @@ import {
   mergeSavedType,
   removeSavedType,
 } from './patient-copilot-saved-state';
-import { buildConversationHistory, patientFirstName } from './patient-copilot.utils';
+import { buildConversationHistory, mapPersistedCopilotMessages, patientFirstName } from './patient-copilot.utils';
 import { PatientCopilotSaveArtifactModal } from './PatientCopilotSaveArtifactModal';
 import { AI_ARTIFACT_OPTIONS } from './patient-copilot-artifact.constants';
 import { buildArtifactSaveToast } from './patient-copilot-family-share.utils';
-import type { AiArtifactType, CopilotMessage } from './patient-copilot.types';
+import type { AiArtifactType, CopilotMessage, CopilotSurface, CopilotThreadResponse } from './patient-copilot.types';
 import { usePatientCopilotSavedArtifacts } from './usePatientCopilotSavedArtifacts';
 import { useCopilotAudioInput } from './useCopilotAudioInput';
 import { useCopilotStreamReveal } from './useCopilotStreamReveal';
@@ -26,6 +27,7 @@ import { Toast } from '../Toast';
 export interface PatientCopilotChatProps {
   patientId: string;
   patientName: string;
+  surface?: CopilotSurface;
   onBeforeSend?: () => boolean;
   onPaymentRequired?: () => void;
 }
@@ -46,6 +48,7 @@ type SavedArtifactIdsByMessage = Record<string, Partial<Record<AiArtifactType, s
 export function PatientCopilotChat({
   patientId,
   patientName,
+  surface = 'record',
   onBeforeSend,
   onPaymentRequired,
 }: PatientCopilotChatProps) {
@@ -65,6 +68,7 @@ export function PatientCopilotChat({
   const fingerprintCacheRef = useRef(new Map<string, string>());
   const firstName = patientFirstName(patientName);
   const { containerRef, onScroll } = useStickyChatScroll(messages);
+  const hydratedPatientRef = useRef<string | null>(null);
 
   const applyReveal = useCallback((nextVisible: string) => {
     const assistantId = activeAssistantIdRef.current;
@@ -95,6 +99,19 @@ export function PatientCopilotChat({
   const { savedKeys, savedKeysSerialized, saveArtifact, isLoadingArtifacts } =
     usePatientCopilotSavedArtifacts(patientId);
 
+  const { data: thread, isLoading: isLoadingThread } = useQuery({
+    queryKey: ['copilot-thread', patientId],
+    queryFn: () => callFunction<CopilotThreadResponse>('get-copilot-thread', { patient_id: patientId }),
+    enabled: !!patientId,
+    staleTime: 15_000,
+    retry: 1,
+  });
+
+  const persistedMessages = useMemo(
+    () => mapPersistedCopilotMessages(thread?.messages),
+    [thread?.messages],
+  );
+
   const assistantSyncKey = useMemo(() => buildAssistantSyncKey(messages), [messages]);
 
   useEffect(() => {
@@ -102,6 +119,7 @@ export function PatientCopilotChat({
     abortRef.current = null;
     activeAssistantIdRef.current = null;
     resetReveal();
+    hydratedPatientRef.current = null;
     setMessages([]);
     setInput('');
     setIsStreaming(false);
@@ -113,6 +131,12 @@ export function PatientCopilotChat({
     setToast(null);
     fingerprintCacheRef.current.clear();
   }, [patientId, resetReveal]);
+
+  useEffect(() => {
+    if (isLoadingThread || hydratedPatientRef.current === patientId) return;
+    setMessages(persistedMessages);
+    hydratedPatientRef.current = patientId;
+  }, [isLoadingThread, patientId, persistedMessages]);
 
   useEffect(() => {
     return () => {
@@ -194,7 +218,12 @@ export function PatientCopilotChat({
     ? AI_ARTIFACT_OPTIONS.find((option) => option.type === pendingSave.tipo)
     : null;
 
-  async function streamReply(userMessage: string, assistantId: string, historySnapshot: CopilotMessage[]) {
+  async function streamReply(
+    userMessage: string,
+    assistantId: string,
+    historySnapshot: CopilotMessage[],
+    inputSource: 'text' | 'audio' = 'text',
+  ) {
     const conversationHistory = buildConversationHistory(historySnapshot);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -209,6 +238,8 @@ export function PatientCopilotChat({
         message: userMessage,
         conversation_history: conversationHistory,
         stream: true,
+        surface,
+        input_source: inputSource,
       },
       {
         onChunk: (text) => {
@@ -286,22 +317,22 @@ export function PatientCopilotChat({
     setInput('');
     setMessages((prev) => {
       const next = [...prev, userMessage, pendingAssistant];
-      void streamReply(trimmed, assistantId, prev);
+      void streamReply(trimmed, assistantId, prev, inputSource);
       return next;
     });
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-white">
+    <div className={`flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${surface === 'workspace' ? 'bg-[#F8FAF9]' : 'bg-white'}`}>
       <div
         ref={containerRef}
         onScroll={onScroll}
         className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
       >
-        <LoadingOverlay show={isLoadingArtifacts} label="Preparando copiloto..." />
+        <LoadingOverlay show={isLoadingArtifacts || isLoadingThread} label="Preparando copiloto..." />
         <LoadingOverlay show={audioInput.state === 'transcribing'} label="Transcrevendo seu áudio..." />
 
-        {isLoadingArtifacts && messages.length === 0 ? (
+        {(isLoadingArtifacts || isLoadingThread) && messages.length === 0 ? (
           <TabPanelLoader label="Carregando copiloto..." className="min-h-full flex-1 border-0 shadow-none" />
         ) : messages.length === 0 && audioInput.state !== 'transcribing' ? (
           <PatientCopilotEmptyState
@@ -353,6 +384,7 @@ export function PatientCopilotChat({
         onSubmit={() => send(input, 'text')}
         patientFirstName={firstName}
         disabled={isStreaming}
+        variant={surface}
         audioState={audioInput.state}
         audioDurationLabel={audioInput.durationLabel}
         onStartRecording={() => {

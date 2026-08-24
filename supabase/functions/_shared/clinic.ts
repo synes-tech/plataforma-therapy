@@ -32,11 +32,77 @@ export async function resolveClinicId(
 
   if (profRecord?.clinic_id) return profRecord.clinic_id;
 
+  const email = user.email?.trim().toLowerCase();
+  if (email) {
+    const { data: adminByEmail } = await supabase
+      .from('clinic_admins')
+      .select('clinic_id')
+      .eq('email', email)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (adminByEmail?.clinic_id) return adminByEmail.clinic_id;
+
+    const { data: profByEmail } = await supabase
+      .from('professionals')
+      .select('clinic_id')
+      .eq('email', email)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (profByEmail?.clinic_id) return profByEmail.clinic_id;
+  }
+
   throw new AppError({
     code: 'NO_CLINIC',
     message: 'Usuário não vinculado a uma clínica',
     statusCode: 400,
   });
+}
+
+export type OwnerRecordRef =
+  | { kind: 'clinic_admin'; id: string }
+  | { kind: 'professional'; id: string };
+
+/** Localiza o perfil do dono por user_id e, se preciso, por e-mail. */
+export async function resolveOwnerRecord(
+  supabase: SupabaseClient,
+  user: AuthenticatedUser,
+): Promise<OwnerRecordRef | null> {
+  const { data: adminById } = await supabase
+    .from('clinic_admins')
+    .select('id')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (adminById?.id) return { kind: 'clinic_admin', id: adminById.id };
+
+  const { data: profById } = await supabase
+    .from('professionals')
+    .select('id')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (profById?.id) return { kind: 'professional', id: profById.id };
+
+  const email = user.email?.trim().toLowerCase();
+  if (!email) return null;
+
+  const { data: adminByEmail } = await supabase
+    .from('clinic_admins')
+    .select('id')
+    .eq('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (adminByEmail?.id) return { kind: 'clinic_admin', id: adminByEmail.id };
+
+  const { data: profByEmail } = await supabase
+    .from('professionals')
+    .select('id')
+    .eq('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (profByEmail?.id) return { kind: 'professional', id: profByEmail.id };
+
+  return null;
 }
 
 /**
@@ -46,21 +112,25 @@ export async function resolveOwnerName(
   supabase: SupabaseClient,
   user: AuthenticatedUser,
 ): Promise<string> {
-  const { data: admin } = await supabase
-    .from('clinic_admins')
-    .select('name')
-    .eq('user_id', user.id)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (admin?.name) return admin.name;
-
-  const { data: prof } = await supabase
-    .from('professionals')
-    .select('name')
-    .eq('user_id', user.id)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (prof?.name) return prof.name;
+  const ownerRef = await resolveOwnerRecord(supabase, user);
+  if (ownerRef?.kind === 'clinic_admin') {
+    const { data: admin } = await supabase
+      .from('clinic_admins')
+      .select('name')
+      .eq('id', ownerRef.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (admin?.name) return admin.name;
+  }
+  if (ownerRef?.kind === 'professional') {
+    const { data: prof } = await supabase
+      .from('professionals')
+      .select('name')
+      .eq('id', ownerRef.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (prof?.name) return prof.name;
+  }
 
   return user.email.split('@')[0] ?? 'Admin';
 }

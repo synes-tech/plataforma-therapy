@@ -30,7 +30,7 @@ export function PatientListTabs({ active, action }: PatientListTabsProps) {
 
       <nav className="-mx-1 hidden overflow-x-auto px-1 scrollbar-hide sm:block" aria-label="Pacientes">
         <div
-          className="inline-flex min-w-max gap-1 rounded-xl bg-slate-100 p-1 sm:min-w-0 sm:w-full sm:max-w-md"
+          className="inline-flex min-w-max gap-1 rounded-xl bg-slate-100 p-1"
           role="tablist"
         >
           {TABS.map((tab) => {
@@ -43,7 +43,7 @@ export function PatientListTabs({ active, action }: PatientListTabsProps) {
                 role="tab"
                 aria-selected={isActive}
                 className={({ isActive: linkActive }) =>
-                  `flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-1 ${
+                  `flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-1 lg:flex-initial lg:px-3 lg:py-1.5 lg:text-xs ${
                     linkActive || isActive
                       ? 'bg-white text-charcoal shadow-sm'
                       : 'text-charcoal-muted hover:text-charcoal'

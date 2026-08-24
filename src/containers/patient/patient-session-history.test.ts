@@ -3,7 +3,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { FinanceTransacao } from '@containers/financeiro/financeiro.types';
-import { buildPatientSessionTimeline, chargeKind, groupHistoryByMonth } from './patient-session-history';
+import {
+  buildPatientSessionTimeline,
+  chargeKind,
+  clampMonth,
+  contractMonthBounds,
+  groupHistoryByMonth,
+  itemsInMonth,
+  shiftMonth,
+} from './patient-session-history';
 
 function tx(partial: Partial<FinanceTransacao> & Pick<FinanceTransacao, 'id' | 'categoria' | 'status'>): FinanceTransacao {
   return {
@@ -64,5 +72,27 @@ describe('patient-session-history', () => {
       ]),
     );
     expect(groups.map((group) => group.monthKey)).toEqual(['2026-08', '2026-07']);
+  });
+
+  it('navega o recorte do contrato e filtra o mês', () => {
+    expect(shiftMonth('2026-08', 1)).toBe('2026-09');
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+    expect(clampMonth('2026-08', '2026-08', '2027-07')).toBe('2026-08');
+    expect(clampMonth('2026-01', '2026-08', '2027-07')).toBe('2026-08');
+
+    const bounds = contractMonthBounds({
+      contractStartsOn: '2026-08-01',
+      durationMonths: 12,
+      itemMonths: ['2026-08', '2026-09'],
+      currentMonth: '2026-08',
+    });
+    expect(bounds).toEqual({ start: '2026-08', end: '2027-07' });
+
+    const items = buildPatientSessionTimeline([
+      tx({ id: '1', categoria: 'MENSALIDADE', status: 'PAGO', data_vencimento: '2026-07-10' }),
+      tx({ id: '2', categoria: 'SESSAO_AVULSA', status: 'PENDENTE', data_vencimento: '2026-08-10' }),
+    ]);
+    expect(itemsInMonth(items, '2026-08')).toHaveLength(1);
+    expect(itemsInMonth(items, '2026-09')).toHaveLength(0);
   });
 });

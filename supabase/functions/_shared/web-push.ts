@@ -39,7 +39,7 @@ export async function sendWebPush(
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body,
-    url: payload.url ?? '/family/diary',
+    url: payload.url ?? '/portal/diary',
     tag: payload.tag,
   });
 

@@ -122,13 +122,15 @@ export async function assertEmailRateLimit(params: {
   });
 }
 
-export type AiRateKind = 'copilot' | 'session' | 'report' | 'family';
+export type AiRateKind = 'copilot' | 'session' | 'report' | 'family' | 'companion';
 
 const AI_LIMITS: Record<AiRateKind, { userHour: number; userBurst?: { limit: number; windowSec: number }; clinicHour: number }> = {
   copilot: { userHour: 80, userBurst: { limit: 20, windowSec: 300 }, clinicHour: 250 },
   session: { userHour: 30, clinicHour: 80 },
   report: { userHour: 25, clinicHour: 60 },
   family: { userHour: 20, clinicHour: 60 },
+  // Quotas largas de propósito: cortar alguém em crise por rate limit é pior que um pico de custo.
+  companion: { userHour: 120, userBurst: { limit: 30, windowSec: 300 }, clinicHour: 400 },
 };
 
 export async function assertAiRateLimit(user: AuthenticatedUser, kind: AiRateKind): Promise<void> {

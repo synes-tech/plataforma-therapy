@@ -16,7 +16,10 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:rls": "node scripts/qa-rls-b2c.mjs",
+    "test:onboarding": "node scripts/qa-onboarding-universal.mjs",
+    "db:migrate:cloudsql": "node scripts/apply-cloudsql-migration.mjs"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",

@@ -49,6 +49,8 @@ const confirmSchema = z.object({
   payment_action: z.enum(['consumir_pacote', 'receber_avulso', 'cortesia', 'nao_realizado']),
   valor_cents: z.number().int().min(0).optional(),
   forma_pagamento: z.enum(['pix', 'cartao', 'dinheiro', 'outro']).optional(),
+  data_pagamento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  competence_month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 const rescheduleSchema = z.object({
@@ -177,6 +179,8 @@ serve(async (req) => {
       } else if (p.payment_action === 'receber_avulso') {
         const valor = p.valor_cents ?? Number(plan?.valor_sessao_cents ?? 0);
         const categoria = plan?.modelo === 'social' || valor === 0 ? 'SESSAO_SOCIAL' : 'SESSAO_AVULSA';
+        const payDate = p.data_pagamento ?? new Date().toISOString().slice(0, 10);
+        const competence = p.competence_month ?? `${payDate.slice(0, 7)}-01`;
         const { data: tx, error } = await supabase
           .from('financeiro_transacoes')
           .insert({
@@ -186,8 +190,9 @@ serve(async (req) => {
             descricao: 'Sessão avulsa',
             valor_cents: valor,
             status: 'PAGO',
-            data_vencimento: new Date().toISOString().slice(0, 10),
-            data_pagamento: new Date().toISOString().slice(0, 10),
+            data_vencimento: payDate,
+            data_pagamento: payDate,
+            competence_month: competence,
             paciente_id: session.patient_id,
             sessao_id: session.id,
             professional_id: professionalId ?? session.professional_id,

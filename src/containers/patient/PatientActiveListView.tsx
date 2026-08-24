@@ -111,6 +111,7 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
           {!hasActiveFilters && (
             <button
               type="button"
+              data-tour="cta-new-patient"
               onClick={onOpenCreate}
               className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98]"
             >

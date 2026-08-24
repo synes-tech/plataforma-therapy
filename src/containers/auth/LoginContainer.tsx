@@ -14,7 +14,7 @@ import { RateLimitMessage } from '@shared/ui/RateLimitMessage';
 import { GoogleContinueButton } from './GoogleContinueButton';
 
 function resolvePostLoginPath(role: string | undefined): string {
-  return role === 'family' ? '/family/diary' : '/dashboard';
+  return role === 'family' ? '/portal/diary' : '/dashboard';
 }
 
 function loginModeFromSearch(params: URLSearchParams): AuthLoginMode {
@@ -140,7 +140,7 @@ export default function LoginContainer() {
       </div>
 
       {/* Left: Visual Branding — Conceito de Acolhimento Humano */}
-      <aside className="relative hidden w-[55%] overflow-hidden lg:flex lg:items-center lg:justify-center">
+      <aside className="relative hidden w-[55%] overflow-hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:items-center lg:justify-center">
         {/* Fundo com textura orgânica suave — tons pastel quentes */}
         <div
           className="absolute inset-0"
@@ -239,9 +239,9 @@ export default function LoginContainer() {
         </div>
       </aside>
 
-      {/* Right: Login Form */}
-      <main className="relative z-10 flex w-full flex-col items-center justify-center px-6 lg:w-[45%] lg:bg-white">
-        <div className="relative z-10 flex w-full max-w-sm flex-1 flex-col items-center justify-center lg:flex-none">
+      {/* Right: Login Form — rolável para o modo Portal não ficar cortado */}
+      <main className="relative z-10 w-full min-h-dvh overflow-y-auto overscroll-contain px-6 lg:w-[45%] lg:bg-white">
+        <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center py-10">
           {/* Mobile: Logo + Branding compacto */}
           <div className="mb-10 w-full text-center lg:hidden">
             <img
@@ -263,7 +263,7 @@ export default function LoginContainer() {
           {/* Heading */}
           <div className="mb-4 w-full">
             <h2 className="font-display text-2xl font-bold tracking-tight text-charcoal">
-              {isFamilyMode ? 'Portal da família' : 'Boas-vindas de volta'}
+              {isFamilyMode ? 'Portal Unithery' : 'Boas-vindas de volta'}
             </h2>
             <p className="mt-2 text-sm text-charcoal-muted">
               {isFamilyMode
@@ -402,7 +402,7 @@ export default function LoginContainer() {
             <p className="mt-8 w-full text-center text-sm text-charcoal-muted">
               Recebeu convite do terapeuta?{' '}
               <Link
-                to="/family/register"
+                to="/portal/register"
                 className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
               >
                 Crie o seu acesso
@@ -422,7 +422,7 @@ export default function LoginContainer() {
               <p className="mt-3 w-full text-center text-sm text-charcoal-muted">
                 Recebeu convite do terapeuta?{' '}
                 <Link
-                  to="/family/register"
+                  to="/portal/register"
                   className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/50"
                 >
                   Crie o seu acesso
@@ -430,13 +430,11 @@ export default function LoginContainer() {
               </p>
             </>
           )}
-        </div>
-
-        {/* Footer absoluto — apenas mobile */}
-        <div className="pb-6 pt-8 text-center lg:hidden">
-          <p className="text-xs text-charcoal-muted/40">
-            © 2026 Unithery · Privacidade · Termos
-          </p>
+          <div className="pb-2 pt-8 text-center lg:hidden">
+            <p className="text-xs text-charcoal-muted/40">
+              © 2026 Unithery · Privacidade · Termos
+            </p>
+          </div>
         </div>
       </main>
     </div>

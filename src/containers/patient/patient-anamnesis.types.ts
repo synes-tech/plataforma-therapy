@@ -1,13 +1,29 @@
 import type { FinanceBillingType, FinanceModelType } from '@containers/financeiro/financeiro.types';
+import { deriveProfileType, type PatientProfileType } from '@shared/lib/clinical-profile';
 
 export type PatientContactScope = 'patient' | 'responsible' | 'both';
+
+/** Condição escolhida na taxonomia clínica curada. */
+export interface SelectedCondition {
+  id: string;
+  label: string;
+}
 
 export interface PatientAnamnesisForm {
   name: string;
   nome_social: string;
   birth_date: string;
   escolaridade_ocupacao: string;
+  /** Texto livre — mantido para condições que ainda não estão no catálogo. */
   diagnoses: string;
+  /** Condições da taxonomia curada. Alimentam o RAG com vocabulário normalizado. */
+  conditions: SelectedCondition[];
+  /** Rede de apoio do adulto — o equivalente honesto à composição familiar da criança. */
+  support_network: string;
+  occupation_routine: string;
+  mapped_triggers: string;
+  /** O terapeuta pode cadastrar agora e convidar depois. */
+  portal_invite_send: boolean;
   queixa_principal: string;
   medicamentos: string;
   acompanhamento_multi: string[];
@@ -42,6 +58,11 @@ export const EMPTY_ANAMNESIS_FORM: PatientAnamnesisForm = {
   birth_date: '',
   escolaridade_ocupacao: '',
   diagnoses: '',
+  conditions: [],
+  support_network: '',
+  occupation_routine: '',
+  mapped_triggers: '',
+  portal_invite_send: true,
   queixa_principal: '',
   medicamentos: '',
   acompanhamento_multi: [],
@@ -70,31 +91,91 @@ export const EMPTY_ANAMNESIS_FORM: PatientAnamnesisForm = {
   financeiro_observacoes: '',
 };
 
-export const WIZARD_STEPS = [
-  { id: 1, label: 'Dados Básicos' },
-  { id: 2, label: 'Contexto Clínico' },
-  { id: 3, label: 'Dinâmica Familiar' },
-  { id: 4, label: 'Parametrização IA' },
-  { id: 5, label: 'Contato' },
-  { id: 6, label: 'Financeiro' },
-] as const;
+export const TOTAL_WIZARD_STEPS = 6;
 
-export const CONTACT_SCOPE_OPTIONS: { value: PatientContactScope; label: string; hint: string }[] = [
-  {
-    value: 'responsible',
-    label: 'Somente responsável',
-    hint: 'E-mail e telefone do responsável',
-  },
-  {
-    value: 'patient',
-    label: 'Somente paciente',
-    hint: 'E-mail e telefone do paciente',
-  },
-  {
-    value: 'both',
-    label: 'Ambos',
-    hint: 'Contatos do paciente e do responsável',
-  },
+/**
+ * O perfil do paciente não é uma opinião do terapeuta: é a idade dele. Derivar da data de
+ * nascimento em vez de perguntar elimina uma classe inteira de erro de cadastro — e o
+ * backend rejeita perfil que não confere com a data, então um seletor livre só produziria
+ * erro de validação depois de seis passos preenchidos.
+ */
+export function profileFromForm(form: Pick<PatientAnamnesisForm, 'birth_date'>): PatientProfileType | null {
+  return form.birth_date ? deriveProfileType(form.birth_date) : null;
+}
+
+/**
+ * O rótulo do passo 3 muda com o perfil porque o conteúdo muda: para uma criança
+ * perguntamos quem cuida dela; para um adulto, com quem ele conta.
+ */
+export function wizardStepsForProfile(
+  profile: PatientProfileType | null,
+): { id: number; label: string }[] {
+  return [
+    { id: 1, label: 'Dados Básicos' },
+    { id: 2, label: 'Contexto Clínico' },
+    { id: 3, label: profile === 'ADULT' ? 'Rede de Apoio' : 'Dinâmica Familiar' },
+    { id: 4, label: 'Parametrização IA' },
+    { id: 5, label: 'Portal e Contato' },
+    { id: 6, label: 'Financeiro' },
+  ];
+}
+
+export const WIZARD_STEPS = wizardStepsForProfile(null);
+
+export interface PortalScopeOption {
+  value: PatientContactScope;
+  label: string;
+  hint: string;
+}
+
+/**
+ * Quem recebe o convite do portal.
+ *
+ * Menor de idade nunca aparece sozinho: o portal de uma criança é do responsável, e o
+ * acesso autônomo de adolescente depende de consentimento registrado — não é uma escolha
+ * de cadastro. Já o adulto pode ter alguém acompanhando por ele (curatela, TEA adulto,
+ * quadro grave), e nesse caso o convite vai para o cuidador.
+ */
+export function portalScopeOptionsForProfile(profile: PatientProfileType | null): PortalScopeOption[] {
+  if (profile === 'ADULT') {
+    return [
+      {
+        value: 'patient',
+        label: 'O próprio paciente',
+        hint: 'Recebe o convite e acompanha o próprio processo',
+      },
+      {
+        value: 'responsible',
+        label: 'Uma pessoa de apoio',
+        hint: 'Cuidador ou familiar acompanha em nome do paciente',
+      },
+      {
+        value: 'both',
+        label: 'Ambos',
+        hint: 'Paciente com acesso próprio e uma pessoa de apoio',
+      },
+    ];
+  }
+
+  return [
+    {
+      value: 'responsible',
+      label: 'Apenas o responsável',
+      hint: 'Pai, mãe ou cuidador recebe o convite do portal',
+    },
+    {
+      value: 'both',
+      label: 'Responsável e paciente',
+      hint: 'O portal fica com o responsável; o paciente recebe os lembretes',
+    },
+  ];
+}
+
+/** Compat: consumidores antigos que listavam os três escopos sem contexto de perfil. */
+export const CONTACT_SCOPE_OPTIONS: PortalScopeOption[] = [
+  { value: 'responsible', label: 'Somente responsável', hint: 'E-mail e telefone do responsável' },
+  { value: 'patient', label: 'Somente paciente', hint: 'E-mail e telefone do paciente' },
+  { value: 'both', label: 'Ambos', hint: 'Contatos do paciente e do responsável' },
 ];
 
 export const ACOMPANHAMENTO_OPTIONS = [
@@ -153,6 +234,9 @@ type PatientInfoLike = {
   objetivos_terapeuticos?: string | null;
   hiperfocos_interesses?: string | null;
   informacoes_adicionais?: string | null;
+  support_network?: string | null;
+  occupation_routine?: string | null;
+  mapped_triggers?: string | null;
 };
 
 export function patientInfoToForm(p: PatientInfoLike): PatientAnamnesisForm {
@@ -162,6 +246,11 @@ export function patientInfoToForm(p: PatientInfoLike): PatientAnamnesisForm {
     birth_date: p.birth_date,
     escolaridade_ocupacao: p.escolaridade_ocupacao ?? '',
     diagnoses: (p.diagnoses ?? []).join(', '),
+    conditions: [],
+    support_network: p.support_network ?? '',
+    occupation_routine: p.occupation_routine ?? '',
+    mapped_triggers: p.mapped_triggers ?? '',
+    portal_invite_send: true,
     queixa_principal: p.queixa_principal ?? '',
     medicamentos: p.medicamentos ?? '',
     acompanhamento_multi: p.acompanhamento_multi ?? [],

@@ -121,6 +121,7 @@ serve(async (req: Request) => {
 
     const counts = new Map<string, number>();
     for (const r of rows ?? []) {
+      if (['cancelled', 'canceled'].includes(String(r.status ?? ''))) continue;
       const key = brDay(new Date(r.scheduled_at));
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }

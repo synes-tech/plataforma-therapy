@@ -1,4 +1,5 @@
-import { useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LoadingButton } from '@containers/loading';
 import { SessionNotesEditor } from './SessionNotesEditor';
 import { SessionAudioPanel, type SessionAudioPanelHandle } from './SessionAudioPanel';
@@ -6,10 +7,16 @@ import { ClinicalSessionProcessingOverlay } from './ClinicalSessionProcessingOve
 import { finalizeClinicalSession } from './clinical-session-payload.utils';
 import { useClinicalSessionSubmit } from './useClinicalSessionSubmit';
 
+export const CLINICAL_SESSION_HEADER_ACTIONS_ID = 'clinical-session-header-actions';
+
 interface ClinicalSessionWorkspaceProps {
   patientId: string;
   scheduleId?: string;
   onSessionProcessed?: (sessionNoteId: string) => void;
+}
+
+export function ClinicalSessionHeaderActionsSlot() {
+  return <div id={CLINICAL_SESSION_HEADER_ACTIONS_ID} className="flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap" />;
 }
 
 export function ClinicalSessionWorkspace({
@@ -21,6 +28,7 @@ export function ClinicalSessionWorkspace({
   const [anotacoesTexto, setAnotacoesTexto] = useState('');
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [audioSnapshot, setAudioSnapshot] = useState({ hasBlob: false, isRecording: false });
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   const {
     submit,
@@ -87,12 +95,42 @@ export function ClinicalSessionWorkspace({
     [],
   );
 
+  useEffect(() => {
+    setHeaderSlot(document.getElementById(CLINICAL_SESSION_HEADER_ACTIONS_ID));
+  }, []);
+
+  const toolbar = (
+    <>
+      <button
+        type="button"
+        onClick={handleResetWorkspace}
+        disabled={isBusy}
+        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-charcoal transition-colors hover:border-primary/30 hover:bg-primary-50 disabled:opacity-50 lg:h-9 lg:min-h-9 lg:py-0"
+      >
+        Limpar workspace
+      </button>
+      <LoadingButton
+        type="button"
+        onClick={handleFinalize}
+        loading={isBusy}
+        loadingLabel="Processando..."
+        disabled={isBusy || !canFinalize}
+        title={!canFinalize ? 'Grave áudio e/ou digite anotações para habilitar o processamento.' : undefined}
+        className="inline-flex min-h-11 min-w-[11rem] items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-white shadow-sm hover:bg-primary-dark disabled:opacity-50 lg:h-9 lg:min-h-9 lg:min-w-0 lg:py-0"
+      >
+        Finalizar sessão
+      </LoadingButton>
+    </>
+  );
+
   return (
     <>
       <ClinicalSessionProcessingOverlay
         show={isBusy}
         label={processingLabel ?? 'Processando sessão…'}
       />
+
+      {headerSlot ? createPortal(toolbar, headerSlot) : null}
 
       <section
         aria-labelledby="clinical-workspace-title"
@@ -121,6 +159,12 @@ export function ClinicalSessionWorkspace({
           </div>
         </div>
 
+        {displayError ? (
+          <p role="alert" className="rounded-xl border border-error/15 bg-error-light/50 px-4 py-3 text-sm text-error">
+            {displayError}
+          </p>
+        ) : null}
+
         <div className="grid gap-4 lg:grid-cols-[minmax(280px,320px)_1fr] lg:gap-6">
           <SessionAudioPanel
             ref={audioPanelRef}
@@ -135,42 +179,6 @@ export function ClinicalSessionWorkspace({
               disabled={isBusy}
             />
           </article>
-        </div>
-
-        <div className="sticky bottom-4 z-10 rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-lg backdrop-blur-sm sm:p-5">
-          {displayError && (
-            <p role="alert" className="mb-3 text-sm text-error">
-              {displayError}
-            </p>
-          )}
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={handleResetWorkspace}
-              disabled={isBusy}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal-muted transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              Limpar workspace
-            </button>
-
-            <LoadingButton
-              type="button"
-              onClick={handleFinalize}
-              loading={isBusy}
-              loadingLabel="Processando..."
-              disabled={isBusy || !canFinalize}
-              className="inline-flex h-12 min-w-[240px] items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-            >
-              Finalizar e Processar Sessão
-            </LoadingButton>
-          </div>
-
-          {!canFinalize && (
-            <p className="mt-3 text-center text-xs text-charcoal-muted sm:text-right">
-              Grave áudio e/ou digite anotações para habilitar o processamento.
-            </p>
-          )}
         </div>
       </section>
     </>

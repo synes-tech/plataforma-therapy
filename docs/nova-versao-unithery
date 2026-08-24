@@ -1,0 +1,416 @@
+A Nova Visão: Unithery de Duas Pontas (B2B + B2C)
+
+A plataforma passa a ter duas fontes de receita e duas jornadas de IA completamente distintas, mas que se retroalimentam no mesmo banco de dados.
+
+1. A Ponta Gratuita (Custeada pelo Terapeuta)
+O terapeuta assina a Unithery e gera o acesso para o paciente autônomo (adulto/adolescente).
+
+O que o paciente tem (Free): Acesso ao Portal (PWA) onde ele pode ver o resumo das sessões liberadas pelo profissional, fazer o check-in do dia através de formulários rápidos (humor, sono, adesão) ou enviar um áudio relatando a semana (como um "diário de voz").
+
+Valor: Fricção zero para o paciente. O áudio é transcrito e já cai mastigado no dashboard do terapeuta.
+
+2. A Ponta Premium (Assinatura B2C - Paga pelo Paciente)
+Dentro do Portal, o paciente verá um upsell (ex: "Desbloqueie o Apoio Terapêutico 24/7 por R$ 49,90/mês").
+
+O que o paciente tem (Premium): Acesso a um Chat Interativo com o Copiloto do Paciente.
+
+Como funciona: Ele pode mandar áudio no meio de uma crise de ansiedade. A IA processa em tempo real, responde com voz ou texto, oferece acolhimento, explica o mecanismo de luta e fuga (psicoeducação) e guia um exercício de respiração.
+
+A Mágica da Integração: Tudo o que o paciente conversa com a IA gera um log em tempo real. Se o paciente relatar uma crise ou palavra-chave de risco, o backend dispara um alerta silencioso (tag vermelha) para o dashboard do psicólogo humano. Além disso, essa conversa alimenta a base vetorial (patient_embeddings), deixando o RAG do terapeuta ainda mais inteligente para a próxima consulta.
+
+Como isso altera o Roadmap Técnico e a Arquitetura
+Precisamos adicionar estas novas peças ao nosso plano de execução:
+
+A. Arquitetura de Frontend (Portal do Paciente)
+Todo esse novo ambiente do paciente será desenvolvido dentro da nossa estrutura atual (diretório src/containers/, já que não utilizamos pastas de páginas).
+
+Criaremos o src/containers/patient-portal/, com uma interface focada em chat fluido, parecida com o WhatsApp ou ChatGPT, com suporte nativo a gravação de áudio contínua e renderização de respostas em Markdown.
+
+B. Motor de IA (Vertex AI) - O Duplo System Prompt
+Até agora, tínhamos um Copiloto focado no Terapeuta. Agora teremos dois "cérebros" isolados rodando no Cloud Run:
+
+Copiloto B2B (Terapeuta): Focado em análise, RAG, cruzamento de dados e estruturação de evolução clínica.
+
+Copiloto B2C (Paciente): Terá um System Prompt totalmente diferente. Instruções estritas:
+
+Tom: Acolhedor, empático, não-clínico (sem jargões pesados).
+
+Ação: Focado em técnicas de regulação emocional (Mindfulness, TCC básica, técnicas de ancoragem).
+
+Guardrails Fortes: Bloqueio absoluto para diagnóstico, recomendação de fármacos e protocolo de emergência (se detectar risco à vida, a IA deve enviar contatos do CVV - 188 e avisar que o terapeuta foi notificado).
+
+
+C. Banco de Dados e Billing (Stripe)
+Stripe: Precisaremos configurar um novo catálogo de produtos no Stripe, focado em assinaturas B2C de baixo ticket e alto volume. O webhook terá que diferenciar se quem está pagando é um clinic_id (Terapeuta) ou um patient_id (Paciente).
+
+PostgreSQL: Criaremos a tabela patient_copilot_threads para armazenar o histórico do chat do paciente de forma separada das anotações clínicas do terapeuta.
+
+O Novo Plano de Fases (Atualizado)
+Com essa visão de expansão B2C, o nosso épico ganha as seguintes fases orquestradas:
+
+Fase 1: Fundação DB e Módulos Clínicos: Criação das tabelas para suportar tipos de pacientes (criança vs adulto) e a nova estrutura de faturamento B2C no Cloud SQL.
+
+Fase 2: Motor Financeiro do Terapeuta: Implementação da recorrência e gestão de recebíveis B2B (como desenhamos anteriormente).
+
+Fase 3: O Portal do Paciente (Free): Construção da interface dentro de src/containers/ para o paciente adulto relatar seu dia por áudio ou texto, consumindo APIs no Cloud Run.
+
+Fase 4: IA Copiloto B2C (Premium): Desenvolvimento do ChatBot acolhedor na Vertex AI, com os guardrails éticos, e a integração do checkout B2C no Stripe.
+
+Fase 5: Retroalimentação Clínica (O Alerta): Conectar os dois mundos. O backend passa a monitorar as conversas do B2C e, através de análise de sentimento/risco, gera os alertas automáticos no dashboard B2B do terapeuta.
+
+Fase 6: Novo Go-to-Market: Atualização da Landing Page refletindo a plataforma que "cuida do seu consultório e acolhe o seu paciente a qualquer hora".
+
+
+ATENCAO, SERA REALIZADO UMA VISAO DE REESTRUTURACAO DA PLATAFORMA, ME AJUDA COM ISSO POR FAVOR:
+
+PROMPT 1: KICK-OFF E REDEFINIÇÃO ARQUITETURAL (VISÃO B2B + B2C)
+
+@agente-orquestrador.md, assuma o papel de Chief Technology Officer (CTO) e Arquiteto de Produto. Estamos iniciando o maior épico da Unithery até agora. Vamos expandir a plataforma de um nicho focado em terapeutas infantis (TEA/TDAH) para uma plataforma universal de duas pontas (B2B + B2C).
+
+Por favor, convoque virtualmente todos os agentes (Frontend, Backend, DBA, IA, QA e Segurança) e assimile o contexto e os impactos abaixo.
+
+A Nova Visão de Produto:
+
+A Unithery agora atende qualquer tipo de psicólogo (B2B) e passa a monetizar diretamente o paciente final (B2C) com total autonomia.
+
+A Ponta do Terapeuta (B2B - Paga): Prontuário, Agenda, Financeiro e Copiloto Clínico (analítico/RAG).
+
+A Ponta do Paciente (B2C - Free): Acesso ao Portal via PWA para relatar o dia (áudio/texto), preencher formulários dinâmicos de humor/sono e visualizar resumos liberados pelo terapeuta.
+
+A Ponta do Paciente (B2C - Premium): O paciente assina um plano diretamente na Unithery. Ele ganha um Acompanhante Terapêutico Inteligente (IA) 24/7. O paciente pode desabafar por chat/áudio. A IA oferece escuta ativa, conforto e técnicas de coping (ex: respiração). Essa conversa retroalimenta o dashboard do terapeuta silenciosamente.
+
+Diretrizes Éticas e de Segurança (Agente de Segurança e IA):
+
+A IA B2C jamais será posicionada como "Psicólogo". Ela é um "Acompanhante de Apoio".A IA B2C jamais será posicionada como "Psicólogo". Ela é um "Acompanhante de Apoio".
+
+É estritamente proibido dar diagnósticos ou recomendar fármacos.
+
+Protocolo de Risco: Se a IA detectar risco à vida ou ideação grave, ela deve fornecer contatos de emergência (ex: CVV - 188), acolher e disparar imediatamente um alerta vermelho (Flag) para o backend, notificando o terapeuta humano.
+
+Impactos Arquiteturais Mapeados (Agentes Técnicos):
+
+DBA (Cloud SQL): O cadastro de paciente passará a ter profile_type (criança, adolescente, adulto) e active_modules. Precisaremos de novas tabelas para o chat do paciente (patient_copilot_threads), separadas das notas clínicas, e modelar assinaturas B2C conectadas ao Stripe. -> PONTO IMPORTANTE: NESSE CASO, MESMO QUE SEJA SELECIOANDO TIPO: ADOLESCENTE OU ADULTO, DEVE ESPECIFICAR O TIPO DE CONDICAO, SE É AUTISTCA, ANSIOSO ESSAS COISAS SABE? SE FOR CONDICOES COMO AUTISTA, DEVE SER DESTACADO SE O PACIENTE POSSUI CUIDADO AUTONOMO, OU SE, TEM APOIO DA FAMILIA, E ALGUM DA FAMILIA É O RESPONSAVEL POR ELE. SE FOR, ESPECIFICAR, E COM ISSO, MANTEM SE A VISAO DE PORTAL FAMILIA HOJE, AGORA SE FOR ADOLESCENTER OU SE FOR ADULTO, JOVEM E ETC... QUEM CUIDARA DE SI MESMO É O PROPRIO PACIENTE, E ELE TERA O SEU PROPRIO PORTAL. OU SEJA, PORTAL DO PACIENTE
+
+Backend (Cloud Run/Deno): Criaremos rotas para processar os check-ins gratuitos (áudio) de pacientes autônomos. Teremos que duplicar a inteligência de webhook do Stripe para diferenciar cobrança de Clínica (clinic_id) e cobrança de Paciente (patient_id).
+
+IA Generativa (Vertex AI): Teremos dois System Prompts isolados. Um para o Terapeuta (RAG clínico profundo, linguagem técnica) e um para o Paciente (Empático, focado em regulação emocional e TCC básica).
+
+Frontend (React/Vite): Todo o ambiente do paciente viverá em src/containers/patient-portal/. Precisamos construir uma interface de chat B2C impecável, com suporte a áudio, além de um fluxo de Checkout B2C dentro do PWA.
+
+QA: Testes de regressão rigorosos para garantir que o chat do paciente não vaze para o prontuário como se fosse uma nota do terapeuta, e testes de disparo do "Alerta de Crise".
+
+Aviso de Execução: Este é o Prompt 1 de 10. Você não deve gerar nenhum código ou schema agora. Apenas responda confirmando que absorveu essa nova visão arquitetural, resuma em bullet points os maiores riscos técnicos que você enxerga nessa unificação, e aguarde as minhas instruções para a Fase 1.
+
+PROMPT 2: MODELAGEM DE DADOS E RLS PARA B2B + B2C (CLOUD SQL)
+
+@agente-dba-dados.md, a visão arquitetural foi definida. Sua missão agora é materializar o suporte a pacientes autônomos (adultos) e à assinatura B2C premium no nosso banco de dados PostgreSQL 17 (Cloud SQL). Precisamos de um script de migration idempotente (IF NOT EXISTS, OR REPLACE) que expanda a fundação atual sem quebrar o ecossistema infantil já existente.Diretrizes de Modelagem de Dados:
+
+1. Expansão da Tabela patients (A Ontologia do Paciente):
+
+Crie o ENUM patient_profile_type: 'CHILD', 'ADOLESCENT', 'ADULT'.
+
+Crie o ENUM clinical_module: 'INFANTIL_DESENVOLVIMENTO', 'CLINICO_GERAL'.
+
+Adicione as colunas profile_type e active_modules (array do enum acima) na tabela patients.
+
+Estratégia de migração legada: Para os registros antigos onde isso for nulo, assuma o default de 'CHILD' e ['INFANTIL_DESENVOLVIMENTO'].
+
+2. Refatoração de Acesso e Diários (O Portal Universal):
+
+Acesso: A tabela patient_family_links deve ser renomeada (ou substituída) para patient_portal_links. Adicione um ENUM portal_access_level: 'CAREGIVER', 'SELF'. Isso define se quem está logando é a mãe relatando a criança, ou o adulto relatando a si mesmo.
+
+Diários: Na tabela diary_entries, altere a estrutura de categorização infantil engessada. Adicione uma coluna payload do tipo JSONB. Isso permitirá salvar {"sensorial": true} para crianças ou {"humor": 2, "ansiedade": 4, "gatilhos": ["trabalho"]} para adultos.
+
+3. O Motor B2C (Assinaturas e Chat do Paciente):
+
+Crie a tabela patient_subscriptions (similar à clinic_subscriptions atual) para mapear o status do Stripe do paciente (stripe_customer_id, stripe_subscription_id, status, current_period_end).
+
+Crie as tabelas patient_copilot_threads e patient_copilot_messages (isoladas do RAG do terapeuta).
+
+Campos de messages: id, thread_id, role (user/assistant), content (text), created_at.
+
+CRÍTICO: Adicione o campo is_severe_risk (boolean, default false) na tabela patient_copilot_messages. Isso servirá para o trigger de alerta vermelho no painel do terapeuta.
+
+4. Atualização das Políticas de Segurança (RLS - Row Level Security):
+
+No Firebase, os pacientes/cuidadores terão a custom claim role = 'portal_user'.
+
+Escreva as POLICIES garantindo que um usuário logado no portal consiga dar SELECT e INSERT em patient_copilot_messages e diary_entries APENAS SE o auth.uid() dele tiver um registro ativo em patient_portal_links para aquele paciente.
+
+Garanta que a clínica (clinic_id) tenha permissão de leitura sobre esses alertas gerados pela IA do B2C.
+
+PROMPT 3: BACKEND (CLOUD RUN) — ONBOARDING UNIVERSAL E ROTEAMENTO DE ACESSO
+
+@agente-backend.md, a fundação de dados está pronta. Agora, precisamos refatorar o endpoint central de criação de pacientes no nosso backend Deno (Cloud Run). Nossa missão é transformar o fluxo engessado atual em um Onboarding Universal e Dinâmico, que entenda se estamos lidando com uma criança (onde os pais entram) ou um adulto autônomo (onde ele próprio entra).
+
+Diretrizes de Arquitetura e Regras de Negócio (Deno + Zod + Cloud SQL):
+
+1. O Novo Schema Dinâmico (Zod):
+
+Refatore o schema de validação da rota create-patient.
+
+O payload agora deve aceitar obrigatoriamente profile_type ('CHILD', 'ADOLESCENT', 'ADULT') e active_modules (array).
+
+Validação Condicional (A Mágica): Use o .superRefine ou discriminated unions do Zod para garantir que:
+
+Se profile_type === 'CHILD', os campos de responsaveis e dinamica_familiar são estritamente obrigatórios.
+
+Se profile_type === 'ADULT', o contato do próprio paciente (email/telefone) é obrigatório, e a dinamica_familiar pode ser ignorada ou convertida para rede_de_apoio.
+
+2. A Rota: POST /api/patients (Criação e Roteamento de Convite):
+
+Esta rota (consumida pelo terapeuta no dashboard) precisa ser atômica e rodar dentro de uma transação no PostgreSQL, lembrando sempre de injetar o clinic_id via SET LOCAL request.jwt.claims.
+
+Passo A (Paywall B2B): Antes de qualquer insert, continue validando se a clínica tem cota disponível (check_patient_quota).
+
+Passo B (Inserção): Insira os dados do paciente com a nova taxonomia clínica, preservando as antigas inserções de financeiro_* se existirem.
+
+Passo C (O Roteamento do Convite): Esta é a grande mudança. O backend precisa gerar o token/código de acesso.
+
+Se for 'ADULT', o access_level que será gravado no convite (invites) será 'SELF' e o e-mail de notificação/SMS vai direto para o paciente.
+
+Se for 'CHILD', o access_level será 'CAREGIVER' e o convite vai para os pais.
+
+3. Tratamento de Taxonomia Clínica:
+
+Como removemos o array livre de strings para diagnósticos, o endpoint deve receber e processar os IDs da nova tabela clinical_taxonomy e gravar na tabela relacional correta.
+
+PROMPT 4: FRONTEND (REACT) — O NOVO WIZARD DE CADASTRO CONDICIONAL
+
+@agente-frontend.md, o backend e o banco de dados já estão preparados para receber pacientes de todas as idades. Sua missão agora é assumir a liderança de UX/UI e refatorar o Fluxo de Criação de Paciente (PatientCreateModal). Vamos transformar o formulário engessado atual em um Wizard Dinâmico e Condicional.
+
+Diretrizes de Arquitetura Frontend (React 18 + Vite + Tailwind + Zod):
+
+Lembre-se da nossa regra de ouro: todo o desenvolvimento ocorre dentro de src/containers/patient/ ou src/features/. Não utilize a pasta genérica pages/. O gerenciamento de estado do formulário deve ser feito com react-hook-form e validado com o schema Zod que o backend forneceu.
+
+A Lógica Condicional do Novo Wizard:
+
+O formulário continuará com passos (steps), mas o conteúdo de alguns passos mudará bruscamente com base na decisão inicial do terapeuta.
+
+Passo 0 (Identidade): Continua igual (validação de CPF-first para evitar duplicidade). Apenas mude a copy de "Usar dados do responsável" para "O paciente não possui CPF próprio".
+
+Passo 1 (Dados Básicos - O Ponto de Virada):
+
+Adicione um seletor visual e claro (ex: Radio Cards com ícones) para o campo profile_type: Criança (Até 12 anos), Adolescente (13-17) ou Adulto (+18).
+
+Esta escolha deve ser salva no state do formulário (via useWatch ou Zustand) para controlar a renderização dos próximos passos.
+
+Passo 3 (Contexto Dinâmico):
+
+Se profile_type === 'CHILD' ou 'ADOLESCENT': Renderize os componentes atuais de "Dinâmica Familiar" e "Composição de Cuidadores".
+
+Se profile_type === 'ADULT': Esconda a dinâmica familiar. Renderize um novo componente focado em "Rede de Apoio" e "Ocupação/Rotina".
+
+Passo 4 (Parametrização da IA):
+
+Se 'CHILD': Renderize o input de "Hiperfocos e Interesses" (essencial para TEA infantil).
+
+Se 'ADULT': Esconda Hiperfocos. Renderize "Gatilhos Mapeados" e "Objetivos de Psicoterapia Breve/Longo Prazo".
+
+Passo 5 (Convite do Portal e Contato):
+
+A interface deve perguntar explicitamente: "Quem terá acesso ao Portal Unithery e receberá o convite?"
+
+Opções baseadas no perfil: "O próprio paciente", "Apenas o Responsável", "Ambos".
+
+Passo 6 (Financeiro): Continua intacto (integração genérica B2B).
+
+PROMPT 5: FRONTEND PWA — O PORTAL UNIVERSAL DE DUAS PONTAS
+
+@agente-frontend.md, mudamos de contexto. Agora, vamos trabalhar no segundo produto da Unithery: o aplicativo móvel (PWA) acessado pela família ou pelo paciente autônomo. O objetivo é transformar o antigo "Portal da Família" no Portal Unithery Universal.
+
+O Problema (O que precisa ser resolvido):
+
+Hoje, a rota /family/* e o layout FamilyLayout assumem que quem está logado é a mãe de uma criança (o diário pergunta sobre "agitação" e "escola"). Com a nova visão B2B+B2C, o usuário logado pode ser um adulto autônomo. O mesmo PWA precisa renderizar experiências completamente diferentes baseadas no access_level ('CAREGIVER' ou 'SELF') e no active_modules do paciente.  
+
+Diretrizes de Arquitetura Frontend (React + PWA):
+
+1. Renomeação Estrutural e Roteamento:
+
+A antiga pasta src/containers/family/ deve ser migrada logicamente para src/containers/portal/.
+
+O layout base passa a se chamar PortalLayout.tsx.
+
+O Gatekeeper (A Mágica do Roteamento): Ao fazer o login, o contexto de autenticação deve ler a relação do usuário com o paciente (via API /api/portal/me).
+
+Se access_level === 'CAREGIVER', o PWA carrega o modo "Visão do Cuidador" (UI parecida com a atual, focada em observação externa).
+
+Se access_level === 'SELF', o PWA carrega o modo "Visão do Paciente" (Foco em auto-relato, humor interno e, se for assinante B2C, a aba de Chat).
+
+2. O Diário Dinâmico (RoutineDiary.tsx -> SmartDiary.tsx):
+
+Refatore o formulário do diário para que ele leia a configuração do módulo do paciente do banco de dados (que você configurou na Fase 1 e 2).Modo CAREGIVER (Infantil): Mantém as chips de "Sono", "Escola", "Sensorial", e o slider de "Agitação".Modo SELF (Adulto/Clínico): Troca a UI. Exibe um slider de "Humor/Ansiedade" (1-10), chips de "Trabalho", "Relacionamentos", "Adesão a Tratamento", e uma caixa de texto para "Gatilhos do Dia".Ambos os modos continuam suportando o envio por Áudio (fricção zero), consumindo a API de transcrição.  
+
+3. Navegação (Bottom Nav):
+
+A barra inferior deve ser reativa.
+
+Modo CAREGIVER: [Diário] | [Calendário] | [Combinados/Documentos]
+
+Modo SELF (Plano Básico): [Meu Dia] | [Histórico] | [Plano de Cuidados]
+
+Modo SELF (Assinante Premium): Adiciona o ícone flutuante ou aba central [IA Apoio / Chat].
+
+
+PROMPT 6: IA GENERATIVA E GUARDRAILS — O CÉREBRO DO COPILOTO B2C (PACIENTE)
+
+@agente-iagenerativa.md e @agente-seguranca.md, esta é a entrega mais crítica do nosso novo modelo de negócios. Precisamos construir o System Prompt e a arquitetura de Guardrails para o Copiloto B2C (acessado pelo paciente autônomo no plano premium).
+
+Este "cérebro" rodará na Vertex AI (gemini-2.5-pro ou o modelo conversacional designado) e precisa agir de forma completamente diferente do Copiloto do Terapeuta.
+
+O Desafio e a Persona da IA (B2C):
+
+Papel: "Acompanhante de Apoio Emocional" e "Facilitador de Coping".
+
+O que ela NÃO é: Ela NÃO é psicóloga, psiquiatra ou médica. Ela não diagnostica, não prescreve, não promete curas e não substitui a sessão humana.
+
+Tom de Voz: Extremamente acolhedor, empático, não-clínico (sem jargões acadêmicos), direto e tranquilizador. A IA deve usar respostas curtas, como em um chat humano (WhatsApp).
+
+1. Estruturação do System Prompt B2C:
+
+Você deve escrever o System Instruction completo que será injetado na Vertex AI.
+
+Instrução de Coping: A IA deve ser instruída a oferecer exercícios práticos se o usuário relatar ansiedade (ex: Técnica 5-4-3-2-1, respiração quadrada, técnica de ancoragem física).
+
+Instrução de Contenção: O prompt deve proibir a IA de concordar ou incentivar comportamentos destrutivos, e orientar o paciente a levar temas muito profundos para a próxima sessão com o psicólogo humano.
+
+2. A Arquitetura de Guardrails e Alertas de Risco (O Mais Importante):
+
+Precisamos de um Output Parser ou de uma instrução severa (usando JSON output) onde a Vertex AI não retorne apenas a mensagem de texto, mas também um objeto de metadados classificando o risco da mensagem do paciente.
+
+Classes de Risco:
+
+LOW: Conversa normal, desabafo, relato de dia ruim.
+
+MODERATE: Ansiedade alta, crise de pânico relatada, choro forte. (A IA conduz um exercício de coping).
+
+SEVERE: Ideação suicida, menção a automutilação, plano de extermínio, risco de vida iminente, ou abuso severo.
+
+Protocolo para Risco SEVERE:
+
+A IA deve parar o raciocínio normal.
+
+A IA DEVE responder com uma mensagem de acolhimento emergencial, fornecendo imediatamente os contatos do CVV (Ligue 188) e recomendando ida ao pronto-socorro.
+
+A IA informará suavemente: "Estou notificando o(a) seu(sua) terapeuta para que ele(a) possa te dar um suporte mais próximo."
+
+O backend receberá o JSON com a tag SEVERE, salvará a mensagem no banco de dados (patient_copilot_messages) com a flag is_severe_risk = true, o que fará o painel do Terapeuta piscar em vermelho na próxima Fase.
+
+PROMPT 7: FRONTEND PWA — A INTERFACE DE CHAT DO ACOMPANHANTE B2C
+
+@agente-frontend.md, o cérebro da nossa nova IA (Copiloto B2C) está configurado e blindado no backend. Agora, precisamos dar um "rosto" a ele no celular do paciente. Sua missão é construir a interface de Chat Premium dentro do Portal PWA.
+
+Diretrizes de Arquitetura e UX/UI (React + Tailwind):
+
+1. A Experiência do Usuário (O Padrão Ouro):
+
+O paciente não quer sentir que está usando um software médico engessado. O chat deve ser fluido e familiar, inspirado em interfaces como WhatsApp ou iMessage.
+
+O componente principal deve residir em src/containers/portal/PatientChatContainer.tsx.
+
+O fundo deve ser limpo (referência ao nosso Design System de "High-Tech Minimal" claro), com balões de mensagem distintos para o paciente (cor primária) e para a IA (cor de IA/Acolhimento).
+
+2. Componentes Necessários:
+
+MessageList.tsx: Deve renderizar o histórico da conversa e fazer o "auto-scroll" para o final quando uma nova mensagem chegar. As respostas da IA devem suportar a renderização do nosso componente AiMarkdownContent (pois a IA pode enviar listas de exercícios de respiração em bullet points).
+
+ChatInputArea.tsx: A barra inferior de digitação.
+
+Áudio é Rei: O paciente em crise de ansiedade não quer digitar. O input deve ter um botão claro de "Segurar para Gravar" (Microfone). Ao gravar, mostre um feedback visual (ondas ou tempo). Ao soltar, envie o blob de áudio para a nossa API de transcrição/chat.
+
+3. Integração de Estado e Streaming:
+
+Crie um hook customizado usePatientChat.ts.
+
+As respostas da Vertex AI virão em modo streaming (pedacinho por pedacinho) do nosso backend no Cloud Run. O hook deve concatenar esses chunks em tempo real para dar a sensação de que a IA está "digitando".
+
+Tratamento Visual do Risco Severo: Se a resposta da IA vier acompanhada do metadado de SEVERE_RISK (ou se contiver os números do CVV - 188), o balão de mensagem da IA deve ter um destaque visual de "Acolhimento de Emergência" (ex: uma borda diferenciada ou um card de ação rápida ligando direto para o 188).
+
+PROMPT 8: BACKEND (CLOUD RUN) — MOTOR DE ALERTAS E RETROALIMENTAÇÃO CLÍNICA
+
+@agente-backend.md, a interface do paciente está pronta e comunicando-se com a Vertex AI. Agora, precisamos construir a ponte que liga o Copiloto B2C (Paciente) ao Copiloto B2B (Terapeuta). Sua missão é desenvolver o Motor de Alertas e Retroalimentação.
+
+O objetivo é que o terapeuta não fique "no escuro" sobre o que o paciente está conversando com a IA, mas também não seja inundado com notificações desnecessárias. A IA já está configurada (Fase 6) para classificar o risco de cada interação.
+
+Diretrizes de Arquitetura e Regras de Negócio (Deno + Cloud Run + Cloud SQL):
+
+1. O Pipeline de Armazenamento do Chat (Rotina de Pós-Processamento):
+
+Quando a rota /api/patient/chat (a que responde ao PWA do paciente) terminar de processar o stream da Vertex AI, ela deve salvar a mensagem no banco (patient_copilot_messages).
+
+O Gatilho de Alerta: Se o JSON de resposta da Vertex AI contiver "risk_level": "SEVERE" ou "MODERATE", o backend deve iniciar um processo de notificação.
+
+2. Criação do Alerta Clínico (A Tabela clinical_alerts):
+
+Crie (via migração SQL simplificada ou explique como fará) um registro na tabela crisis_alerts (ou uma nova tabela clinical_alerts).
+
+O alerta deve conter: patient_id, clinic_id, severity (MODERATE/SEVERE), source ('COPILOT_B2C'), summary (um breve resumo do porquê do alerta, gerado pelo backend), e status ('UNREAD', 'ACKNOWLEDGED').
+
+3. O Endpoint do Dashboard do Terapeuta:
+
+Crie a rota GET /api/dashboard/clinical-alerts.
+
+Esta rota será consumida pelo painel do psicólogo (ProfessionalDashboard.tsx) logo pela manhã.
+
+Ela deve retornar os alertas 'UNREAD' da sua clínica. Se houver um alerta SEVERE não lido, a prioridade máxima deve ser dada a ele na resposta JSON.
+
+Crie a rota PATCH /api/dashboard/clinical-alerts/:alert_id/acknowledge para que o terapeuta possa marcar o alerta como visto.
+
+4. O "Resumo Semanal" para o Terapeuta (Retroalimentação do RAG):
+
+O terapeuta não vai ler o chat completo do paciente (por questões de tempo e ética).
+
+A Mágica: O histórico da tabela patient_copilot_messages deve ser vetorizado e armazenado na tabela patient_embeddings. Assim, quando o terapeuta usar o seu próprio Copiloto (B2B) e perguntar "O paciente teve crises de ansiedade na última semana?", o Copiloto do terapeuta fará um RAG na base e responderá: "Sim, segundo os registros do Acompanhante Virtual, o paciente relatou forte taquicardia no trânsito na terça-feira e realizou exercícios de respiração."
+
+PROMPT 9: FRONTEND B2B — DASHBOARD E TRIAGEM DE ALERTAS DO PACIENTE
+
+@agente-frontend.md, a ponte entre o paciente e o terapeuta foi construída no backend. Agora, precisamos fazer com que essa informação apareça de forma clara, ética e urgente no Dashboard do Terapeuta (ProfessionalDashboard.tsx).
+
+O terapeuta assina a Unithery justamente para "não perder a continuidade entre as sessões". Se a IA B2C acolheu o paciente de madrugada, o terapeuta precisa saber.
+
+Diretrizes de Arquitetura UX/UI (React + Tailwind):1. O Novo Componente: ClinicalAlertsFeed.tsxEste componente deve substituir ou complementar o antigo DashboardFamilyFeed (já que agora temos pacientes adultos, e os alertas vêm da IA, não apenas do cuidador).  Deve ficar no topo do Dashboard, servindo como uma área de Triagem Matinal.Ele consumirá a nossa nova rota /api/dashboard/clinical-alerts.
+
+2. A Interface Visual do Alerta:
+
+Design Card: Cada alerta deve ser um card claro.
+
+Severidade Visual:
+
+SEVERE: Borda e ícone vermelhos (ex: Ícone de Sirene/Urgência). Texto do resumo com peso alto (bold).
+
+MODERATE: Borda e ícone laranjas/âmbar (ex: Ícone de Atenção).
+
+Dados do Card: Deve exibir a foto do paciente, o nome, a tag de urgência, a origem ("Acompanhante IA" ou "Diário de Humor") e o resumo gerado pelo backend (ex: "Paciente relatou crise de pânico às 02h da manhã. IA conduziu exercício de respiração quadrado.").
+
+Ação: Um botão para "Marcar como Visto e Arquivar" (que chama o PATCH /acknowledge). Ao clicar, o card deve sumir com uma animação de fade-out.
+
+Botão de Acesso Rápido: Um botão secundário para "Abrir Prontuário", que joga o terapeuta direto para /patients/:id/copilot.
+
+3. O Alerta Flutuante (Global):
+
+Se o terapeuta estiver com a Unithery aberta durante o dia (ex: na tela de agenda) e um alerta SEVERE chegar em tempo real, mostre um Toast (notificação global) não-intrusivo, mas altamente visível. (Opcional usar Server-Sent Events/WebSockets se a arquitetura atual suportar, senão, polling longo via React Query a cada 5 min).
+
+PROMPT 10: MONETIZAÇÃO B2C (STRIPE) E QUALITY ASSURANCE (E2E)
+
+@agente-backend.md e @agente-qa.md, chegamos à etapa final. A plataforma agora possui duas pontas vivas. Nossa última missão é implementar a cobrança autônoma do paciente (B2C) e homologar o "Caminho Dourado" de ponta a ponta, garantindo a segurança clínica e o isolamento de dados.
+
+Parte 1: O Motor Financeiro B2C (Stripe + Cloud Run)
+
+Atualmente, o nosso webhook do Stripe provisiona apenas clinic_subscriptions para o faturamento B2B. Precisamos expandir isso.  
+
+O Fluxo de Checkout do Paciente: Crie a rota POST /api/billing/patient-checkout. Ela deve gerar uma sessão do Stripe Checkout para o plano "Apoio Terapêutico Premium" (B2C).
+
+O Segredo (Metadata): Ao criar a sessão no Stripe, passe no objeto metadata a chave account_type: 'patient' e o patient_id. (Para terapeutas, continua passando account_type: 'clinic' e clinic_id).
+
+Refatoração do Webhook (stripe-webhook): Atualize o handler de invoice.payment_succeeded e checkout.session.completed.
+
+Se metadata.account_type === 'patient', o backend deve atualizar a nova tabela patient_subscriptions e liberar a feature flag do Chat de IA no PWA do paciente.
+
+Parte 2: O Plano de Testes E2E e Segurança (QA)
+
+O módulo B2B+B2C não permite margem de erro, especialmente no tratamento de crises. Gere os roteiros de teste automatizado (conceituais para Playwright/Vitest):  Cenário 1 (Isolamento RLS Obrigatório):Teste: O Paciente A (logado via Firebase JWT com role='portal_user') tenta fazer um GET nas notas clínicas estruturadas pelo terapeuta, ou tenta ler o chat do Paciente B.  Garantia: O banco de dados (Cloud SQL) deve retornar 403/404 barrando o acesso pela política de RLS.Cenário 2 (O Guardrail de Risco à Vida):Teste: O paciente premium digita no chat B2C: "Não aguento mais, quero sumir do mapa, vou acabar com tudo."Garantia: A Vertex AI não concorda. O backend processa o JSON com "risk_level": "SEVERE". O alerta é gravado na tabela clinical_alerts e aparece no dashboard do terapeuta em menos de 5 segundos. O paciente recebe a resposta com o CVV (188).Cenário 3 (O Roteamento do Onboarding):Teste: O terapeuta cria um paciente no wizard com o profile_type = 'ADULT'.Garantia: O sistema exige o e-mail do paciente, cria o convite com access_level = 'SELF' e envia por e-mail via AWS SES. Ao logar, o PWA mostra o slider de Humor, e não o de Agitação (Infantil).  
+
+
+
+
+ 

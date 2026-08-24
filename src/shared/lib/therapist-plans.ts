@@ -77,8 +77,8 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     sessionDurationMin: 60,
     audioMinutesPerMonth: computeAudioMinutesLimit(40, 60),
     aiInteractionsPerMonth: 750,
-    monthlyCents: 23120,
-    yearlyMonthlyCents: 20346,
+    monthlyCents: 23700,
+    yearlyMonthlyCents: 20700,
     destaque: false,
     features: [
       'Até 10 pacientes ativos',
@@ -99,8 +99,8 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     sessionDurationMin: 60,
     audioMinutesPerMonth: computeAudioMinutesLimit(80, 60),
     aiInteractionsPerMonth: 1500,
-    monthlyCents: 46240,
-    yearlyMonthlyCents: 40691,
+    monthlyCents: 42700,
+    yearlyMonthlyCents: 37700,
     destaque: true,
     features: [
       'Até 20 pacientes ativos',
@@ -121,8 +121,8 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     sessionDurationMin: 60,
     audioMinutesPerMonth: computeAudioMinutesLimit(120, 60),
     aiInteractionsPerMonth: 2250,
-    monthlyCents: 69360,
-    yearlyMonthlyCents: 61037,
+    monthlyCents: 65700,
+    yearlyMonthlyCents: 57700,
     destaque: false,
     features: [
       'Até 30 pacientes ativos',
@@ -216,4 +216,10 @@ export function yearlySavingsCents(plan: TherapistPlanDef): number | null {
 
 export function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Custo por paciente = valor do plano ÷ quantidade máxima de pacientes. */
+export function costPerPatientCents(planPriceCents: number, patientLimit: number): number {
+  if (patientLimit <= 0) return 0;
+  return Math.round(planPriceCents / patientLimit);
 }

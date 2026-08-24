@@ -9,9 +9,10 @@ export function PatientRecordOptionsMenu({ onManageLink, disabled }: PatientReco
       type="button"
       disabled={disabled}
       onClick={onManageLink}
+      data-tour="cta-manage-link"
       title="Gerenciar o vínculo"
       aria-label="Gerenciar o vínculo"
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-charcoal-muted transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-charcoal disabled:opacity-50"
+      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-charcoal-muted transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-charcoal disabled:opacity-50 lg:h-9 lg:py-0 lg:text-xs"
     >
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden>
         <path

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { FinanceBillingType, FinanceModelType } from '@containers/financeiro/financeiro.types';
 import { BILLING_TYPE_LABEL, MODEL_TYPE_LABEL } from '@containers/financeiro/financeiro.types';
-import { contractSummary } from './patient-contract.schema';
+import { contractSummary, applyPackageAutoFill } from './patient-contract.schema';
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-charcoal placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10';
@@ -84,6 +84,24 @@ export function PatientContractFields({ value, onChange, errors = {} }: PatientC
   const monthly = value.billing_type === 'MENSAL_RECORRENTE';
   const pacote = value.billing_type === 'PACOTE';
 
+  function patchPackage(
+    changed: 'session' | 'quantity' | 'package',
+    patch: Partial<PatientContractFormValues>,
+  ) {
+    const next = { ...value, ...patch };
+    const derived = applyPackageAutoFill({
+      sessionValue: next.valor,
+      quantity: next.pacote_qtd,
+      packageValue: next.pacote_valor,
+      changed,
+    });
+    onChange({
+      ...patch,
+      valor: derived.sessionValue,
+      pacote_valor: derived.packageValue,
+    });
+  }
+
   return (
     <div className="space-y-5">
       <fieldset className="space-y-2">
@@ -124,7 +142,19 @@ export function PatientContractFields({ value, onChange, errors = {} }: PatientC
             selected={pacote}
             label={BILLING_TYPE_LABEL.PACOTE}
             hint="Crédito antecipado de sessões"
-            onClick={() => onChange({ billing_type: 'PACOTE' })}
+            onClick={() => {
+              const derived = applyPackageAutoFill({
+                sessionValue: value.valor,
+                quantity: value.pacote_qtd,
+                packageValue: value.pacote_valor,
+                changed: 'session',
+              });
+              onChange({
+                billing_type: 'PACOTE',
+                valor: derived.sessionValue,
+                pacote_valor: derived.packageValue,
+              });
+            }}
           />
         </div>
         {errors.billing_type && <p className="text-xs text-error" role="alert">{errors.billing_type}</p>}
@@ -137,7 +167,9 @@ export function PatientContractFields({ value, onChange, errors = {} }: PatientC
         <input
           className={inputClass}
           value={value.valor}
-          onChange={(e) => onChange({ valor: e.target.value })}
+          onChange={(e) =>
+            pacote ? patchPackage('session', { valor: e.target.value }) : onChange({ valor: e.target.value })
+          }
           placeholder="150,00"
           inputMode="decimal"
         />
@@ -207,7 +239,7 @@ export function PatientContractFields({ value, onChange, errors = {} }: PatientC
               <input
                 className={inputClass}
                 value={value.pacote_qtd}
-                onChange={(e) => onChange({ pacote_qtd: e.target.value })}
+                onChange={(e) => patchPackage('quantity', { pacote_qtd: e.target.value })}
                 inputMode="numeric"
               />
               {errors.pacote_qtd && <p className="mt-1 text-xs text-error" role="alert">{errors.pacote_qtd}</p>}
@@ -217,7 +249,7 @@ export function PatientContractFields({ value, onChange, errors = {} }: PatientC
               <input
                 className={inputClass}
                 value={value.pacote_valor}
-                onChange={(e) => onChange({ pacote_valor: e.target.value })}
+                onChange={(e) => patchPackage('package', { pacote_valor: e.target.value })}
                 inputMode="decimal"
               />
               {errors.pacote_valor && <p className="mt-1 text-xs text-error" role="alert">{errors.pacote_valor}</p>}

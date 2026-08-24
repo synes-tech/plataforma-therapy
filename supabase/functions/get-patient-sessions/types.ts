@@ -31,6 +31,7 @@ export interface PatientSessionItem {
   audio_duracao_segundos: number | null;
   transcricao_completa: string | null;
   resumo_ia: SessionSoapContent;
+  saved_artifact_id: string | null;
 }
 
 export interface GetPatientSessionsResponse {

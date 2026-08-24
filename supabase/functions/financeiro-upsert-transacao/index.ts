@@ -79,6 +79,7 @@ const baixarRecebivelSchema = z.object({
   id: z.string().uuid(),
   data_pagamento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   forma_pagamento: z.enum(['pix', 'cartao', 'dinheiro', 'outro']).optional(),
+  valor_cents: z.number().int().min(0).optional(),
 });
 
 const sessaoAvulsaSchema = z.object({
@@ -329,6 +330,17 @@ serve(async (req) => {
           statusCode: error.message.includes('TX_NOT_PAYABLE') ? 400 : 500,
         });
       }
+      if (typeof parsed.data.valor_cents === 'number') {
+        const { error: valorError } = await supabase
+          .from('financeiro_transacoes')
+          .update({ valor_cents: parsed.data.valor_cents })
+          .eq('id', txId)
+          .eq('clinic_id', clinicId)
+          .eq('tipo', 'ENTRADA');
+        if (valorError) {
+          throw new AppError({ code: 'PAY_FAILED', message: valorError.message, statusCode: 500 });
+        }
+      }
       const { data: item } = await supabase
         .from('financeiro_transacoes')
         .select('*')
@@ -341,7 +353,11 @@ serve(async (req) => {
         action: 'financeiro.baixar_recebivel',
         resource_type: 'financeiro_transacoes',
         resource_id: parsed.data.id,
-        metadata: { data_pagamento: payDate, forma_pagamento: parsed.data.forma_pagamento ?? null },
+        metadata: {
+          data_pagamento: payDate,
+          forma_pagamento: parsed.data.forma_pagamento ?? null,
+          valor_cents: parsed.data.valor_cents ?? item?.valor_cents ?? null,
+        },
       });
       return successResponse({ item, transaction_id: txId }, req);
     }
@@ -472,19 +488,25 @@ serve(async (req) => {
     }
     const payload = parsed.data;
 
+    const due = payload.data_vencimento ?? new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    let status = payload.status;
+    if (status === 'PENDENTE' && due < today) status = 'ATRASADO';
     const row = {
       clinic_id: clinicId,
       tipo: payload.tipo,
       categoria: payload.categoria,
       descricao: payload.descricao,
       valor_cents: payload.valor_cents,
-      status: payload.status,
-      data_vencimento: payload.data_vencimento ?? null,
+      status,
+      data_vencimento: due,
       data_pagamento:
         payload.data_pagamento ??
-        (payload.status === 'PAGO' ? new Date().toISOString().slice(0, 10) : null),
+        (status === 'PAGO' ? today : null),
       paciente_id: payload.paciente_id ?? null,
       professional_id: professionalId,
+      competence_month: `${due.slice(0, 7)}-01`,
+      source: payload.tipo === 'ENTRADA' ? 'manual_income' : 'manual_expense',
       recorrente: payload.recorrente ?? false,
       metadata: payload.metadata ?? {},
       created_by: user.id,

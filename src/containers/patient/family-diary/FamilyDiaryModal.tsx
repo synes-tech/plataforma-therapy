@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { StandardModal } from '@shared/ui/StandardModal';
 import type { DiaryEntry } from '../patient-record.types';
-import { buildDiaryPreview, formatDiaryDateLong } from './family-diary.format';
+import { buildDiaryPreview, diaryAuthorLabel, formatDiaryDateLong } from './family-diary.format';
 
 interface FamilyDiaryModalProps {
   isOpen: boolean;
@@ -31,18 +31,19 @@ export function FamilyDiaryModal({ isOpen, onClose, patientId, entries }: Family
     <StandardModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Diário familiar"
+      title="Diário do portal"
       size="xl"
     >
       {sorted.length === 0 ? (
         <p className="text-sm text-charcoal-muted">
-          Nenhum relato da família nos últimos 14 dias. Convide os responsáveis para preencher o diário de rotina.
+          Nenhum relato nos últimos 14 dias. O convite do portal é o caminho para o paciente
+          ou o responsável começar a registrar o dia a dia.
         </p>
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-charcoal-muted">
-            {sorted.length} relato{sorted.length !== 1 ? 's' : ''} recente{sorted.length !== 1 ? 's' : ''} enviado
-            {sorted.length !== 1 ? 's' : ''} pela família.
+            {sorted.length} relato{sorted.length !== 1 ? 's' : ''} recente{sorted.length !== 1 ? 's' : ''} no
+            portal.
           </p>
           <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
             {sorted.map((entry) => (
@@ -55,6 +56,9 @@ export function FamilyDiaryModal({ isOpen, onClose, patientId, entries }: Family
                     <p className="text-sm font-medium capitalize text-charcoal">
                       {formatDiaryDateLong(entry.entry_date)}
                     </p>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-charcoal-muted">
+                      {diaryAuthorLabel(entry)}
+                    </span>
                     {entry.crisis_occurred && (
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200">
                         Crise {entry.crisis_level}/5

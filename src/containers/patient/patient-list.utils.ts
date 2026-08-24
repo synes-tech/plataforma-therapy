@@ -1,3 +1,7 @@
+import {
+  deriveProfileType,
+  type PatientProfileType,
+} from '@shared/lib/clinical-profile';
 import type {
   PatientDiagnosisFilter,
   PatientListFilters,
@@ -126,4 +130,29 @@ export function familyLinkDotClass(status: FamilyLinkStatus): string {
 
 export function resolveFamilyLinkStatus(patient: PatientListItem): FamilyLinkStatus {
   return patient.family_link_status ?? 'pendente';
+}
+
+export type PatientCareTrack = 'infantil' | 'individual';
+
+export const CARE_TRACK_LABEL: Record<PatientCareTrack, string> = {
+  infantil: 'Infantil',
+  individual: 'Individual',
+};
+
+export const CARE_TRACK_HINT: Record<PatientCareTrack, string> = {
+  infantil:
+    'Roteiro infantil: telas de desenvolvimento para o terapeuta e acompanhamento pelos responsáveis.',
+  individual: 'Roteiro clínico padrão: o paciente é o próprio protagonista do acompanhamento.',
+};
+
+export function resolvePatientCareTrack(
+  patient: Pick<PatientListItem, 'birth_date'> & { profile_type?: PatientProfileType | null },
+): PatientCareTrack {
+  const profile = patient.profile_type ?? deriveProfileType(patient.birth_date);
+  return profile === 'ADULT' ? 'individual' : 'infantil';
+}
+
+export function careTrackClass(track: PatientCareTrack): string {
+  if (track === 'infantil') return 'bg-primary-50 text-primary ring-1 ring-primary/20';
+  return 'bg-slate-100 text-charcoal-muted ring-1 ring-slate-200';
 }

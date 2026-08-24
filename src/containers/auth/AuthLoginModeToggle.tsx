@@ -15,7 +15,7 @@ export function AuthLoginModeToggle({ mode, onChange }: AuthLoginModeToggleProps
       {(
         [
           { id: 'therapist' as const, label: 'Terapeuta' },
-          { id: 'family' as const, label: 'Acesso família' },
+          { id: 'family' as const, label: 'Portal' },
         ] as const
       ).map(({ id, label }) => {
         const active = mode === id;

@@ -68,6 +68,32 @@ interface SessionRow {
   } | null;
 }
 
+async function loadSavedReportIds(
+  supabase: ReturnType<typeof createServiceClient>,
+  patientId: string,
+  sessionNoteIds: string[],
+): Promise<Map<string, string>> {
+  const byNote = new Map<string, string>();
+  if (sessionNoteIds.length === 0) return byNote;
+
+  const { data, error } = await supabase
+    .from('recomendacoes_salvas')
+    .select('id, session_note_id')
+    .eq('paciente_id', patientId)
+    .eq('tipo_artefato', 'relatorio_sessao')
+    .in('session_note_id', sessionNoteIds);
+
+  if (error) {
+    console.error('[get-patient-sessions] saved reports lookup failed', error.message);
+    return byNote;
+  }
+
+  for (const row of data ?? []) {
+    if (row.session_note_id && row.id) byNote.set(row.session_note_id as string, row.id as string);
+  }
+  return byNote;
+}
+
 export async function getPatientSessions(
   payload: GetPatientSessionsPayload,
   caller: AuthenticatedUser,
@@ -112,6 +138,11 @@ export async function getPatientSessions(
 
   const totalCount = count ?? 0;
   const rows = (data ?? []) as SessionRow[];
+  const artifactByNote = await loadSavedReportIds(
+    supabase,
+    payload.patient_id,
+    rows.map((row) => row.id),
+  );
 
   const items: PatientSessionItem[] = rows.map((row) => ({
     id: row.id,
@@ -123,6 +154,7 @@ export async function getPatientSessions(
     audio_duracao_segundos: row.audio_recordings?.duration_seconds ?? null,
     transcricao_completa: row.audio_transcriptions?.raw_text ?? null,
     resumo_ia: normalizeSoapContent(row.content),
+    saved_artifact_id: artifactByNote.get(row.id) ?? null,
   }));
 
   return {

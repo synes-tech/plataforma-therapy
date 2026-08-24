@@ -4,6 +4,8 @@ export const QueryCopilotSchema = z.object({
   patient_id: z.string().uuid(),
   message: z.string().min(3).max(2000),
   stream: z.boolean().optional(),
+  surface: z.enum(['record', 'workspace']).optional(),
+  input_source: z.enum(['text', 'audio']).optional(),
   conversation_history: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string(),

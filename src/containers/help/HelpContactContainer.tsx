@@ -8,13 +8,17 @@ import { callFunction, callPublicFunction } from '@shared/lib/api';
 import { getFirebaseCurrentUser } from '@shared/lib/firebase';
 import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 import { AppLayout } from '@shared/ui/AppLayout';
-import { FamilyLayout } from '@shared/ui/FamilyLayout';
+import { PortalLayout } from '@shared/ui/PortalLayout';
 import { getRetryAfterSeconds, isRateLimitedError } from '@shared/lib/rate-limit-message';
 import { RateLimitMessage } from '@shared/ui/RateLimitMessage';
+import { TheryReplayCard } from '@containers/onboarding-thery/TheryReplayCard';
 import { HELP_SUBJECTS, type HelpSubjectValue } from './help-contact.constants';
+import { HelpWhatsAppContact } from './HelpWhatsAppContact';
 
 const FIELD =
-  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-charcoal transition-all duration-200 placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10 disabled:bg-slate-50 disabled:text-charcoal-muted';
+  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-charcoal transition-all duration-200 placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10 disabled:bg-slate-50 disabled:text-charcoal-muted';
+
+const LABEL = 'mb-2 block text-sm font-medium text-charcoal';
 
 function HelpSuccess() {
   return (
@@ -94,10 +98,10 @@ function HelpForm({
   if (sent) return <HelpSuccess />;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div>
-          <label htmlFor="help-name" className="mb-2 block text-sm font-medium text-charcoal">
+        <div className="min-w-0">
+          <label htmlFor="help-name" className={LABEL}>
             Nome completo
           </label>
           <input
@@ -115,8 +119,8 @@ function HelpForm({
             className={FIELD}
           />
         </div>
-        <div>
-          <label htmlFor="help-email" className="mb-2 block text-sm font-medium text-charcoal">
+        <div className="min-w-0">
+          <label htmlFor="help-email" className={LABEL}>
             E-mail
           </label>
           <input
@@ -135,7 +139,7 @@ function HelpForm({
       </div>
 
       <div>
-        <label htmlFor="help-subject" className="mb-2 block text-sm font-medium text-charcoal">
+        <label htmlFor="help-subject" className={LABEL}>
           Assunto
         </label>
         <select
@@ -157,7 +161,7 @@ function HelpForm({
       </div>
 
       <div>
-        <label htmlFor="help-message" className="mb-2 block text-sm font-medium text-charcoal">
+        <label htmlFor="help-message" className={LABEL}>
           Como podemos ajudar?
         </label>
         <textarea
@@ -167,10 +171,11 @@ function HelpForm({
           required
           minLength={10}
           maxLength={4000}
-          rows={6}
+          rows={7}
           placeholder="Descreva o que você precisa — quanto mais detalhes, mais rápido conseguimos te responder."
-          className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-charcoal transition-all duration-200 placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
+          className="min-h-[10rem] w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base leading-relaxed text-charcoal transition-all duration-200 placeholder:text-charcoal-muted/40 focus:border-primary/50 focus:outline-none focus:ring-[3px] focus:ring-primary/10"
         />
+        <p className="mt-2 text-xs text-charcoal-muted">Mínimo de 10 caracteres. Resposta em até 24 horas úteis.</p>
       </div>
 
       <div className="hidden" aria-hidden>
@@ -193,9 +198,11 @@ function HelpForm({
         </div>
       )}
 
-      <LoadingButton type="submit" loading={submitting} loadingLabel="Enviando…" fullWidth>
-        Enviar
-      </LoadingButton>
+      <div className="pt-1">
+        <LoadingButton type="submit" loading={submitting} loadingLabel="Enviando…" fullWidth>
+          Enviar mensagem
+        </LoadingButton>
+      </div>
     </form>
   );
 }
@@ -208,7 +215,7 @@ function HelpCard({
   initialEmail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-8">
+    <div className="w-full bg-white px-4 py-6 sm:rounded-2xl sm:border sm:border-slate-100 sm:p-8 sm:shadow-sm">
       <HelpForm initialName={initialName} initialEmail={initialEmail} />
     </div>
   );
@@ -216,9 +223,9 @@ function HelpCard({
 
 function PublicHelpShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-[#F8FAF9]">
-      <header className="border-b border-slate-100 bg-white/90 px-4 py-4 backdrop-blur-md sm:px-6">
-        <div className="mx-auto flex max-w-2xl items-center justify-between">
+    <div className="min-h-dvh bg-white sm:bg-[#F8FAF9]">
+      <header className="border-b border-slate-100 bg-white/90 px-4 py-4 backdrop-blur-md sm:px-6 lg:px-8">
+        <div className="flex w-full items-center justify-between">
           <Link to="/" aria-label="Unithery — início">
             <img src={BRAND_LOGO_SRC} alt="Unithery" className="h-8 w-auto sm:h-9" />
           </Link>
@@ -230,7 +237,7 @@ function PublicHelpShell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">{children}</main>
+      <main className="w-full px-4 sm:px-6 sm:py-12 lg:px-8">{children}</main>
     </div>
   );
 }
@@ -259,42 +266,65 @@ export default function HelpContactContainer() {
   const initialEmail = user?.email ?? '';
 
   const heading = (
-    <>
+    <div className="border-b border-slate-100 px-4 py-6 sm:mb-6 sm:border-0 sm:px-0 sm:py-0">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-charcoal-muted/70">
         Ajuda
       </p>
-      <h1 className="font-serif text-3xl font-medium tracking-tight text-charcoal sm:text-[2rem]">
-        Fale conosco
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="min-w-0 font-serif text-3xl font-medium tracking-tight text-charcoal sm:text-[2rem]">
+          Fale conosco
+        </h1>
+        <HelpWhatsAppContact />
+      </div>
       <p className="mt-2 text-sm leading-relaxed text-charcoal-muted">
         Conte o que você precisa. Nossa equipe responde em até 24 horas úteis.
       </p>
-    </>
+    </div>
   );
 
   const card = <HelpCard initialName={initialName} initialEmail={initialEmail} />;
 
   if (user?.role === 'family') {
     return (
-      <FamilyLayout>
-        <div className="mx-auto w-full max-w-2xl">
+      <PortalLayout>
+        <div className="min-h-full w-full bg-white sm:bg-transparent">
           <PageHeader
             title="Fale conosco"
             subtitle="Nossa equipe responde em até 24 horas úteis."
             bleed={false}
+            className="!px-0"
+            actions={
+              <div className="flex w-full justify-end">
+                <HelpWhatsAppContact />
+              </div>
+            }
           />
-          <div className="mt-5">{card}</div>
+          <div className="w-full pb-8">
+            <TheryReplayCard />
+            {card}
+          </div>
         </div>
-      </FamilyLayout>
+      </PortalLayout>
     );
   }
 
   if (user) {
     return (
       <AppLayout>
-        <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
-          <PageHeader title="Fale conosco" subtitle="Nossa equipe responde em até 24 horas úteis." />
-          <div className="mx-auto mt-5 max-w-2xl pb-8">{card}</div>
+        <div className="min-h-full bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+          <PageHeader
+            title="Fale conosco"
+            subtitle="Nossa equipe responde em até 24 horas úteis."
+            actions={
+              <div className="flex w-full justify-end">
+                <HelpWhatsAppContact />
+              </div>
+            }
+          />
+          <div className="w-full pb-10 sm:mt-6">
+            <TheryReplayCard />
+            {card}
+          </div>
         </div>
       </AppLayout>
     );
@@ -302,7 +332,7 @@ export default function HelpContactContainer() {
 
   return (
     <PublicHelpShell>
-      <div className="mb-6">{heading}</div>
+      {heading}
       {card}
     </PublicHelpShell>
   );

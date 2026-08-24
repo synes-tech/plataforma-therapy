@@ -37,7 +37,7 @@ export function CalendarViewTabs({ active, onChange }: CalendarViewTabsProps) {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onChange(view.id)}
-                className={`flex flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-initial sm:min-w-[4.5rem] ${
+                className={`flex flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all sm:flex-initial sm:min-w-[4.5rem] lg:px-3 lg:py-1.5 lg:text-xs ${
                   isActive
                     ? 'bg-white text-charcoal shadow-sm'
                     : 'text-charcoal-muted hover:text-charcoal'

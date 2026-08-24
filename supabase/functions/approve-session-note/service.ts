@@ -2,6 +2,7 @@ import { createServiceClient } from '../_shared/supabase.ts';
 import { AppError, ForbiddenError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import { formatClinicalReportText } from '../_shared/session-note-format.ts';
+import { syncSessionNoteToSavedArtifact } from '../_shared/sync-session-artifact.ts';
 import { buildPaymentPrompt } from '../_shared/financeiro.ts';
 import type { ApproveSessionNotePayload, ApproveSessionNoteResponse } from './types.ts';
 
@@ -102,6 +103,41 @@ export async function approveSessionNote(
     });
   }
 
+  const { data: patientRow } = await supabase
+    .from('patients')
+    .select('name')
+    .eq('id', note.patient_id)
+    .maybeSingle();
+  const patientName = (patientRow?.name as string) || 'paciente';
+
+  let scheduleAtIso = now;
+  const pendingScheduleId = payload.schedule_id ?? note.schedule_id ?? null;
+  if (pendingScheduleId) {
+    const { data: scheduleTimes } = await supabase
+      .from('therapist_schedule')
+      .select('scheduled_at')
+      .eq('id', pendingScheduleId)
+      .maybeSingle();
+    if (typeof scheduleTimes?.scheduled_at === 'string') {
+      scheduleAtIso = scheduleTimes.scheduled_at;
+    }
+  }
+
+  try {
+    await syncSessionNoteToSavedArtifact({
+      sessionNoteId: note.id as string,
+      patientId: note.patient_id as string,
+      patientName,
+      professionalId: professional.id as string,
+      clinicId: note.clinic_id as string,
+      markdown: clinicalRawText,
+      sessionAtIso: scheduleAtIso,
+      callerId: caller.id,
+    });
+  } catch (err) {
+    console.error('[approve-session-note] sync saved artifact failed', err);
+  }
+
   let scheduleCompleted = false;
   const scheduleId = payload.schedule_id ?? note.schedule_id ?? null;
 
@@ -165,23 +201,18 @@ export async function approveSessionNote(
 
   const message = sharedWithFamily
     ? shareMode === 'refined'
-      ? 'Versão refinada enviada para a família; o relatório clínico bruto permanece privado'
-      : 'Relatório enviado para a família como gerado'
-    : 'Relatório salvo no prontuário (uso interno)';
+      ? 'Versão refinada enviada para a família; o relatório clínico bruto permanece em Documentos salvos'
+      : 'Relatório enviado para a família como gerado e salvo em Documentos salvos'
+    : 'Relatório salvo no prontuário e em Documentos salvos (uso interno)';
 
   let payment_prompt: ApproveSessionNoteResponse['payment_prompt'] = null;
   if (scheduleCompleted && scheduleId && note.clinic_id) {
     try {
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('name')
-        .eq('id', note.patient_id)
-        .maybeSingle();
       payment_prompt = await buildPaymentPrompt({
         clinicId: note.clinic_id as string,
         scheduleId: scheduleId as string,
         patientId: note.patient_id as string,
-        patientName: (patient?.name as string) || 'Paciente',
+        patientName,
         professionalId: professional.id as string,
       });
     } catch (err) {

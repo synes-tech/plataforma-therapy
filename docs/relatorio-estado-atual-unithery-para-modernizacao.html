@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unithery — Estado atual da plataforma · agosto 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #1A86E2;
+      --primary-50: #EBF5FE;
+      --primary-dark: #1565C0;
+      --charcoal: #0F172A;
+      --muted: #475569;
+      --slate: #64748B;
+      --border: #E2E8F0;
+      --surface: #F8FAF9;
+      --white: #FFFFFF;
+      --mint: #10B981;
+      --mint-dark: #059669;
+      --alert: #F59E0B;
+      --error: #EF4444;
+      --ai: #7C3AED;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #DCE4EA; color: var(--charcoal); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 10pt;
+      line-height: 1.42;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .toolbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 28px;
+      background: rgba(15, 23, 42, .94);
+      color: white;
+    }
+    .toolbar p { font-size: 12.5px; color: #CBD5E1; max-width: 820px; }
+    .toolbar strong { color: white; }
+    .btn-print {
+      appearance: none; border: 0; cursor: pointer; white-space: nowrap;
+      background: var(--primary); color: white;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 600; font-size: 13px;
+      padding: 11px 18px; border-radius: 12px;
+    }
+    .btn-print:hover { background: var(--primary-dark); }
+
+    .sheet {
+      padding: 28px 0 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      background: var(--white);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 22px 55px rgba(15, 23, 42, .14);
+      page-break-after: always;
+      break-after: page;
+    }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+
+    .accent {
+      position: absolute; top: 0; left: 0; right: 0; height: 4.5px;
+      background: linear-gradient(90deg, var(--primary) 0%, #38BDF8 55%, var(--mint) 100%);
+    }
+
+    .header, .footer {
+      position: absolute; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16mm;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 7.4pt; letter-spacing: .08em; text-transform: uppercase; color: var(--slate);
+    }
+    .header { top: 8mm; }
+    .footer {
+      bottom: 7mm; height: 12mm;
+      border-top: 1px solid var(--border);
+      padding-top: 4mm;
+    }
+    .content {
+      position: absolute;
+      top: 18mm; left: 16mm; right: 16mm; bottom: 20mm;
+    }
+
+    h1, h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 600; letter-spacing: -.02em; }
+    h2 { font-size: 16pt; line-height: 1.18; margin-bottom: 2.2mm; color: var(--charcoal); }
+    h3 {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 600; font-size: 9.2pt; margin: 3.4mm 0 1.6mm; color: var(--charcoal);
+    }
+    h4 {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 8pt; font-weight: 700; letter-spacing: .04em;
+      margin: 2.4mm 0 1.2mm; color: var(--charcoal);
+    }
+    p { color: var(--muted); }
+    p + p { margin-top: 1.8mm; }
+    strong { color: var(--charcoal); font-weight: 600; }
+
+    .kicker {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 7.4pt; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--primary); margin-bottom: 1.6mm;
+    }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.8mm; margin: 3.6mm 0; }
+    .stats-3 { grid-template-columns: repeat(3, 1fr); }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3mm 2.8mm 2.6mm;
+    }
+    .stat .lbl {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 6.4pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate);
+    }
+    .stat .val {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 14pt; font-weight: 600; margin-top: 1mm; line-height: 1.05;
+    }
+    .stat .sub { font-size: 7pt; color: var(--slate); margin-top: .4mm; }
+    .stat.info { background: var(--primary-50); border-color: #BFDBFE; }
+    .stat.mint { background: #ECFDF5; border-color: #A7F3D0; }
+    .stat.warn { background: #FFFBEB; border-color: #FDE68A; }
+    .stat.ai { background: #F5F3FF; border-color: #DDD6FE; }
+
+    .callout {
+      border-radius: 12px;
+      padding: 2.8mm 3.6mm 2.6mm 3.8mm;
+      margin: 2.8mm 0 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-left: 4px solid var(--primary);
+    }
+    .callout.warn { background: #FFFBEB; border-color: #FDE68A; border-left-color: var(--alert); }
+    .callout.ok { background: #ECFDF5; border-color: #A7F3D0; border-left-color: var(--mint-dark); }
+    .callout.info { background: var(--primary-50); border-color: #BFDBFE; border-left-color: var(--primary); }
+    .callout.ai { background: #F5F3FF; border-color: #DDD6FE; border-left-color: var(--ai); }
+    .callout h4 {
+      font-size: 7.6pt; letter-spacing: .05em; text-transform: uppercase; margin: 0 0 1mm;
+    }
+    .callout p { font-size: 9pt; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 7.9pt; margin: 2mm 0 2.4mm; }
+    th {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 6.4pt; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--slate); text-align: left; padding: 1.7mm 1.5mm;
+      border-bottom: 1.5px solid var(--charcoal);
+      background: var(--surface);
+    }
+    td {
+      padding: 1.55mm 1.5mm;
+      border-bottom: 1px solid var(--border);
+      color: var(--charcoal);
+      vertical-align: top;
+    }
+    td.muted { color: var(--muted); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3mm 3.4mm;
+      background: white;
+    }
+    .card h4 { font-size: 8.6pt; font-weight: 700; margin: 0 0 1.2mm; text-transform: none; letter-spacing: 0; }
+    .card p, .card li { font-size: 8.6pt; }
+
+    ul, ol { margin: 1.2mm 0 2mm 4.2mm; color: var(--muted); }
+    li { margin: .7mm 0; }
+    li strong { color: var(--charcoal); }
+
+    .flow {
+      display: flex; flex-direction: column; gap: 0;
+      margin: 2.4mm 0;
+    }
+    .flow-step {
+      display: grid;
+      grid-template-columns: 8mm 1fr;
+      column-gap: 3mm;
+    }
+    .flow-rail { display: flex; flex-direction: column; align-items: center; }
+    .flow-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,134,226,.14);
+      margin-top: 1.6mm;
+    }
+    .flow-line { flex: 1; width: 1.5px; background: #BFDBFE; margin: 1.4mm 0 0; min-height: 6mm; }
+    .flow-step:last-child .flow-line { display: none; }
+    .flow-body { padding: 1mm 0 3mm; }
+    .flow-body strong { display: block; font-size: 9pt; }
+    .flow-body span { font-size: 8.4pt; color: var(--muted); }
+
+    .mono {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 7.5pt;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2.6mm 3mm;
+      color: var(--charcoal);
+      white-space: pre;
+      line-height: 1.45;
+      margin: 2mm 0;
+    }
+    code { font-family: ui-monospace, Menlo, monospace; font-size: 7.8pt; color: var(--charcoal); }
+
+    .toc { list-style: none; margin: 2mm 0 0; }
+    .toc li {
+      display: flex; align-items: baseline; gap: 3mm;
+      padding: 1.7mm 0;
+      border-bottom: 1px dotted var(--border);
+      font-size: 9.6pt;
+    }
+    .toc .t { color: var(--charcoal); font-weight: 500; }
+    .toc .d { flex: 1; border-bottom: 1px dotted #CBD5E1; transform: translateY(-3px); }
+    .toc .n {
+      color: var(--primary);
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 700; width: 8mm; text-align: right;
+    }
+
+    .cover .content { top: 0; bottom: 0; left: 0; right: 0; }
+    .cover-hero {
+      height: 128mm;
+      background: var(--charcoal);
+      color: white;
+      padding: 16mm 16mm 12mm;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-hero::before {
+      content: "";
+      position: absolute; right: -28mm; top: -42mm;
+      width: 150mm; height: 150mm; border-radius: 50%;
+      background: radial-gradient(circle, rgba(26,134,226,.42), transparent 70%);
+    }
+    .cover-hero::after {
+      content: "";
+      position: absolute; left: -20mm; bottom: -50mm;
+      width: 110mm; height: 110mm; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,.22), transparent 70%);
+    }
+    .cover-brand {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cover-word {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 700; font-size: 18pt; letter-spacing: -.03em; color: white;
+    }
+    .cover-word span { color: #7DD3FC; }
+    .cover-tag {
+      font-size: 7pt; letter-spacing: .18em; text-transform: uppercase; color: #94A3B8;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 600;
+    }
+    .cover-kicker { margin-top: 20mm; position: relative; z-index: 1; color: #93C5FD; }
+    .cover-hero h1 {
+      font-size: 26pt; line-height: 1.12; margin-top: 4mm;
+      color: white; position: relative; z-index: 1; max-width: 170mm;
+    }
+    .cover-hero .meta {
+      margin-top: 8mm; color: #CBD5E1; font-size: 9.2pt;
+      position: relative; z-index: 1; max-width: 158mm;
+    }
+    .cover-body { padding: 7mm 16mm 0; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: white; border: 1px solid var(--border); border-radius: 999px;
+      padding: 1.2mm 3mm; font-size: 7.2pt; color: var(--muted);
+      font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 600;
+      margin: 0 1.2mm 1.6mm 0;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+    .dot.ai { background: var(--ai); }
+    .dot.warn { background: var(--alert); }
+
+    .fine { font-size: 7.8pt; color: var(--slate); margin-top: 1.6mm; }
+    .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; }
+
+    @media print {
+      .toolbar { display: none !important; }
+      html, body { background: white; }
+      .sheet { padding: 0; gap: 0; }
+      .page { box-shadow: none; margin: 0; }
+    }
+    @page { size: A4; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <p><strong>Exportar PDF:</strong> clique em Imprimir, escolha “Salvar como PDF”, ative <em>Gráficos de fundo</em> e deixe as margens em <em>Nenhuma</em>. Folha A4, retrato. 24 páginas.</p>
+    <button class="btn-print" type="button" onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
+
+  <div class="sheet">
+
+    <!-- 1 CAPA -->
+    <section class="page cover">
+      <div class="accent"></div>
+      <div class="content">
+        <div class="cover-hero">
+          <div class="cover-brand">
+            <div class="cover-word">Unithe<span>ry</span></div>
+            <div class="cover-tag">Cuidado humano potencializado</div>
+          </div>
+          <div class="kicker cover-kicker">Documento interno · estado atual + briefing</div>
+          <h1>Estado atual da plataforma — inventário para modernização</h1>
+          <p class="meta">
+            17 de agosto de 2026 · Produção em unithery.com<br />
+            SYNES TECH · CNPJ 47.465.014/0001-44<br />
+            Da tese infantil TEA/TDAH para uma Unithery de qualquer psicólogo
+          </p>
+        </div>
+        <div class="cover-body">
+          <span class="badge"><i class="dot"></i> Inventário factual do código</span>
+          <span class="badge"><i class="dot ai"></i> Não é o plano de modernização</span>
+          <span class="badge"><i class="dot warn"></i> Briefing para outra IA / produto</span>
+          <p style="margin-top:4mm">Este relatório descreve o que a Unithery é hoje: produto, público, stack, infraestrutura GCP, jornadas, portal da família, criação de paciente, IA, preços e o que já está acoplado à tese de criança. O plano de expansão nasce depois, a partir deste inventário.</p>
+          <div class="stats stats-3" style="margin-top:5mm">
+            <div class="stat info"><div class="lbl">Handlers API</div><div class="val">114</div><div class="sub">Cloud Run Deno</div></div>
+            <div class="stat mint"><div class="lbl">Planos pagos</div><div class="val">3</div><div class="sub">237 · 427 · 657</div></div>
+            <div class="stat ai"><div class="lbl">Folhas A4</div><div class="val">24</div><div class="sub">Pronto para impressão</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 COMO USAR + TOC -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Como usar</span></div>
+      <div class="content">
+        <p class="kicker">Leitura obrigatória</p>
+        <h2>Como usar este documento</h2>
+        <p>Ele descreve <strong>o que existe hoje</strong>, como foi construído, com quais linguagens, dependências, lógicas e jornadas. <strong>Não é o plano de modernização.</strong> O plano deve nascer depois, a partir deste inventário.</p>
+        <div class="callout ai">
+          <h4>Tese de expansão pedida pelo produto</h4>
+          <p>A Unithery deve servir a <strong>todo tipo de psicólogo</strong>. O que hoje é o núcleo (criança + família + TEA/TDAH) vira um <strong>módulo especial e adicional</strong>. Cadastro, portal e visões clínicas precisam se adaptar à condição do paciente.</p>
+        </div>
+        <h3>O que a IA / analista receptora deve devolver</h3>
+        <ol>
+          <li>O que é <strong>núcleo genérico</strong> (serve a qualquer psicólogo).</li>
+          <li>O que é <strong>módulo infantil / TEA / desenvolvimento</strong>.</li>
+          <li>O que muda no <strong>cadastro do paciente</strong>.</li>
+          <li>O que muda no <strong>portal</strong> (família → paciente, e quando cada um aparece).</li>
+          <li>O que muda nas <strong>visões</strong> do terapeuta e do paciente/familiar por condição.</li>
+          <li>Um <strong>plano faseado</strong>, sem quebrar o que já está em produção.</li>
+        </ol>
+        <h3>Sumário</h3>
+        <ol class="toc">
+          <li><span class="n">03</span><span class="t">I. O que é a Unithery</span><span class="d"></span></li>
+          <li><span class="n">05</span><span class="t">II. Público-alvo e papéis</span><span class="d"></span></li>
+          <li><span class="n">06</span><span class="t">III. Stack, linguagens e método</span><span class="d"></span></li>
+          <li><span class="n">08</span><span class="t">IV. Arquitetura lógica e técnica</span><span class="d"></span></li>
+          <li><span class="n">09</span><span class="t">V. Infraestrutura GCP</span><span class="d"></span></li>
+          <li><span class="n">12</span><span class="t">VI. Segurança, LGPD e isolamento</span><span class="d"></span></li>
+          <li><span class="n">13</span><span class="t">VII. Plataforma do terapeuta</span><span class="d"></span></li>
+          <li><span class="n">16</span><span class="t">VIII. Portal da família</span><span class="d"></span></li>
+          <li><span class="n">18</span><span class="t">IX–X. Criação do paciente e jornadas</span><span class="d"></span></li>
+          <li><span class="n">20</span><span class="t">XI–XIII. IA, preços e financeiro</span><span class="d"></span></li>
+          <li><span class="n">22</span><span class="t">XV–XVI. Acoplamento TEA e briefing</span><span class="d"></span></li>
+        </ol>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 2 / 24</span></div>
+    </section>
+
+    <!-- 3 PARTE I -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte I</span></div>
+      <div class="content">
+        <p class="kicker">Parte I</p>
+        <h2>O que é a Unithery</h2>
+        <h3>1.1 Definição</h3>
+        <p>A Unithery é um SaaS clínico com IA copiloto. Ela conecta o terapeuta ao contexto da vida do paciente <strong>entre as sessões</strong>, organiza o prontuário, transcreve e estrutura evoluções, e gera hipóteses — sem substituir a decisão clínica.</p>
+        <div class="callout">
+          <h4>Frase de produto da landing atual</h4>
+          <p>“O cuidado <strong>continua</strong> entre as sessões.” · “A criança não conta como foi a semana. A família conta.”</p>
+        </div>
+        <p style="margin-top:3mm">Hoje a plataforma foi desenhada, copyada, modelada e vendida para <strong>terapeutas de crianças com TEA, TDAH e outras demandas do desenvolvimento</strong>. A arquitetura técnica, porém, já é multi-tenant e isolada por paciente — o que permite generalizar sem reescrever o núcleo de segurança.</p>
+        <h3>1.2 Problema que resolve hoje</h3>
+        <table>
+          <thead><tr><th>Dor</th><th>Como a Unithery ataca</th></tr></thead>
+          <tbody>
+            <tr><td>Horas cruzando WhatsApp, caderno e memória</td><td class="muted">Diário da família + briefing + copiloto com RAG do paciente</td></tr>
+            <tr><td>Relatório de evolução escrito à mão</td><td class="muted">Ditado / texto → Vertex estrutura → terapeuta lapida e aprova</td></tr>
+            <tr><td>Família não relata a semana de forma útil</td><td class="muted">PWA mobile: humor, sono, crise, chips ou áudio</td></tr>
+            <tr><td>ChatGPT público com dado clínico</td><td class="muted">IA isolada por <code>patient_id</code>, PII mascarada, sem treino público</td></tr>
+            <tr><td>Honorários em planilha</td><td class="muted">Financeiro do consultório + contrato no cadastro</td></tr>
+            <tr><td>Assinatura e cotas manuais</td><td class="muted">Stripe + paywall de pacientes e interações de IA</td></tr>
+          </tbody>
+        </table>
+        <h3>1.3 Objetivo de produto (atual)</h3>
+        <ol>
+          <li>Devolver horas à semana do terapeuta.</li>
+          <li>Manter continuidade clínica entre sessões.</li>
+          <li>Isolar o contexto de cada paciente (LGPD + ética).</li>
+          <li>Fazer a IA <strong>debater</strong> com o terapeuta, não decidir no lugar dele.</li>
+          <li>Monetizar por cota de pacientes + sessões + interações de IA.</li>
+        </ol>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 3 / 24</span></div>
+    </section>
+
+    <!-- 4 PARTE I cont + II -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Partes I–II</span></div>
+      <div class="content">
+        <h3>1.4 Objetivo de expansão</h3>
+        <p>Tornar a Unithery uma plataforma <strong>para qualquer psicólogo</strong>, mantendo um <strong>módulo especial</strong> para o cenário atual (criança + família + TEA/TDAH/desenvolvimento). Isso implica redesenhar quem é o segundo usuário, quais campos nascem no cadastro, quais telas e prompts a IA usa, e como landing e pricing falam com públicos diferentes.</p>
+        <h3>1.5 Diferenciais já implementados</h3>
+        <div class="grid-2">
+          <div class="card"><h4>IA isolada</h4><p>Perfil individualizado por paciente, RAG + thread persistente, cita fonte.</p></div>
+          <div class="card"><h4>Humano no loop</h4><p>Sessão multimodal; a IA rascunha, o terapeuta aprova.</p></div>
+          <div class="card"><h4>Convite seguro</h4><p>Preview assíncrono: o botão só habilita depois de mostrar o nome do paciente.</p></div>
+          <div class="card"><h4>Monetização real</h4><p>Stripe, plano Free de 1 paciente, financeiro do consultório.</p></div>
+        </div>
+        <p class="kicker" style="margin-top:5mm">Parte II</p>
+        <h2>Público-alvo</h2>
+        <h3>2.1 Público atual</h3>
+        <table>
+          <thead><tr><th>Persona</th><th>Papel hoje</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Comprador</strong></td><td class="muted">Terapeuta autônomo (psicólogo, TO, fono, psicopedagogo). Go-to-market real. Clínica corporativa existe no backend, UI travada em solo (<code>soloProfessionalOnly</code>).</td></tr>
+            <tr><td><strong>Segundo usuário</strong></td><td class="muted">Familiar / responsável. PWA mobile <em>Portal da Família</em>. Não vê copiloto. Vê diário, calendário, relatórios e combinados.</td></tr>
+            <tr><td><strong>Paciente</strong></td><td class="muted">Na prática, uma criança. Sem login próprio. Cadastro assume responsável, hiperfocos, escola, sensorial.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout info">
+          <h4>Público da landing</h4>
+          <p>“Feito para terapeutas de crianças com TEA, TDAH e outras demandas do desenvolvimento.”</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 4 / 24</span></div>
+    </section>
+
+    <!-- 5 PARTE II papéis -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte II</span></div>
+      <div class="content">
+        <h3>2.2 Papéis no sistema (RBAC)</h3>
+        <div class="mono">Master (SYNES / Unithery)
+  └── Clínica / Consultório (tenant)
+        ├── clinic_admin     gestão de equipe — UI parcial
+        ├── professional     terapeuta; se is_solo, também owner
+        └── family           responsável vinculado a 1+ pacientes</div>
+        <p>Claims no JWT (Identity Platform): <code>role</code>, <code>clinic_id</code>, <code>is_solo</code>.</p>
+        <table>
+          <thead><tr><th>Role</th><th>O que vê</th></tr></thead>
+          <tbody>
+            <tr><td><code>professional</code></td><td class="muted">Dashboard, agenda, pacientes, copiloto, sessão. Financeiro e Settings se solo.</td></tr>
+            <tr><td><code>clinic_admin</code></td><td class="muted">Dashboard da clínica, profissionais, pacientes. Sem financeiro solo.</td></tr>
+            <tr><td><code>family</code></td><td class="muted">Apenas <code>/family/*</code>. Redirect de <code>/dashboard</code> → <code>/family/diary</code>.</td></tr>
+            <tr><td><code>master</code></td><td class="muted">Placeholder “Painel Master em desenvolvimento”. Acesso amplo no backend.</td></tr>
+          </tbody>
+        </table>
+        <h3>2.3 Público futuro (hipótese a validar)</h3>
+        <table>
+          <thead><tr><th>Persona</th><th>Hoje</th><th>Expansão exige</th></tr></thead>
+          <tbody>
+            <tr><td>Psicólogo infantil TEA/TDAH</td><td class="muted">Núcleo atual</td><td class="muted">Vira módulo especial</td></tr>
+            <tr><td>Psicólogo clínico adulto</td><td class="muted">Quase sem suporte</td><td class="muted">Núcleo genérico + portal do paciente</td></tr>
+            <tr><td>Adolescente</td><td class="muted">Não modelado</td><td class="muted">Responsável + paciente, ou só paciente</td></tr>
+            <tr><td>Casal / família em terapia</td><td class="muted">Não modelado</td><td class="muted">Fora do imediato; portal família não some</td></tr>
+            <tr><td>Clínica multidisciplinar</td><td class="muted">Backend existe</td><td class="muted">Reativar depois do núcleo genérico</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn">
+          <h4>Ponto crítico</h4>
+          <p>Não existe role <code>patient</code>. O segundo usuário é sempre <code>family</code>. “Portal família → portal do paciente” não é rename: é um segundo produto, ou o mesmo PWA com shell e diário diferentes.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 5 / 24</span></div>
+    </section>
+
+    <!-- 6 PARTE III -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte III</span></div>
+      <div class="content">
+        <p class="kicker">Parte III</p>
+        <h2>Stack, linguagens e dependências</h2>
+        <h3>3.1 Linguagens por camada</h3>
+        <table>
+          <thead><tr><th>Camada</th><th>Linguagem</th><th>Runtime</th><th>Onde</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend PWA</td><td>TypeScript + React 18</td><td class="muted">Browser / Vite 5</td><td class="muted"><code>src/</code></td></tr>
+            <tr><td>Estilo</td><td>Tailwind 3 + Design System</td><td class="muted">Build-time</td><td class="muted"><code>globals.css</code></td></tr>
+            <tr><td>Backend API</td><td>TypeScript (Deno)</td><td class="muted">Cloud Run</td><td class="muted"><code>supabase/functions/</code></td></tr>
+            <tr><td>Banco</td><td>SQL PostgreSQL 17</td><td class="muted">Cloud SQL</td><td class="muted"><code>migrations/</code></td></tr>
+            <tr><td>IA</td><td>TypeScript → Vertex</td><td class="muted">Mesmo runtime</td><td class="muted"><code>_shared/vertex.ts</code></td></tr>
+            <tr><td>Auth</td><td>Firebase JS / Admin</td><td class="muted">Browser + API</td><td class="muted"><code>firebase.ts</code>, <code>auth.ts</code></td></tr>
+            <tr><td>Testes</td><td>TypeScript</td><td class="muted">Vitest, Playwright</td><td class="muted"><code>*.test.ts</code></td></tr>
+          </tbody>
+        </table>
+        <p>Não há backend Python/Java/Go. O backend é um <strong>router Deno</strong> que carrega 114 handlers no padrão das antigas Edge Functions.</p>
+        <h3>3.2 Dependências de produto</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Runtime</h4>
+            <p>React 18, React Router 6, TanStack Query 5, Zustand, supabase-js (apontado ao Cloud Run), Firebase 12, Zod, DOMPurify, TipTap, react-pdf, Stripe, GCS, vite-plugin-pwa / Workbox 7.</p>
+          </div>
+          <div class="card">
+            <h4>Qualidade</h4>
+            <p>TypeScript 5.5, ESLint 9, Prettier, Vitest 2, Playwright, Testing Library, axe-core. CI no GitHub Actions.</p>
+          </div>
+        </div>
+        <h3>3.3 Método de construção</h3>
+        <p>O repositório é orquestrado por agentes especialistas na raiz: Orquestrador, Frontend, Backend, IA, DBA, QA, Segurança. Ordem: <strong>DBA → Backend → Frontend</strong>. IA em paralelo com Backend. QA depois. Segurança fecha.</p>
+        <table>
+          <thead><tr><th>Agente</th><th>Arquivo</th><th>Papel</th></tr></thead>
+          <tbody>
+            <tr><td>0 Orquestrador</td><td class="muted"><code>agente-orquestrador.md</code></td><td class="muted">Fases e gates</td></tr>
+            <tr><td>1 Frontend</td><td class="muted"><code>agente-frontend.md</code></td><td class="muted">React PWA, UI, a11y</td></tr>
+            <tr><td>2 Backend</td><td class="muted"><code>agente-backend.md</code></td><td class="muted">Functions, auth, RBAC</td></tr>
+            <tr><td>3 IA</td><td class="muted"><code>agente-iagenerativa.md</code></td><td class="muted">RAG, prompts, guardrails</td></tr>
+            <tr><td>4 DBA</td><td class="muted"><code>agente-dba-dados.md</code></td><td class="muted">Schema, pgvector</td></tr>
+            <tr><td>5–6 QA / Segurança</td><td class="muted"><code>agente-qa.md</code> / <code>seguranca</code></td><td class="muted">Testes e AppSec / LGPD</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 6 / 24</span></div>
+    </section>
+
+    <!-- 7 PARTE III regras + IV ciclo -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Partes III–IV</span></div>
+      <div class="content">
+        <h3>Regras de UI que já são lei</h3>
+        <ul>
+          <li>Modais: só <code>StandardModal.tsx</code> (desktop central, mobile bottom sheet).</li>
+          <li>Markdown de IA: só <code>AiMarkdownContent.tsx</code>.</li>
+          <li>Identidade: High-Tech Minimal claro, fundo <code>#F8FAF9</code>, primary <code>#1A86E2</code>, IA <code>#7C3AED</code>.</li>
+          <li>Convite: confirmação só após <code>preview-invite</code> válido.</li>
+          <li>Isolamento: nunca cruzar <code>patient_id</code> em query de IA.</li>
+        </ul>
+        <h3>3.4 Organização do frontend</h3>
+        <div class="mono">src/
+  app/           rotas, providers, PWA
+  containers/    telas roteáveis (proibido pages/)
+  features/      pedaços de domínio
+  shared/ui      Design System
+  shared/lib     auth, planos, firebase</div>
+        <p class="fine">Containers: admin, auth, billing, calendar, copilot-workspace, dashboard, family, financeiro, help, landing, patient, paywall, pdf, settings. Legado sem rota: copilot/, reports/.</p>
+        <p class="kicker" style="margin-top:4mm">Parte IV</p>
+        <h2>Arquitetura lógica</h2>
+        <h3>4.1 Ciclo de valor atual</h3>
+        <div class="flow">
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Família registra a semana</strong><span>PWA, texto ou áudio</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Diário e crises no banco isolado</strong><span>Sempre com patient_id</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Terapeuta abre dashboard / prontuário / copiloto</strong><span>Briefing da manhã + feed da família</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>IA cruza diário + sessões + anexos</strong><span>RAG 768d, patient_id obrigatório</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Sessão: áudio e/ou texto → Vertex → humano aprova</strong><span>Nota vira embedding e pode ir à família</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span></div><div class="flow-body"><strong>Combinados e documentos voltam ao portal</strong><span>visivel_familia controla o que o cuidador lê</span></div></div>
+        </div>
+        <div class="callout warn">
+          <h4>Acoplamento central</h4>
+          <p>Esse ciclo <strong>assume um cuidador</strong>. É o principal acoplamento à tese infantil.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 7 / 24</span></div>
+    </section>
+
+    <!-- 8 PARTE IV técnico -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte IV</span></div>
+      <div class="content">
+        <h3>4.2 Diagrama técnico — produção 17/08/2026</h3>
+        <div class="mono">Browser PWA  unithery.com
+   Cloud CDN + GCS   gs://unithery-fe-staging
+            ▼
+Identity Platform (Firebase)   e-mail, Google, MFA SMS
+            ▼  JWT
+Cloud Run  unithery-api-staging
+   /functions/v1/:nome     114 handlers Deno
+   /rest/v1                PostgREST → Cloud SQL
+   /health
+        ├── Cloud SQL PostgreSQL 17 + pgvector
+        ├── GCS  áudios, anexos, avatares
+        ├── Vertex AI  gemini-2.5-pro + embedding-001
+        ├── AWS SES    auth, sessão, billing, contato
+        └── Stripe     checkout, webhook, portal</div>
+        <p>Legado ainda no ar para rollback: projeto Supabase <code>yfzhjdfvaosezyjvbyid</code>. O frontend de produção <strong>não aponta mais para ele</strong>.</p>
+        <h3>4.3 Padrão de API</h3>
+        <ul>
+          <li>Quase toda regra passa por handler Deno, não por PostgREST em domínio sensível.</li>
+          <li>Autenticação: <code>authenticateRequest</code> lê JWT Firebase.</li>
+          <li>Autorização: <code>requireRole</code>, <code>verifyProfessionalPatientWrite</code>, <code>assertFamilyOwnsPatient</code>.</li>
+          <li>Service role no servidor (bypassa RLS) + authZ em código.</li>
+          <li>RLS é defesa em profundidade (~109 policies), recriada no Cloud SQL via <code>auth.uid()</code> / <code>auth.jwt()</code>.</li>
+        </ul>
+        <h3>4.4 Contratos</h3>
+        <p>Entrada Zod (<code>schema.ts</code> ao lado do <code>index.ts</code>). Resposta <code>{ success, error, meta.request_id }</code>. FE: TanStack Query + cliente HTTP reescrito para <code>VITE_GCP_API_URL</code>.</p>
+        <div class="callout info">
+          <h4>Documentos antigos a ignorar</h4>
+          <p>Se aparecer Claude, Whisper, Vercel como FE de produção, 96 functions ou storage dual Supabase+GCS — está desatualizado. Fonte: este relatório + o código.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 8 / 24</span></div>
+    </section>
+
+    <!-- 9 PARTE V GCP -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte V</span></div>
+      <div class="content">
+        <p class="kicker">Parte V</p>
+        <h2>Infraestrutura GCP</h2>
+        <div class="stats">
+          <div class="stat info"><div class="lbl">Projeto</div><div class="val" style="font-size:11pt">plataforma-therapy-ai</div><div class="sub">us-central1</div></div>
+          <div class="stat"><div class="lbl">Domínio</div><div class="val" style="font-size:12pt">unithery.com</div><div class="sub">IP 136.69.93.249</div></div>
+          <div class="stat mint"><div class="lbl">Empresa</div><div class="val" style="font-size:12pt">SYNES TECH</div><div class="sub">47.465.014/0001-44</div></div>
+          <div class="stat ai"><div class="lbl">API</div><div class="val">114</div><div class="sub">handlers no ar</div></div>
+        </div>
+        <h3>5.2 Serviços em uso</h3>
+        <table>
+          <thead><tr><th>Serviço</th><th>Recurso</th><th>Função</th></tr></thead>
+          <tbody>
+            <tr><td>Cloud Run</td><td><code>unithery-api-staging</code></td><td class="muted">API Deno + PostgREST. Produção de fato.</td></tr>
+            <tr><td>Artifact Registry</td><td><code>unithery-docker</code></td><td class="muted">Imagem da API</td></tr>
+            <tr><td>Cloud SQL</td><td><code>unithery-pg-staging</code></td><td class="muted">PostgreSQL 17 + pgvector 0.8.1</td></tr>
+            <tr><td>Identity Platform</td><td>Firebase no projeto</td><td class="muted">E-mail, Google, MFA SMS, claims</td></tr>
+            <tr><td>Cloud Storage</td><td>6 buckets</td><td class="muted">FE público + 5 de dados clínicos</td></tr>
+            <tr><td>Cloud CDN + LB</td><td><code>unithery-fe-staging-map</code></td><td class="muted">SPA + certificado gerenciado</td></tr>
+            <tr><td>Vertex AI</td><td>us-central1</td><td class="muted">LLM, embeddings, STT, PDF</td></tr>
+            <tr><td>Cloud Scheduler</td><td>3 jobs</td><td class="muted">E-mail de sessão, Stripe, lembretes</td></tr>
+          </tbody>
+        </table>
+        <h3>5.3 Buckets GCS</h3>
+        <table>
+          <thead><tr><th>Bucket</th><th>Conteúdo</th><th>Acesso</th></tr></thead>
+          <tbody>
+            <tr><td><code>unithery-fe-staging</code></td><td class="muted">Build Vite</td><td class="muted">Público + CDN</td></tr>
+            <tr><td><code>unithery-audio-recordings-staging</code></td><td class="muted">Áudio de sessão / copiloto</td><td class="muted">Privado, signed URL V4</td></tr>
+            <tr><td><code>unithery-family-diary-audio-staging</code></td><td class="muted">Áudio do diário</td><td class="muted">Privado</td></tr>
+            <tr><td><code>unithery-pacientes-anexos-staging</code></td><td class="muted">PDF/Word da ficha</td><td class="muted">Privado + vetorização</td></tr>
+            <tr><td><code>unithery-pacientes-avatars-staging</code></td><td class="muted">Foto do paciente</td><td class="muted">Privado</td></tr>
+            <tr><td><code>unithery-profissionais-avatars-staging</code></td><td class="muted">Foto do terapeuta</td><td class="muted">Privado</td></tr>
+          </tbody>
+        </table>
+        <p class="fine">Paths: <code>{clinic_id}/{patient_id}/...</code>. Storage no código é <strong>GCS-only</strong>.</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 9 / 24</span></div>
+    </section>
+
+    <!-- 10 PARTE V cont -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte V</span></div>
+      <div class="content">
+        <h3>5.4 Frontend em produção</h3>
+        <ul>
+          <li>Build: <code>npm run build</code> (tsc + Vite + service worker).</li>
+          <li>Publish: <code>infra/gcp/scripts/05-deploy-fe-gcs.sh</code> → rsync para o bucket FE.</li>
+          <li><code>index.html</code> com <code>Cache-Control: no-cache</code>. SPA: 404 reescreve para index.</li>
+          <li>Env: <code>VITE_SUPABASE_URL</code> e <code>VITE_GCP_API_URL</code> = Cloud Run.</li>
+        </ul>
+        <h3>5.5 API Cloud Run</h3>
+        <p>Router <code>cloud-run/api/main.ts</code> varre <code>supabase/functions/*/index.ts</code>. Path <code>/functions/v1/:name</code>. Health: 114 handlers. Revisão em 17/08/2026: <code>unithery-api-staging-00037-9q6</code>.</p>
+        <h3>5.6 Auth</h3>
+        <ul>
+          <li>Identity Platform: e-mail/senha + Google.</li>
+          <li>MFA SMS (<code>PHONE_SMS</code>, locale <code>pt</code>). Enroll em Settings; desafio no login.</li>
+          <li>Domínio custom: <code>VITE_FIREBASE_AUTH_DOMAIN=unithery.com</code>.</li>
+          <li>Import histórico: 36 usuários bcrypt do GoTrue, com claims.</li>
+        </ul>
+        <h3>5.7 Fora da GCP</h3>
+        <table>
+          <thead><tr><th>Serviço</th><th>Vendor</th><th>Motivo</th></tr></thead>
+          <tbody>
+            <tr><td>E-mail</td><td>AWS SES us-east-1</td><td class="muted">Produção, 50k/dia. From contact@unithery.com</td></tr>
+            <tr><td>Billing</td><td>Stripe</td><td class="muted">Checkout, assinatura, webhook, portal</td></tr>
+            <tr><td>Push</td><td>Web Push VAPID</td><td class="muted">Lembrete de diário no PWA</td></tr>
+          </tbody>
+        </table>
+        <h3>5.8 Jobs · 5.9 Nome “staging”</h3>
+        <p>Três crons: fila <code>session_email_jobs</code>, sync Stripe, lembretes. Quase tudo no GCP ainda se chama <code>*-staging</code>, mas o DNS de unithery.com já aponta para esse stack. Tratar como <strong>produção</strong>.</p>
+        <h3>5.10 Visão de custo</h3>
+        <p>Variáveis: Vertex (chat, embedding, áudio, PDF), Cloud Run, Cloud SQL sempre ligado, GCS/CDN, SMS MFA, SES (baixo), taxa Stripe. Planos precificados com margem de áudio <strong>+30%</strong> sobre sessões × duração. A cota de IA é o freio financeiro do copiloto.</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 10 / 24</span></div>
+    </section>
+
+    <!-- 11 PARTE VI -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte VI</span></div>
+      <div class="content">
+        <p class="kicker">Parte VI</p>
+        <h2>Segurança, LGPD e isolamento</h2>
+        <h3>6.1 Princípios</h3>
+        <ul>
+          <li>Multi-tenant por <code>clinic_id</code>.</li>
+          <li>Isolamento clínico por <code>patient_id</code> em <strong>toda</strong> query de IA.</li>
+          <li>A IA de um caso nunca lê embedding, diário ou sessão de outro.</li>
+          <li>Dado clínico não treina modelo público.</li>
+          <li>Unithery é <strong>Operadora</strong>; o terapeuta é o controlador do prontuário.</li>
+        </ul>
+        <h3>6.2 Controles</h3>
+        <table>
+          <thead><tr><th>Controle</th><th>Onde</th></tr></thead>
+          <tbody>
+            <tr><td>JWT + claims</td><td class="muted">Identity Platform</td></tr>
+            <tr><td>AuthZ na API</td><td class="muted"><code>auth.ts</code>, <code>verify-patient-access.ts</code>, <code>family-access.ts</code></td></tr>
+            <tr><td>RLS</td><td class="muted">Policies por role / clínica / paciente</td></tr>
+            <tr><td>Rate limit</td><td class="muted">Preview de convite, login, alguns writes</td></tr>
+            <tr><td>PII para LLM</td><td class="muted"><code>anonymizeForLLM</code> (CPF, telefone, e-mail)</td></tr>
+            <tr><td>Guardrail de saída</td><td class="muted">Proíbe medicamento, diagnóstico definitivo, “cura”</td></tr>
+            <tr><td>Audit / soft delete</td><td class="muted"><code>audit_logs</code>; pacientes, threads, notas</td></tr>
+            <tr><td>Signed URL + preview</td><td class="muted">Tempo limitado; evita vínculo no paciente errado</td></tr>
+          </tbody>
+        </table>
+        <div class="callout ok">
+          <h4>Implicação para a modernização</h4>
+          <p>O isolamento <strong>já é genérico</strong>. Não precisa ser redesenhado para adulto com depressão. O que é específico de criança está na <strong>camada de produto</strong> (campos, copy, diário, portal, prompts), não no motor de tenant.</p>
+        </div>
+        <h3>O que a expansão não deve quebrar</h3>
+        <ol>
+          <li>Isolamento por <code>patient_id</code>.</li>
+          <li>Aprovação humana da nota de sessão.</li>
+          <li>Guardrail de medicamento / diagnóstico definitivo.</li>
+          <li>Stripe, cotas e financeiro solo.</li>
+          <li>Contas e diários já existentes (migrar como módulo infantil).</li>
+        </ol>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 11 / 24</span></div>
+    </section>
+
+    <!-- 12 PARTE VII -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte VII</span></div>
+      <div class="content">
+        <p class="kicker">Parte VII</p>
+        <h2>Plataforma do terapeuta</h2>
+        <p>O que o profissional usa depois do login. Esta é a “seção geral” do produto.</p>
+        <h3>7.1 Autenticação e onboarding</h3>
+        <p>Rotas: <code>/login</code>, <code>/register</code>, confirmação, reset. Toggle Terapeuta / Família. Firebase e-mail, Google, MFA SMS. Registro só solo na UI: cria clínica + professional + <code>is_solo=true</code>, entra no plano Free (1 paciente). Pós-login: <code>/dashboard</code>.</p>
+        <h3>7.2 Dashboard profissional</h3>
+        <p>API <code>get-professional-morning-briefing</code>. Blocos: Hero (agenda do dia), Pulse/KPIs, Semana, Portfólio e <strong>Feed da família</strong> — acoplamento infantil forte: a home é alimentada pelo diário do cuidador. Clinic admin tem pulso da equipe. Master é placeholder.</p>
+        <h3>7.3 Agenda</h3>
+        <p>Rotas <code>/calendar</code> e <code>/agenda</code>. Visões Mês / Semana / Lista. Ciclo: criar horário → iniciar sessão → workspace → completar / aprovar nota. Reagendar e cancelar disparam SES. Sessão pode virar item financeiro a classificar. A agenda é <strong>genérica</strong>; a copy do e-mail não é.</p>
+        <h3>7.4 Lista de pacientes</h3>
+        <table>
+          <thead><tr><th>Filtro</th><th>Label</th><th>Match</th></tr></thead>
+          <tbody>
+            <tr><td><code>all</code></td><td>Todos</td><td class="muted">—</td></tr>
+            <tr><td><code>tea</code></td><td>TEA / Autismo</td><td class="muted">tea, autis</td></tr>
+            <tr><td><code>tdah</code></td><td>TDAH</td><td class="muted">tdah, atenção</td></tr>
+            <tr><td><code>anxiety</code></td><td>Ansiedade / TOC</td><td class="muted">ansied, toc</td></tr>
+            <tr><td><code>other</code></td><td>Outros</td><td class="muted">resto — inclusive depressão</td></tr>
+          </tbody>
+        </table>
+        <p>Diagnóstico é <code>string[]</code> livre. <strong>Não existe filtro “depressão”.</strong> Chips: TEA azul, TDAH âmbar, ansiedade/TOC violeta, demais cinza.</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 12 / 24</span></div>
+    </section>
+
+    <!-- 13 PARTE VII prontuario -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte VII</span></div>
+      <div class="content">
+        <h3>7.5 Prontuário</h3>
+        <p>Rota <code>/patients/:patientId/:tab</code>. Default: copiloto.</p>
+        <table>
+          <thead><tr><th>Aba</th><th>id</th><th>Conteúdo</th></tr></thead>
+          <tbody>
+            <tr><td>Copiloto de IA</td><td><code>copilot</code></td><td class="muted">Chat streaming, thread, salvar artefato</td></tr>
+            <tr><td>Histórico de Sessões</td><td><code>overview</code></td><td class="muted">Notas, leitura, gravar sessão</td></tr>
+            <tr><td>Check-ins</td><td><code>checkins</code></td><td class="muted">Calendário de humor/crise da família</td></tr>
+            <tr><td>Ficha Clínica</td><td><code>clinical</code></td><td class="muted">Anamnese, foto, anexos</td></tr>
+            <tr><td>Financeiro</td><td><code>financeiro</code></td><td class="muted">Contrato e ledger (solo)</td></tr>
+            <tr><td>Documentos Salvos</td><td><code>documents</code></td><td class="muted">Artefatos IA, PDF, visibilidade família</td></tr>
+          </tbody>
+        </table>
+        <p>Header: Diário da família, Gerar acesso família, Gerenciar vínculo, Gravar sessão. Tudo que diz “família” é ponto de modernização.</p>
+        <h4>Campos persistidos em patients</h4>
+        <p><strong>Identidade:</strong> name, nome_social, birth_date, CPF próprio ou do responsável, foto.<br />
+        <strong>Clínico:</strong> diagnoses[], queixa, medicamentos, acompanhamento multi, observações.<br />
+        <strong>Família:</strong> composicao_familiar, responsaveis.<br />
+        <strong>IA:</strong> objetivos, <em>hiperfocos_interesses</em>, informações adicionais, escolaridade_ocupacao.<br />
+        <strong>Contato:</strong> contact_scope (responsável / paciente / ambos).</p>
+        <p class="fine">Hiperfocos e escolaridade são vocabulário infantil. Em adulto faltam ocupação, rede de apoio, gatilhos, histórico de humor.</p>
+        <h3>7.6 Copiloto</h3>
+        <p>Duas superfícies, um motor: aba do prontuário e workspace <code>/copilot/:patientId</code>. APIs: query (stream), get/reset thread, transcribe áudio. Um thread ativo por profissional+paciente. Artefatos: ação recomendada, resumo proativo, relatório de sessão — podem ficar visíveis à família. Cada envio conta cota de IA.</p>
+        <h3>7.7 Sessão clínica</h3>
+        <p>Rota <code>/session/:patientId</code>. Áudio e/ou texto (TipTap). Vertex estrutura. Humano revisa e aprova. Sem aprovação, a nota não vira verdade compartilhada. <strong>Fluxo genérico — deve permanecer no núcleo.</strong> O que muda é o template da nota e quem recebe o compartilhamento.</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 13 / 24</span></div>
+    </section>
+
+    <!-- 14 PARTE VII settings + VIII início -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Partes VII–VIII</span></div>
+      <div class="content">
+        <h3>7.8 Settings, landing e ajuda</h3>
+        <p><code>/settings</code> concentra perfil, consultório, assinatura, notificações (crise, digest, cota IA) e MFA. Landing <code>/</code> vende a tese infantil (jornada da semana + insight da IA). <code>/ajuda</code> envia SES para contato@ / contact@ / synestech.business@gmail.com.</p>
+        <p class="kicker" style="margin-top:5mm">Parte VIII</p>
+        <h2>Portal da família</h2>
+        <p>Segundo produto dentro do produto. Mobile-first, PWA, bottom nav. Tese: a criança não relata a semana; o cuidador relata. Sem este portal, o copiloto perde o “agora”.</p>
+        <h3>8.2 Shell</h3>
+        <p>Diário · Calendário · Relatórios e Combinados · Ajuda. Sem copiloto, financeiro, agenda de consultório ou plano.</p>
+        <h3>8.3 Como a família entra</h3>
+        <div class="flow">
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Terapeuta gera acesso</strong><span>Código 8 caracteres, 72h, relationship = responsável</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Familiar digita o código</strong><span>preview-invite (público, rate-limited) mostra o nome do paciente</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span><span class="flow-line"></span></div><div class="flow-body"><strong>Botão só então habilita</strong><span>register-family cria user role=family e consome o convite</span></div></div>
+          <div class="flow-step"><div class="flow-rail"><span class="flow-dot"></span></div><div class="flow-body"><strong>Conta existente sem vínculo</strong><span>/family/link ou /invite → link-family-account</span></div></div>
+        </div>
+        <div class="callout">
+          <h4>Por que o preview existe</h4>
+          <p>Erro de vínculo é incidente LGPD. O botão de confirmação é bloqueado até o preview válido. Cooldown de 30 dias após desvínculo.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 14 / 24</span></div>
+    </section>
+
+    <!-- 15 PARTE VIII diario -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte VIII</span></div>
+      <div class="content">
+        <h3>8.4 Diário</h3>
+        <p>Handler <code>submit-diary</code>, role family only. Múltiplas entradas por dia.</p>
+        <table>
+          <thead><tr><th>Campo</th><th>UI</th></tr></thead>
+          <tbody>
+            <tr><td><code>mood_score</code> 1–5</td><td class="muted">Difícil … Ótimo</td></tr>
+            <tr><td><code>sleep_quality</code> 1–5</td><td class="muted">Péssimo … Ótimo</td></tr>
+            <tr><td><code>crisis_occurred</code> / <code>crisis_level</code></td><td class="muted">Crise; nível se marcada</td></tr>
+            <tr><td><code>categories[]</code></td><td class="muted">Sono, Escola, Alimentação, Social, Agitação, Sensorial</td></tr>
+            <tr><td><code>notes</code> + áudio</td><td class="muted">Texto livre ou check-in por voz (Vertex extrai os campos)</td></tr>
+          </tbody>
+        </table>
+        <p>Crise ≥ 3 dispara <code>crisis_alerts</code>. Terapeuta vê no dashboard. E-mail opcional.</p>
+        <div class="callout warn">
+          <h4>Acoplamento das categorias</h4>
+          <p>Escola, Agitação, Sensorial. Não há Humor persistente, Ansiedade, Trabalho, Relacionamento, Adesão a medicação ou ideação — o vocabulário de adulto não existe.</p>
+        </div>
+        <h3>8.5 Calendário e relatórios</h3>
+        <p>Calendário = adesão do cuidador (dias com check-in, mood, crise), não a agenda de consultas. Relatórios: Visão Geral, Histórico de Sessões (só approved + visivel_familia), Documentos Compartilhados, Ficha Clínica (inclui hiperfocos). Combinados: tarefas da casa com toggle pending/done.</p>
+        <h3>8.6 O que a família não vê</h3>
+        <p>Copiloto, notas em draft, financeiro, outros pacientes, configuração de plano.</p>
+        <h3>8.7 Família vs. paciente (futuro)</h3>
+        <table>
+          <thead><tr><th></th><th>Portal família (hoje)</th><th>Portal do paciente (futuro)</th></tr></thead>
+          <tbody>
+            <tr><td>Usuário</td><td class="muted">Cuidador</td><td class="muted">O próprio paciente</td></tr>
+            <tr><td>Objetivo</td><td class="muted">Relatar a criança</td><td class="muted">Relatar a si</td></tr>
+            <tr><td>Campos</td><td class="muted">Sono, escola, crise, sensorial</td><td class="muted">Humor, ansiedade, adesão, gatilhos</td></tr>
+            <tr><td>Convite</td><td class="muted">Terapeuta → responsável</td><td class="muted">Terapeuta → paciente</td></tr>
+            <tr><td>Menor</td><td class="muted">Faz sentido</td><td class="muted">Exige responsável + consentimento</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 15 / 24</span></div>
+    </section>
+
+    <!-- 16 PARTE IX -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte IX</span></div>
+      <div class="content">
+        <p class="kicker">Parte IX</p>
+        <h2>Jornada de criação do paciente</h2>
+        <p>A jornada mais importante para a modernização. Hoje ela <strong>nasce criança + responsável + contrato financeiro</strong>.</p>
+        <h3>Passo 0 — Identidade / CPF</h3>
+        <p>Novo Paciente passa pelo paywall (Free = 1 ativo). Toggle: CPF próprio ou dados do responsável. Lookup <code>verify-patient-cpf</code> trata reativação, múltiplos matches ou wizard novo. Existe por LGPD e anti-duplicidade — serve a adulto, mas o caminho “só responsável” é o default mental infantil.</p>
+        <h3>Wizard de 6 passos</h3>
+        <table>
+          <thead><tr><th>#</th><th>Label</th><th>Campos</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Dados básicos</td><td class="muted">Nome, nome social, nascimento, escolaridade, diagnósticos (obrigatório, texto livre, placeholder “TEA Nível 1, TDAH”), foto</td></tr>
+            <tr><td>2</td><td>Contexto clínico</td><td class="muted">Queixa, medicamentos, multi, anexos PDF/Word, observações</td></tr>
+            <tr><td>3</td><td>Dinâmica familiar</td><td class="muted">Composição, responsáveis — passo inteiro de criança</td></tr>
+            <tr><td>4</td><td>Parametrização IA</td><td class="muted">Objetivos, hiperfocos, informações adicionais</td></tr>
+            <tr><td>5</td><td>Contato</td><td class="muted">Só responsável / só paciente / ambos + e-mails e telefones</td></tr>
+            <tr><td>6</td><td>Financeiro</td><td class="muted">Avulso, pacote, social, mensal recorrente. Obrigatório no solo</td></tr>
+          </tbody>
+        </table>
+        <p>Anexos entram depois do insert e são vetorizados. Se o contrato precisa de janelas, abre o modal de recorrência da agenda.</p>
+        <h3>O que não existe na criação</h3>
+        <ul>
+          <li>Tipo de perfil: criança / adolescente / adulto.</li>
+          <li>Quem terá login: família / paciente / ambos / ninguém.</li>
+          <li>Consentimento do paciente adulto.</li>
+          <li>Instrumentos (PHQ-9, GAD-7, CARS).</li>
+          <li>Switch de formulário por especialidade.</li>
+        </ul>
+        <div class="callout ai">
+          <h4>Perguntas que o plano precisa fechar</h4>
+          <p>O passo 3 vira condicional? Diagnóstico vira taxonomia + módulo? Financeiro continua no create? Qual portal convidar no fim do wizard?</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 16 / 24</span></div>
+    </section>
+
+    <!-- 17 PARTE X -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte X</span></div>
+      <div class="content">
+        <p class="kicker">Parte X</p>
+        <h2>Jornadas de uso</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Semana do terapeuta solo</h4>
+            <ol>
+              <li>Dashboard: agenda do dia + feed de check-ins.</li>
+              <li>Copiloto: “o que a semana trouxe?”</li>
+              <li>Sessão: grava, anota, lapida, aprova.</li>
+              <li>Libera o que a família pode ver; cria combinados.</li>
+              <li>Classifica a sessão no financeiro.</li>
+              <li>Paywall se estourar cota de paciente ou IA.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h4>Semana da família</h4>
+            <ol>
+              <li>Recebe o código; vê o nome da criança no preview.</li>
+              <li>No celular, diário em ~30s ou áudio.</li>
+              <li>Crise alerta o terapeuta.</li>
+              <li>Pode receber e-mail da sessão.</li>
+              <li>Marca o combinado como feito.</li>
+            </ol>
+          </div>
+        </div>
+        <h3>Jornada que ainda não existe</h3>
+        <ul>
+          <li>Paciente adulto cria a própria conta.</li>
+          <li>Paciente adulto preenche diário de humor / ansiedade / adesão.</li>
+          <li>Paciente adulto lê o que o terapeuta compartilhou, sem responsável.</li>
+          <li>Terapeuta escolhe o <strong>modo do caso</strong> no cadastro (infantil-família vs. clínico-adulto vs. misto).</li>
+        </ul>
+        <h3>Vínculo e arquivo</h3>
+        <p>Arquivar / desvincular altera <code>status_vinculo</code>. Reativar respeita cooldown de 30 dias. Hard delete é fluxo separado, irreversível. Addon de backup de vagas: <code>quantidade_backup_pacientes</code>.</p>
+        <div class="callout">
+          <h4>Leitura para a modernização</h4>
+          <p>A jornada do terapeuta (agenda → sessão → aprovação → financeiro) é o núcleo. A jornada da família é o módulo especial. A jornada do paciente adulto precisa ser desenhada do zero, reusando o motor de convite e de visibilidade.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 17 / 24</span></div>
+    </section>
+
+    <!-- 18 PARTE XI -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte XI</span></div>
+      <div class="content">
+        <p class="kicker">Parte XI</p>
+        <h2>Sistema de IA</h2>
+        <p>O roadmap antigo citava Claude / GPT-4o / Whisper. <strong>Produção usa só Vertex AI.</strong></p>
+        <table>
+          <thead><tr><th>Função</th><th>Modelo / mecanismo</th></tr></thead>
+          <tbody>
+            <tr><td>Chat e stream</td><td class="muted"><code>gemini-2.5-pro</code></td></tr>
+            <tr><td>Embeddings</td><td class="muted"><code>gemini-embedding-001</code>, 768 dimensões, L2</td></tr>
+            <tr><td>STT (sessão, diário, copiloto)</td><td class="muted">Áudio inline (base64) — sem Whisper</td></tr>
+            <tr><td>Extração de PDF/Word</td><td class="muted"><code>vertexExtractDocumentText</code></td></tr>
+          </tbody>
+        </table>
+        <h3>Pipeline do query-copilot</h3>
+        <ol>
+          <li>Paywall de IA (<code>check_ai_interaction_quota</code>).</li>
+          <li>Guardrail de input (injection, <code>[system]</code>).</li>
+          <li>Valida que o professional é dono do paciente.</li>
+          <li>Contexto: anamnese + diários + sessões + inventário completo de sessões.</li>
+          <li>Embedding da pergunta → RPC <code>search_patient_embeddings(p_patient_id, …)</code> → rerank.</li>
+          <li>Mascara PII. System instruction de colega clínico.</li>
+          <li>Stream. Persiste turnos. Audit <code>ai.copilot_query</code>.</li>
+        </ol>
+        <div class="callout ai">
+          <h4>O que o prompt assume hoje</h4>
+          <p>“Relatos recentes da <strong>família</strong>… Use o <strong>diário familiar</strong>… Ao redigir documentos para a <strong>família</strong>… Foque em atividades terapêuticas, análise comportamental, estratégias de manejo.” Vocabulário de criança + cuidador. Para depressão/ansiedade de adulto é o prompt errado. O guardrail de medicamento deve permanecer.</p>
+        </div>
+        <h3>Threads e anexos</h3>
+        <p>Um thread ativo por (profissional, paciente). Reset soft-deleta. Anexos: extração → chunking → embedding 768d → busca só com <code>patient_id</code>.</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 18 / 24</span></div>
+    </section>
+
+    <!-- 19 PARTE XII -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte XII</span></div>
+      <div class="content">
+        <p class="kicker">Parte XII</p>
+        <h2>Billing e visão de preços</h2>
+        <p>Fonte: <code>src/shared/lib/therapist-plans.ts</code> + tabela <code>planos</code>. Sessões = pacientes × 4. Áudio = sessões × duração × 1,30.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plano</th>
+              <th class="num">Pac.</th>
+              <th class="num">Sessões</th>
+              <th class="num">IA/mês</th>
+              <th class="num">Mensal</th>
+              <th class="num">Anual 12x</th>
+              <th class="num">Anual total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Free / Degustação</td><td class="num">1</td><td class="num">4 × 50min</td><td class="num">20</td><td class="num">R$ 0</td><td class="num">—</td><td class="num">—</td></tr>
+            <tr><td>Standard</td><td class="num">10</td><td class="num">40 × 60</td><td class="num">750</td><td class="num">R$ 237</td><td class="num">R$ 207</td><td class="num">R$ 2.484</td></tr>
+            <tr><td>Advanced</td><td class="num">20</td><td class="num">80 × 60</td><td class="num">1.500</td><td class="num">R$ 427</td><td class="num">R$ 377</td><td class="num">R$ 4.524</td></tr>
+            <tr><td>Premium</td><td class="num">30</td><td class="num">120 × 60</td><td class="num">2.250</td><td class="num">R$ 657</td><td class="num">R$ 577</td><td class="num">R$ 6.924</td></tr>
+          </tbody>
+        </table>
+        <h3>Módulos +5 pacientes</h3>
+        <table>
+          <thead><tr><th>Módulo</th><th>Planos</th><th class="num">Pac.</th><th class="num">Sessões</th><th class="num">IA</th><th class="num">Mensal</th></tr></thead>
+          <tbody>
+            <tr><td><code>modulo_sa</code></td><td class="muted">Standard / Advanced</td><td class="num">+5</td><td class="num">+20</td><td class="num">+375</td><td class="num">R$ 129,43</td></tr>
+            <tr><td><code>modulo_p</code></td><td class="muted">Premium</td><td class="num">+5</td><td class="num">+20</td><td class="num">+375</td><td class="num">R$ 106,32</td></tr>
+          </tbody>
+        </table>
+        <p>Todos os pagos incluem copiloto isolado, transcrição, anexos vetorizados, <strong>diário familiar com áudios ilimitados</strong> e portal da família. O diário familiar não é tarifado. A IA do terapeuta é.</p>
+        <h3>Motor Stripe</h3>
+        <p>Checkout com trial 14 dias quando configurado. Webhook provisiona <code>clinics</code> / <code>clinic_subscriptions</code>. Sync diário. Cancelamento. Paywall no FE para novo paciente e envio de IA. Assinaturas antigas ficam no price_id antigo até upgrade.</p>
+        <div class="callout warn">
+          <h4>Implicação para a expansão</h4>
+          <p>O preço de hoje subsidia um portal extra + áudio ilimitado da família. Se o portal do paciente adulto for mais leve, a unidade de custo muda. Se os dois portais coexistirem no módulo infantil, o custo sobe. O plano precisa dizer se o módulo TEA é <strong>upsell</strong> ou incluso.</p>
+        </div>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 19 / 24</span></div>
+    </section>
+
+    <!-- 20 PARTE XIII + XIV -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Partes XIII–XIV</span></div>
+      <div class="content">
+        <p class="kicker">Parte XIII</p>
+        <h2>Financeiro do consultório</h2>
+        <p>Módulo <strong>separado</strong> do billing da Unithery. Caixa do terapeuta solo. Rota <code>/financeiro</code>.</p>
+        <table>
+          <thead><tr><th>Aba</th><th>Função</th></tr></thead>
+          <tbody>
+            <tr><td>Visão geral</td><td class="muted">KPIs e gráficos</td></tr>
+            <tr><td>Receitas</td><td class="muted">Contas a receber, registro de pagamento</td></tr>
+            <tr><td>Despesas</td><td class="muted">Custos fixos / parcelados</td></tr>
+            <tr><td>Pacientes &amp; planos</td><td class="muted">Contratos, sessão extra</td></tr>
+            <tr><td>Extrato</td><td class="muted">Transações com filtro tipo/status</td></tr>
+            <tr><td>Sessões a classificar</td><td class="muted">Agenda ainda sem lançamento</td></tr>
+          </tbody>
+        </table>
+        <p>Tabelas <code>financeiro_*</code>. Motor de recorrência. Ledger também na aba Financeiro do prontuário. <strong>Genérico — fica no núcleo.</strong></p>
+        <p class="kicker" style="margin-top:4mm">Parte XIV</p>
+        <h2>Inventário técnico compacto</h2>
+        <h3>Rotas</h3>
+        <p><strong>Públicas:</strong> /, /login, /register, /family/register, /ajuda, senha, confirm.<br />
+        <strong>Terapeuta:</strong> /dashboard, /patients, /calendar, /copilot, /session, /financeiro, /settings, /professionals.<br />
+        <strong>Família:</strong> /family/diary, /calendar, /agreements, /link, /invite.</p>
+        <h3>Banco (grupos)</h3>
+        <p>Identidade: clinics, professionals, clinic_admins. Paciente/família: patients, invites, links, diary_entries, crisis_alerts, agreements. Clínica/IA: therapist_schedule, session_notes, embeddings, copilot_threads/messages, ai_usage_events. Billing: planos, clinic_subscriptions. Caixa: financeiro_*. Ops: session_email_jobs, push, audit_logs. 74 migrations.</p>
+        <h3>Produção em 17/08/2026</h3>
+        <ul>
+          <li>FE no CDN com landing nova (jornada + SYNES TECH + CNPJ).</li>
+          <li>API 114 handlers, health 200.</li>
+          <li>Cloud SQL com preços 237/427/657 e anuais 207/377/577.</li>
+          <li>copilot_threads, cancel_notice, foto_url de profissionais.</li>
+        </ul>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 20 / 24</span></div>
+    </section>
+
+    <!-- 21 PARTE XV -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte XV</span></div>
+      <div class="content">
+        <p class="kicker">Parte XV</p>
+        <h2>O que é genérico vs. o que é TEA / infantil</h2>
+        <h3>Já é núcleo — reaproveitar</h3>
+        <p>Auth, tenant, roles, paywall, Stripe. Prontuário, anexos, embeddings, isolamento. Agenda, sessão multimodal, aprovação humana, PDF. Copiloto com thread + RAG + guardrail de prescrição. Financeiro do consultório. Settings, MFA, fotos, motor de e-mail. Infra GCP.</p>
+        <h3>É módulo infantil / família / desenvolvimento</h3>
+        <table>
+          <thead><tr><th>Superfície</th><th>Acoplamento</th></tr></thead>
+          <tbody>
+            <tr><td>Landing</td><td class="muted">“A criança não conta”, hiperfoco, diário da mãe, TEA/TDAH</td></tr>
+            <tr><td>Cadastro passos 3 e 4</td><td class="muted">Dinâmica familiar + hiperfocos</td></tr>
+            <tr><td>Diagnósticos UI</td><td class="muted">TEA / TDAH / Ansiedade-TOC / Outros — sem depressão</td></tr>
+            <tr><td>Portal inteiro</td><td class="muted">Nome, rotas /family/*, role family</td></tr>
+            <tr><td>Diário</td><td class="muted">Escola, sensorial, agitação, crise</td></tr>
+            <tr><td>Dashboard</td><td class="muted">Feed da família</td></tr>
+            <tr><td>Header do prontuário</td><td class="muted">Acesso família, modal do diário</td></tr>
+            <tr><td>Prompt do copiloto</td><td class="muted">Família, manejo comportamental</td></tr>
+            <tr><td>Planos / features</td><td class="muted">“Diário familiar ilimitado”, “Portal da família incluso”</td></tr>
+          </tbody>
+        </table>
+        <h3>Híbrido</h3>
+        <p><code>contact_scope</code> já prevê e-mail do paciente. <code>escolaridade_ocupacao</code> serve aos dois. Ansiedade/TOC já tem cor de chip, mas o diário não tem dimensão de ansiedade. Clínica corporativa está no backend e desligada no launch.</p>
+        <h3>Não existe e será necessário</h3>
+        <ul>
+          <li>Tipo de caso / módulo no paciente (child_family vs adult_self vs adolescent_shared).</li>
+          <li>Role <code>patient</code> e portal do paciente.</li>
+          <li>Diários configuráveis por módulo.</li>
+          <li>Taxonomia de condição que troca UI e prompt.</li>
+          <li>Instrumentos (PHQ-9, GAD-7) e protocolo de risco / ideação.</li>
+          <li>Landing e onboarding ramificados. Precificação do módulo TEA.</li>
+        </ul>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 21 / 24</span></div>
+    </section>
+
+    <!-- 22 PARTE XVI -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte XVI</span></div>
+      <div class="content">
+        <p class="kicker">Parte XVI</p>
+        <h2>Briefing para o plano de modernização</h2>
+        <div class="callout ai">
+          <h4>Princípio sugerido — para debate, não decisão</h4>
+          <p><strong>Núcleo Unithery</strong> = terapeuta + prontuário + sessão + IA isolada + agenda + financeiro + billing.<br />
+          <strong>Módulo Desenvolvimento Infantil / TEA</strong> = portal da família + diário de rotina + hiperfocos + check-ins + copy e prompts atuais.<br />
+          <strong>Módulo Clínico Adulto</strong> (novo) = portal do paciente + diário de si + campos e prompts de humor/ansiedade/depressão.</p>
+        </div>
+        <h3>16.2 Cadastro — o que provavelmente muda</h3>
+        <ol>
+          <li><strong>Quem é o paciente?</strong> Criança / adolescente / adulto.</li>
+          <li><strong>Quem acessa o segundo app?</strong> Responsável, o próprio paciente, ambos, ninguém.</li>
+          <li><strong>Qual módulo clínico?</strong> Desenvolvimento, clínico geral, ou misto.</li>
+        </ol>
+        <p>Em seguida os passos atuais ligam ou desligam. Criança + responsável → passos 3 e 4 atuais + convite família. Adulto + self-service → some dinâmica familiar; contato do paciente vira obrigatório. Adolescente → os dois portais, com consentimento. CPF-first e financeiro podem permanecer no núcleo.</p>
+        <h3>16.3 Portal família → portal do paciente</h3>
+        <table>
+          <thead><tr><th>Decisão</th><th>Opções a analisar</th></tr></thead>
+          <tbody>
+            <tr><td>Um app ou dois?</td><td class="muted">Mesmo PWA com shell diferente vs. rotas /family e /me</td></tr>
+            <tr><td>Role</td><td class="muted">Reusar family com outro label vs. criar patient</td></tr>
+            <tr><td>Convite</td><td class="muted">Mesmo preview (mostrar nome) vs. magic link por e-mail</td></tr>
+            <tr><td>Diário</td><td class="muted">Schema único com categorias pluggable vs. tabelas por módulo</td></tr>
+            <tr><td>Visibilidade</td><td class="muted">Generalizar visivel_familia → visivel_portal</td></tr>
+            <tr><td>Coexistência</td><td class="muted">Criança TEA: só família. Adulto: só paciente. Adolescente: ambos</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 22 / 24</span></div>
+    </section>
+
+    <!-- 23 PARTE XVI visões -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Parte XVI</span></div>
+      <div class="content">
+        <h3>16.4 O que muda nas visões por condição</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Criança TEA/TDAH — módulo especial</h4>
+            <p>Feed da família, check-ins, hiperfoco, sensorial, escola. Copiloto de manejo e rotina. Header “acesso família”. Quase o que existe hoje.</p>
+          </div>
+          <div class="card">
+            <h4>Adulto ansiedade / depressão</h4>
+            <p>Sem feed escolar. Diário de humor / sono / adesão / pânico. Prompt de psicoterapia. Header “acesso do paciente”. Chip Depressão/Ansiedade de primeira classe. Protocolo de ideação — hoje não modelado.</p>
+          </div>
+        </div>
+        <p style="margin-top:3mm"><strong>TDAH adulto</strong> reusa atenção/agitação sem escola/hiperfoco infantil. Portal do paciente, não da mãe.</p>
+        <table>
+          <thead><tr><th>Tela</th><th>Família (criança)</th><th>Paciente adulto</th></tr></thead>
+          <tbody>
+            <tr><td>Home</td><td class="muted">Próxima sessão + humor da criança</td><td class="muted">Próxima sessão + meu humor</td></tr>
+            <tr><td>Diário</td><td class="muted">Rotina da criança</td><td class="muted">Meu estado</td></tr>
+            <tr><td>Documentos</td><td class="muted">Liberado para os pais</td><td class="muted">Liberado para mim</td></tr>
+            <tr><td>Combinados</td><td class="muted">Tarefa da casa / rotina</td><td class="muted">Tarefa terapêutica</td></tr>
+            <tr><td>Ficha</td><td class="muted">Recorte para pais</td><td class="muted">Recorte mais restrito?</td></tr>
+          </tbody>
+        </table>
+        <h3>16.6 Ordem de análise recomendada</h3>
+        <ol>
+          <li>Definir ontologia: case_profile + portal_mode + clinical_module.</li>
+          <li>Mapear cada tela das Partes VII–X para núcleo / infantil / adulto / condicional.</li>
+          <li>Desenhar o wizard de criação novo, com defaults para a base já cadastrada.</li>
+          <li>Portal do paciente como evolução do FamilyLayout (menor risco na v1).</li>
+          <li>Parametrizar categorias de diário e system prompt por módulo.</li>
+          <li>Recortar landing e pricing (módulo TEA como flag / add-on).</li>
+          <li>Estimar esforço: DBA → Backend → IA → Frontend → QA → Segurança.</li>
+        </ol>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 23 / 24</span></div>
+    </section>
+
+    <!-- 24 ANEXOS -->
+    <section class="page">
+      <div class="accent"></div>
+      <div class="header"><span>Unithery · Estado atual</span><span>Anexos</span></div>
+      <div class="content">
+        <h3>Entregável esperado do plano</h3>
+        <ol>
+          <li>Visão de produto (núcleo + módulos).</li>
+          <li>Matriz tela × perfil (criança TEA, TDAH, adulto ansiedade, adulto depressão, adolescente).</li>
+          <li>Novo fluxo de criação de paciente (wireframe textual).</li>
+          <li>Modelo de dados delta.</li>
+          <li>Mudanças de prompt e guardrail.</li>
+          <li>Impacto em billing (módulo especial incluso ou pago?).</li>
+          <li>Fases de entrega sem big-bang.</li>
+          <li>Riscos LGPD (menor, portal do paciente, consentimento).</li>
+        </ol>
+        <h3>Glossário do código</h3>
+        <table>
+          <thead><tr><th>Termo</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td><code>family</code></td><td class="muted">Role do cuidador</td></tr>
+            <tr><td><code>is_solo</code></td><td class="muted">Terapeuta dono do consultório</td></tr>
+            <tr><td><code>clinic_id</code></td><td class="muted">Tenant</td></tr>
+            <tr><td><code>status_vinculo</code></td><td class="muted">Paciente ativo ou desvinculado</td></tr>
+            <tr><td><code>visivel_familia</code></td><td class="muted">Terapeuta liberou o conteúdo ao portal</td></tr>
+            <tr><td><code>diary_entries</code></td><td class="muted">Check-in entre sessões</td></tr>
+            <tr><td><code>recomendacoes_salvas</code></td><td class="muted">Artefato de IA</td></tr>
+            <tr><td><code>financeiro_*</code></td><td class="muted">Caixa do terapeuta, não a Unithery</td></tr>
+          </tbody>
+        </table>
+        <h3>Arquivos âncora</h3>
+        <p class="fine">
+          <code>src/app/routes.tsx</code> · <code>therapist-plans.ts</code> · <code>landing-content.ts</code> ·
+          <code>patient-anamnesis.types.ts</code> · <code>RoutineDiary.tsx</code> ·
+          <code>query-copilot/patient-context.ts</code> · <code>_shared/vertex.ts</code> ·
+          <code>_shared/auth.ts</code> · <code>_shared/paywall.ts</code> ·
+          <code>create-patient/schema.ts</code> · <code>identidade-visual.md</code> ·
+          <code>infra/gcp/STATUS.md</code>
+        </p>
+        <div class="callout ok" style="margin-top:5mm">
+          <h4>Fim do relatório de estado atual</h4>
+          <p>Próximo passo: enviar este HTML (ou o PDF gerado) à outra IA para o plano de modernização. Depois, validar o plano neste repositório antes de implementar. Documento irmão em Markdown: <code>docs/relatorio-estado-atual-unithery-para-modernizacao.md</code>.</p>
+        </div>
+        <p class="fine" style="margin-top:6mm">Unithery · SYNES TECH · CNPJ 47.465.014/0001-44 · 17 de agosto de 2026 · Confidencial interno · 24 folhas A4</p>
+      </div>
+      <div class="footer"><span>SYNES TECH · 47.465.014/0001-44</span><span>Página 24 / 24</span></div>
+    </section>
+
+  </div>
+</body>
+</html>

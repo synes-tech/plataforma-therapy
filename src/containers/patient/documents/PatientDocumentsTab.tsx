@@ -44,10 +44,15 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
   );
 
   const artifactDeepLink = searchParams.get('artifact');
+  const sessionDeepLink = searchParams.get('session');
 
   useEffect(() => {
-    if (!artifactDeepLink || allItems.length === 0) return;
-    const found = allItems.find((item) => item.id === artifactDeepLink);
+    if ((!artifactDeepLink && !sessionDeepLink) || allItems.length === 0) return;
+    const found = artifactDeepLink
+      ? allItems.find((item) => item.id === artifactDeepLink)
+      : allItems.find(
+          (item) => item.tipo_artefato === 'relatorio_sessao' && item.session_note_id === sessionDeepLink,
+        );
     if (!found) return;
 
     setReadingArtifact(found);
@@ -55,11 +60,12 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete('artifact');
+        next.delete('session');
         return next;
       },
       { replace: true },
     );
-  }, [artifactDeepLink, allItems, setSearchParams]);
+  }, [artifactDeepLink, sessionDeepLink, allItems, setSearchParams]);
 
   const deleteMutation = useMutation({
     mutationFn: (artifactId: string) =>
@@ -166,6 +172,51 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
     },
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: (artifactId: string) =>
+      callFunction<{
+        id: string;
+        titulo: string;
+        tipo_artefato: PatientArtifact['tipo_artefato'];
+        conteudo_texto: string;
+        compartilhado_familia: boolean;
+        criado_em: string;
+        message: string;
+      }>('duplicate-saved-artifact', {
+        patient_id: patientId,
+        artifact_id: artifactId,
+      }),
+    onSuccess: (data) => {
+      const copy: PatientArtifact = {
+        id: data.id,
+        tipo_artefato: data.tipo_artefato,
+        titulo: data.titulo,
+        conteudo_texto: data.conteudo_texto,
+        criado_em: data.criado_em,
+        is_legacy: false,
+        compartilhado_familia: false,
+      };
+      queryClient.setQueryData<PatientArtifactsResponse>(
+        ['patient-artifacts', patientId],
+        (old) => (old ? { ...old, items: [copy, ...old.items] } : { items: [copy] }),
+      );
+      setReadingArtifact(null);
+      setEditingArtifact(copy);
+      setEditReturnToRead(false);
+      setToast({
+        message: data.message || 'Cópia criada. Edite o título e o conteúdo antes de compartilhar.',
+        variant: 'success',
+      });
+      void queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
+    },
+    onError: (err: Error) => {
+      setToast({
+        message: err.message || 'Não foi possível duplicar o documento',
+        variant: 'error',
+      });
+    },
+  });
+
   const visibilityMutation = useMutation({
     mutationFn: (vars: { artifactId: string; shared: boolean }) =>
       callFunction<{ compartilhado_familia: boolean }>('update-artifact-visibility', {
@@ -262,9 +313,10 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-base font-semibold text-charcoal">Documentos salvos pelo Copiloto</h3>
+        <h3 className="text-base font-semibold text-charcoal">Documentos salvos</h3>
         <p className="mt-1 text-sm text-charcoal-muted">
-          Relatórios e textos gerados pela IA durante o acompanhamento clínico.
+          Relatórios de sessão, ações e resumos. Você pode editar, duplicar como cópia e escolher
+          o que a família vê.
         </p>
       </div>
       <PatientArtifactFiltersBar
@@ -316,10 +368,17 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
             items={items}
             onRead={setReadingArtifact}
             onEdit={(artifact) => handleStartEdit(artifact, false)}
+            onDuplicate={(artifact) => duplicateMutation.mutate(artifact.id)}
             onExportPdf={(artifact) => void handleExportPdf(artifact)}
             onRequestDelete={setPendingDelete}
+            onVisibilityChange={(artifact, shared) =>
+              visibilityMutation.mutate({ artifactId: artifact.id, shared })
+            }
+            isUpdatingVisibility={visibilityMutation.isPending}
+            updatingVisibilityId={visibilityMutation.variables?.artifactId ?? null}
             exportingId={exportingId}
             deletingId={deleteMutation.isPending ? pendingDelete?.id ?? null : null}
+            duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables ?? null : null}
           />
         </div>
       ) : null}
@@ -328,6 +387,7 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
         artifact={readingArtifact}
         onClose={() => setReadingArtifact(null)}
         onEdit={(artifact) => handleStartEdit(artifact, true)}
+        onDuplicate={(artifact) => duplicateMutation.mutate(artifact.id)}
         onExportPdf={(artifact) => void handleExportPdf(artifact)}
         onRequestDelete={setPendingDelete}
         onVisibilityChange={(artifactId, shared) =>
@@ -336,6 +396,7 @@ export function PatientDocumentsTab({ patientId, patientName }: PatientDocuments
         isUpdatingVisibility={visibilityMutation.isPending}
         exportingId={exportingId}
         deletingId={deleteMutation.isPending ? pendingDelete?.id ?? null : null}
+        duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables ?? null : null}
       />
 
       <PatientArtifactEditModal

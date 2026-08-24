@@ -222,7 +222,15 @@ async function proxyTo(
   });
 }
 
+const PATH_ALIASES: Record<string, string> = {
+  '/api/billing/patient-checkout': 'create-patient-checkout',
+  '/api/billing/patient-cancel': 'cancel-patient-subscription',
+};
+
 function parseFunctionName(pathname: string): string | null {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  if (PATH_ALIASES[normalized]) return PATH_ALIASES[normalized];
+
   const patterns = [
     /^\/functions\/v1\/([^/]+)\/?$/,
     /^\/api\/([^/]+)\/?$/,

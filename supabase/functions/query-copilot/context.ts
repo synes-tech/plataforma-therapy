@@ -9,6 +9,7 @@ import type {
 } from './types.ts';
 import { validateInput, anonymizeForLLM } from './guardrails.ts';
 import { vertexEmbedSingle, type ChatMessage } from '../_shared/vertex.ts';
+import { filterCompanionSummaryChunks } from '../_shared/companion/summary-guardrails.ts';
 import {
   buildCopilotSystemInstruction,
   DIARY_CONTEXT_LIMIT,
@@ -38,6 +39,9 @@ function isSessionHistoryQuestion(message: string): boolean {
 export interface CopilotPreparedContext {
   startTime: number;
   patientId: string;
+  userMessage: string;
+  inputSource: 'text' | 'audio';
+  surface: 'record' | 'workspace';
   systemInstruction: string;
   chatMessages: ChatMessage[];
   sources: SourceReference[];
@@ -128,21 +132,27 @@ export async function prepareCopilotContext(
         .limit(SESSION_INVENTORY_LIMIT),
     ]);
 
-  const { data: semanticResults } = await supabase.rpc('search_patient_embeddings', {
-    p_patient_id: payload.patient_id,
-    p_query_embedding: JSON.stringify(queryEmbedding),
-    p_match_count: historyQuestion ? 25 : 15,
-    p_match_threshold: 0.55,
-  });
+  const [{ data: semanticResults }, { data: allowsSharing }] = await Promise.all([
+    supabase.rpc('search_patient_embeddings', {
+      p_patient_id: payload.patient_id,
+      p_query_embedding: JSON.stringify(queryEmbedding),
+      p_match_count: historyQuestion ? 25 : 15,
+      p_match_threshold: 0.55,
+    }),
+    supabase.rpc('patient_allows_summary_sharing', { p_patient_id: payload.patient_id }),
+  ]);
 
-  const retrievedChunks: RetrievedChunk[] = (semanticResults ?? []).map((r: Record<string, unknown>) => ({
-    id: r.id as string,
-    content: r.content as string,
-    document_type: r.document_type as string,
-    metadata: r.metadata as Record<string, unknown>,
-    similarity: r.similarity as number,
-    created_at: r.created_at as string,
-  }));
+  const retrievedChunks: RetrievedChunk[] = filterCompanionSummaryChunks(
+    (semanticResults ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      content: r.content as string,
+      document_type: r.document_type as string,
+      metadata: r.metadata as Record<string, unknown>,
+      similarity: r.similarity as number,
+      created_at: r.created_at as string,
+    })),
+    allowsSharing === true,
+  );
 
   const now = Date.now();
   // Em perguntas de histórico/quantidade, prioriza similaridade e quase não pune sessões antigas.
@@ -184,6 +194,7 @@ export async function prepareCopilotContext(
     sessionNotes,
     sessionInventory,
     ragContext,
+    surface: payload.surface,
     professional: professional
       ? {
           name: professional.name,
@@ -216,6 +227,9 @@ export async function prepareCopilotContext(
     context: {
       startTime,
       patientId: payload.patient_id,
+      userMessage: payload.message,
+      inputSource: payload.input_source ?? 'text',
+      surface: payload.surface ?? 'record',
       systemInstruction,
       chatMessages,
       sources,

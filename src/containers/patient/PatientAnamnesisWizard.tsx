@@ -6,21 +6,29 @@ import {
   useState,
 } from 'react';
 import {
-  CONTACT_SCOPE_OPTIONS,
   EMPTY_ANAMNESIS_FORM,
-  WIZARD_STEPS,
+  TOTAL_WIZARD_STEPS,
+  portalScopeOptionsForProfile,
+  profileFromForm,
+  wizardStepsForProfile,
   type PatientAnamnesisForm,
   type PatientContactScope,
 } from './patient-anamnesis.types';
-import { canAdvanceFromStep, validateAnamnesisStep } from './patient-anamnesis.validation';
+import {
+  REQUIRED_WIZARD_STEPS,
+  canAdvanceFromStep,
+  validateAnamnesisStep,
+} from './patient-anamnesis.validation';
 import { PatientPhotoUpload } from './PatientPhotoUpload';
+import { PatientProfileTypeCards } from './PatientProfileTypeCards';
+import { PatientConditionPicker } from './PatientConditionPicker';
 import { AcompanhamentoMultiField } from './AcompanhamentoMultiField';
 import { PatientAttachmentDropzone } from './attachments/PatientAttachmentDropzone';
 import { formatAttachmentSize } from './attachments/patient-attachment.utils';
 import { PhoneInput } from '@features/register/PhoneInput';
 import { PatientContractFields, type PatientContractFormValues } from './PatientContractFields';
 
-const TOTAL_STEPS = WIZARD_STEPS.length;
+const TOTAL_STEPS = TOTAL_WIZARD_STEPS;
 
 export interface PatientAnamnesisWizardHandle {
   goNext: () => boolean;
@@ -58,6 +66,11 @@ export const PatientAnamnesisWizard = forwardRef<
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
 
+  const profile = profileFromForm(form);
+  const isAdult = profile === 'ADULT';
+  const steps = wizardStepsForProfile(profile);
+  const portalOptions = portalScopeOptionsForProfile(profile);
+
   useEffect(() => {
     onStepChange?.(step);
   }, [step, onStepChange]);
@@ -71,6 +84,17 @@ export const PatientAnamnesisWizard = forwardRef<
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     };
   }, [avatarPreview]);
+
+  /**
+   * Corrigir a data de nascimento pode invalidar a escolha de acesso já feita — "o próprio
+   * paciente" não existe para um menor. Limpar é mais honesto que deixar uma seleção
+   * fantasma que o backend recusaria no fim.
+   */
+  useEffect(() => {
+    if (!form.contact_scope) return;
+    if (portalOptions.some((option) => option.value === form.contact_scope)) return;
+    setForm((current) => ({ ...current, contact_scope: '' }));
+  }, [form.contact_scope, portalOptions]);
 
   const handleAvatarSelected = useCallback((file: File) => {
     setAvatarFile(file);
@@ -123,23 +147,13 @@ export const PatientAnamnesisWizard = forwardRef<
       goNext();
       return;
     }
-    const step1 = validateAnamnesisStep(1, form);
-    if (!step1.valid) {
-      setErrors(step1.errors);
-      setStep(1);
-      return;
-    }
-    const step5 = validateAnamnesisStep(5, form);
-    if (!step5.valid) {
-      setErrors(step5.errors);
-      setStep(5);
-      return;
-    }
-    const step6 = validateAnamnesisStep(6, form);
-    if (!step6.valid) {
-      setErrors(step6.errors);
-      setStep(6);
-      return;
+    for (const required of REQUIRED_WIZARD_STEPS) {
+      const result = validateAnamnesisStep(required, form);
+      if (!result.valid) {
+        setErrors(result.errors);
+        setStep(required);
+        return;
+      }
     }
     onSubmit(form, avatarFile, attachmentFiles);
   }
@@ -148,7 +162,7 @@ export const PatientAnamnesisWizard = forwardRef<
     <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       <nav aria-label="Etapas do cadastro" className="space-y-3">
         <ol className="flex items-center gap-1 sm:gap-2">
-          {WIZARD_STEPS.map((s, index) => {
+          {steps.map((s, index) => {
             const active = s.id === step;
             const done = s.id < step;
             return (
@@ -184,7 +198,7 @@ export const PatientAnamnesisWizard = forwardRef<
                     {s.label}
                   </span>
                 </div>
-                {index < WIZARD_STEPS.length - 1 && (
+                {index < steps.length - 1 && (
                   <div
                     className={`mb-5 hidden h-px flex-1 sm:block ${done ? 'bg-primary/40' : 'bg-slate-200'}`}
                     aria-hidden
@@ -195,7 +209,7 @@ export const PatientAnamnesisWizard = forwardRef<
           })}
         </ol>
         <p className="text-center text-xs font-medium text-charcoal-muted sm:hidden">
-          Etapa {step} de {TOTAL_STEPS} — {WIZARD_STEPS[step - 1]?.label}
+          Etapa {step} de {TOTAL_STEPS} — {steps[step - 1]?.label}
         </p>
       </nav>
 
@@ -244,26 +258,27 @@ export const PatientAnamnesisWizard = forwardRef<
                     onChange={(e) => patch('birth_date', e.target.value)}
                   />
                 </Field>
-                <Field label="Escolaridade / ocupação">
+                <Field label={isAdult ? 'Formação / ocupação' : 'Escolaridade / ocupação'}>
                   <input
                     className={inputClass}
                     value={form.escolaridade_ocupacao}
                     onChange={(e) => patch('escolaridade_ocupacao', e.target.value)}
-                    placeholder="Ex.: 3º ano EF, estudante"
+                    placeholder={isAdult ? 'Ex.: designer, superior completo' : 'Ex.: 3º ano EF, estudante'}
                   />
                 </Field>
-                <div className="sm:col-span-2">
-                  <Field label="Diagnósticos * (separados por vírgula)" error={errors.diagnoses}>
-                    <input
-                      className={inputClass}
-                      value={form.diagnoses}
-                      onChange={(e) => patch('diagnoses', e.target.value)}
-                      placeholder="TEA Nível 1, TDAH"
-                    />
-                  </Field>
-                </div>
               </div>
             </div>
+
+            <PatientProfileTypeCards birthDate={form.birth_date} profile={profile} />
+
+            <PatientConditionPicker
+              selected={form.conditions}
+              freeText={form.diagnoses}
+              onChangeSelected={(next) => patch('conditions', next)}
+              onChangeFreeText={(next) => patch('diagnoses', next)}
+              error={errors.conditions}
+              disabled={isSubmitting}
+            />
           </div>
         )}
 
@@ -346,60 +361,119 @@ export const PatientAnamnesisWizard = forwardRef<
           </div>
         )}
 
-        {step === 3 && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Field label="Composição familiar">
-                <textarea
-                  className={textareaClass}
-                  rows={3}
-                  value={form.composicao_familiar}
-                  onChange={(e) => patch('composicao_familiar', e.target.value)}
-                  placeholder="Quem mora com o paciente, vínculos e dinâmica do lar..."
-                />
-              </Field>
-            </div>
-            <div className="md:col-span-2">
-              <Field label="Responsáveis pelo acompanhamento">
-                <textarea
-                  className={textareaClass}
-                  rows={2}
-                  value={form.responsaveis}
-                  onChange={(e) => patch('responsaveis', e.target.value)}
-                  placeholder="Nomes e contato dos cuidadores principais"
-                />
-              </Field>
-            </div>
+        {/* Passo 3 — o contexto de quem cuida (menor) ou de com quem se conta (adulto). */}
+        {step === 3 && isAdult && (
+          <div className="space-y-4">
+            <StepIntro
+              title="Rede de apoio e rotina"
+              description="Com quem este paciente conta e como são os dias dele. É esse contexto que permite ao copiloto sugerir intervenções que cabem na vida real, não no vácuo."
+            />
+            <Field label="Rede de apoio" error={errors.support_network}>
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={form.support_network}
+                onChange={(e) => patch('support_network', e.target.value)}
+                placeholder="Parceiro(a), família, amigos próximos, grupos, terapeutas — quem ele procura quando precisa"
+              />
+            </Field>
+            <Field label="Ocupação e rotina">
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={form.occupation_routine}
+                onChange={(e) => patch('occupation_routine', e.target.value)}
+                placeholder="Trabalho, estudos, sono, exercício, uso de substâncias — como se organiza um dia comum"
+              />
+            </Field>
           </div>
         )}
 
+        {step === 3 && !isAdult && (
+          <div className="space-y-4">
+            <StepIntro
+              title="Dinâmica familiar e cuidadores"
+              description="Quem convive com o paciente e quem responde pelo acompanhamento. O convite do portal vai para esse responsável."
+            />
+            <Field label="Composição familiar *" error={errors.composicao_familiar}>
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={form.composicao_familiar}
+                onChange={(e) => patch('composicao_familiar', e.target.value)}
+                placeholder="Quem mora com o paciente, vínculos e dinâmica do lar..."
+              />
+            </Field>
+            <Field label="Responsáveis pelo acompanhamento *" error={errors.responsaveis}>
+              <textarea
+                className={textareaClass}
+                rows={2}
+                value={form.responsaveis}
+                onChange={(e) => patch('responsaveis', e.target.value)}
+                placeholder="Nomes e grau de parentesco dos cuidadores principais"
+              />
+            </Field>
+          </div>
+        )}
+
+        {/* Passo 4 — o que a IA precisa saber muda com a idade. */}
         {step === 4 && (
           <div className="space-y-4">
-            <Field label="Objetivos terapêuticos">
+            <StepIntro
+              title="O que o copiloto precisa saber"
+              description="Estes campos alimentam as sugestões da IA. Quanto mais concreto, mais útil."
+            />
+            <Field
+              label={
+                isAdult
+                  ? 'Objetivos da psicoterapia (curto e longo prazo)'
+                  : 'Objetivos terapêuticos'
+              }
+            >
               <textarea
                 className={textareaClass}
                 rows={3}
                 value={form.objetivos_terapeuticos}
                 onChange={(e) => patch('objetivos_terapeuticos', e.target.value)}
-                placeholder="Metas da família e do terapeuta para o acompanhamento..."
+                placeholder={
+                  isAdult
+                    ? 'O que o paciente quer alcançar nas próximas semanas e no processo como um todo'
+                    : 'Metas da família e do terapeuta para o acompanhamento...'
+                }
               />
             </Field>
-            <Field label="Hiperfocos e interesses">
-              <textarea
-                className={textareaClass}
-                rows={2}
-                value={form.hiperfocos_interesses}
-                onChange={(e) => patch('hiperfocos_interesses', e.target.value)}
-                placeholder="Ex.: dinossauros, Minecraft, música — ajuda a IA a personalizar sugestões"
-              />
-            </Field>
+
+            {!isAdult && (
+              <Field label="Hiperfocos e interesses">
+                <textarea
+                  className={textareaClass}
+                  rows={2}
+                  value={form.hiperfocos_interesses}
+                  onChange={(e) => patch('hiperfocos_interesses', e.target.value)}
+                  placeholder="Ex.: dinossauros, Minecraft, música — a IA usa isso para propor atividades que engajam"
+                />
+              </Field>
+            )}
+
+            {profile !== 'CHILD' && (
+              <Field label="Gatilhos mapeados">
+                <textarea
+                  className={textareaClass}
+                  rows={2}
+                  value={form.mapped_triggers}
+                  onChange={(e) => patch('mapped_triggers', e.target.value)}
+                  placeholder="Situações, lugares ou temas que costumam desencadear crise ou sofrimento intenso"
+                />
+              </Field>
+            )}
+
             <Field label="Informações adicionais (opcional)">
               <textarea
                 className={textareaClass}
                 rows={4}
                 value={form.informacoes_adicionais}
                 onChange={(e) => patch('informacoes_adicionais', e.target.value)}
-                placeholder="Qualquer contexto extra para o copiloto de IA conhecer melhor este paciente..."
+                placeholder="Qualquer contexto extra para o copiloto conhecer melhor este paciente..."
               />
             </Field>
           </div>
@@ -407,23 +481,23 @@ export const PatientAnamnesisWizard = forwardRef<
 
         {step === 5 && (
           <div className="space-y-5">
-            <div>
-              <h3 className="font-serif text-base font-medium text-charcoal">Informações de contato</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-charcoal-muted">
-                É importante preencher as informações de contato para que possamos enviar lembretes
-                por e-mail das sessões agendadas e outras comunicações do consultório.
-              </p>
-            </div>
+            <StepIntro
+              title="Quem terá acesso ao Portal Unithery?"
+              description="Quem você escolher recebe por e-mail um convite para o portal, onde registra o dia a dia e lê o que você liberar. Os mesmos contatos recebem os lembretes de sessão."
+            />
 
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-charcoal">Quem deseja cadastrar?</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {CONTACT_SCOPE_OPTIONS.map((option) => {
+              <legend className="sr-only">Quem terá acesso ao portal</legend>
+              <div
+                className={`grid grid-cols-1 gap-2 ${portalOptions.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
+              >
+                {portalOptions.map((option) => {
                   const selected = form.contact_scope === option.value;
                   return (
                     <button
                       key={option.value}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() => patch('contact_scope', option.value as PatientContactScope)}
                       className={`rounded-xl border px-3 py-3 text-left transition-colors ${
                         selected
@@ -442,7 +516,31 @@ export const PatientAnamnesisWizard = forwardRef<
                   {errors.contact_scope}
                 </p>
               )}
+              {!isAdult && profile && (
+                <p className="text-[11px] leading-snug text-charcoal-muted">
+                  Pacientes menores de idade acessam o portal pelo responsável. O acesso próprio
+                  exige consentimento registrado e pode ser concedido depois, na ficha do paciente.
+                </p>
+              )}
             </fieldset>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <input
+                type="checkbox"
+                checked={form.portal_invite_send}
+                onChange={(e) => patch('portal_invite_send', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+              />
+              <span>
+                <span className="block text-sm font-medium text-charcoal">
+                  Enviar o convite agora
+                </span>
+                <span className="mt-0.5 block text-[11px] text-charcoal-muted">
+                  Se preferir, deixe desmarcado e envie depois pela ficha do paciente. O cadastro é
+                  concluído do mesmo jeito.
+                </span>
+              </span>
+            </label>
 
             {(form.contact_scope === 'patient' || form.contact_scope === 'both') && (
               <div className="space-y-3 rounded-xl border border-slate-100 bg-white p-4">
@@ -473,7 +571,9 @@ export const PatientAnamnesisWizard = forwardRef<
 
             {(form.contact_scope === 'responsible' || form.contact_scope === 'both') && (
               <div className="space-y-3 rounded-xl border border-slate-100 bg-white p-4">
-                <p className="text-sm font-medium text-charcoal">Contato do responsável</p>
+                <p className="text-sm font-medium text-charcoal">
+                  {isAdult ? 'Contato da pessoa de apoio' : 'Contato do responsável'}
+                </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="E-mail *" error={errors.email_responsavel}>
                     <input
@@ -502,13 +602,10 @@ export const PatientAnamnesisWizard = forwardRef<
 
         {step === 6 && (
           <div className="space-y-5">
-            <div>
-              <h3 className="font-serif text-base font-medium text-charcoal">Contrato financeiro</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-charcoal-muted">
-                Obrigatório para cadastrar o paciente. Particular ou convênio, avulso ou mensalidade —
-                esses dados alimentam o caixa e, se for mensal, a agenda recorrente.
-              </p>
-            </div>
+            <StepIntro
+              title="Contrato financeiro"
+              description="Obrigatório para cadastrar o paciente. Particular ou convênio, avulso ou mensalidade — esses dados alimentam o caixa e, se for mensal, a agenda recorrente."
+            />
             <PatientContractFields
               value={{
                 model_type: form.financeiro_model_type,
@@ -559,6 +656,15 @@ export const PatientAnamnesisWizard = forwardRef<
     </form>
   );
 });
+
+function StepIntro({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <h3 className="font-serif text-base font-medium text-charcoal">{title}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-charcoal-muted">{description}</p>
+    </div>
+  );
+}
 
 function Field({
   label,

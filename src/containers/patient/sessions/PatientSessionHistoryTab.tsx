@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@containers/loading';
+import { sessionWorkspacePath } from '@containers/session-workspace/session-workspace.utils';
 import { RecordEmptyState } from '../RecordEmptyState';
 import { RecordSessionButton } from '../RecordSessionButton';
+import { usePatientArtifacts } from '../documents/usePatientArtifacts';
 import type { PatientSessionRecord } from '../session/session-history.types';
 import { PatientSessionReadModal } from './PatientSessionReadModal';
 import { PatientSessionsTable } from './PatientSessionsTable';
 import { PatientSessionsTableSkeleton } from './PatientSessionsTableSkeleton';
+import { resolveSessionSavedArtifactId, sessionSavedReportPath } from './patient-sessions.format';
 import { usePatientSessions } from './usePatientSessions';
 
 interface PatientSessionHistoryTabProps {
@@ -18,6 +21,8 @@ export function PatientSessionHistoryTab({ patientId, patientName }: PatientSess
   const navigate = useNavigate();
   const [readingSession, setReadingSession] = useState<PatientSessionRecord | null>(null);
   const { data, isPending, isFetching, error, refetch } = usePatientSessions(patientId);
+  const artifactsQuery = usePatientArtifacts(patientId);
+  const artifacts = artifactsQuery.data?.items ?? [];
 
   const items = data?.items ?? [];
   const totalCount = data?.total_count ?? 0;
@@ -53,7 +58,7 @@ export function PatientSessionHistoryTab({ patientId, patientName }: PatientSess
             action={
               <RecordSessionButton
                 variant="empty"
-                onClick={() => navigate(`/session/${patientId}`)}
+                onClick={() => navigate(sessionWorkspacePath(patientId))}
               />
             }
           />
@@ -69,7 +74,16 @@ export function PatientSessionHistoryTab({ patientId, patientName }: PatientSess
             </p>
           </div>
 
-          <PatientSessionsTable items={items} onView={setReadingSession} />
+          <PatientSessionsTable
+            items={items}
+            onView={setReadingSession}
+            reportArtifactId={(session) => resolveSessionSavedArtifactId(session, artifacts, patientName)}
+            onOpenReport={(session) => {
+              const artifactId = resolveSessionSavedArtifactId(session, artifacts, patientName);
+              if (!artifactId) return;
+              navigate(sessionSavedReportPath(patientId, artifactId));
+            }}
+          />
         </div>
       ) : null}
 

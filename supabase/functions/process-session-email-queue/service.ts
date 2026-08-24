@@ -111,6 +111,7 @@ export async function processSessionEmailQueue(limit: number): Promise<{
         professionalName: (professional?.name as string) || 'terapeuta',
         sessionAtIso: session.scheduled_at as string,
         durationMinutes: session.duration_minutes ? Number(session.duration_minutes) : null,
+        audience: job.recipient_role === 'professional' ? 'professional' : 'contact',
       });
 
       await supabase

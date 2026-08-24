@@ -1,4 +1,8 @@
-import type { ConversationTurn, CopilotMessage } from './patient-copilot.types';
+import type {
+  ConversationTurn,
+  CopilotMessage,
+  PersistedCopilotMessage,
+} from './patient-copilot.types';
 
 const HISTORY_LIMIT = 6;
 
@@ -12,4 +16,21 @@ export function buildConversationHistory(messages: CopilotMessage[]): Conversati
 
 export function patientFirstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
+export function mapPersistedCopilotMessages(
+  rows: PersistedCopilotMessage[] | undefined,
+): CopilotMessage[] {
+  if (!rows?.length) return [];
+  return rows
+    .filter((row) => row.content.trim().length > 0 && (row.role === 'user' || row.role === 'assistant'))
+    .map((row) => ({
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      inputSource: row.input_source,
+      sources: row.sources,
+      guardrail_triggered: row.guardrail_triggered,
+      answer_incomplete: row.answer_incomplete,
+    }));
 }

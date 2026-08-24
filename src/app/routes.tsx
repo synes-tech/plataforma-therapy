@@ -1,8 +1,9 @@
 import { lazy } from 'react';
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from '@shared/ui/ProtectedRoute';
 import { AppLayout } from '@shared/ui/AppLayout';
-import { FamilyLayout } from '@shared/ui/FamilyLayout';
+import { PortalLayout } from '@shared/ui/PortalLayout';
+import { LEGACY_PORTAL_REDIRECTS } from '@shared/lib/portal-nav';
 
 // Lazy-loaded containers
 const LandingPageContainer = lazy(() => import('@containers/landing/LandingPageContainer'));
@@ -16,20 +17,21 @@ const DashboardContainer = lazy(() => import('@containers/dashboard/DashboardCon
 const PatientListContainer = lazy(() => import('@containers/patient/PatientListContainer'));
 const PatientRecordContainer = lazy(() => import('@containers/patient/PatientRecordContainer'));
 const ProfessionalsContainer = lazy(() => import('@containers/admin/ProfessionalsContainer'));
-const SessionContainer = lazy(() => import('@containers/patient/SessionContainer'));
-const RegisterFamily = lazy(() => import('@containers/family/RegisterFamily'));
-const LinkInvite = lazy(() => import('@containers/family/LinkInvite'));
-const RoutineDiary = lazy(() => import('@containers/family/RoutineDiary'));
-const FamilyCalendar = lazy(() => import('@containers/family/FamilyCalendar'));
-const Agreements = lazy(() => import('@containers/family/Agreements'));
+const RegisterFamily = lazy(() => import('@containers/portal/RegisterFamily'));
+const LinkInvite = lazy(() => import('@containers/portal/LinkInvite'));
+const SmartDiary = lazy(() => import('@containers/portal/SmartDiary'));
+const FamilyCalendar = lazy(() => import('@containers/portal/FamilyCalendar'));
+const Agreements = lazy(() => import('@containers/portal/Agreements'));
+const PortalCompanion = lazy(() => import('@containers/portal/PortalCompanion'));
 const SettingsHubContainer = lazy(() => import('@containers/settings/SettingsHubContainer'));
 const SettingsContainer = lazy(() => import('@containers/settings/SettingsContainer'));
-const AssinaturaContainer = lazy(() => import('@containers/settings/AssinaturaContainer'));
 const StripeTestPageContainer = lazy(() => import('@containers/billing/stripe-test/StripeTestPageContainer'));
 const CheckoutReturnContainer = lazy(() => import('@containers/billing/CheckoutReturnContainer'));
 const FullCalendar = lazy(() => import('@containers/calendar/FullCalendar'));
 const FinanceiroContainer = lazy(() => import('@containers/financeiro/FinanceiroContainer'));
 const HelpContactContainer = lazy(() => import('@containers/help/HelpContactContainer'));
+const TherapistCopilotContainer = lazy(() => import('@containers/copilot-workspace/TherapistCopilotContainer'));
+const TherapistSessionContainer = lazy(() => import('@containers/session-workspace/TherapistSessionContainer'));
 
 /**
  * Wrapper that adds AppLayout (persistent sidebar) to protected routes
@@ -38,17 +40,18 @@ function WithLayout({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
-/**
- * Wrapper for the Family Portal (mobile-first PWA shell with bottom nav)
- */
-function WithFamilyLayout({ children }: { children: React.ReactNode }) {
-  return <FamilyLayout>{children}</FamilyLayout>;
+function RedirectToSettings() {
+  const { search } = useLocation();
+  return <Navigate to={`/settings${search}`} replace />;
 }
 
-function CopilotLegacyRedirect() {
-  const { patientId } = useParams<{ patientId: string }>();
-  return <Navigate to={`/patients/${patientId}/copilot`} replace />;
+/**
+ * Wrapper do Portal Unithery (PWA mobile-first com bottom nav reativa)
+ */
+function WithPortalLayout({ children }: { children: React.ReactNode }) {
+  return <PortalLayout>{children}</PortalLayout>;
 }
+
 
 export function AppRoutes() {
   return (
@@ -59,6 +62,7 @@ export function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordContainer />} />
       <Route path="/reset-password" element={<ResetPasswordContainer />} />
       <Route path="/register" element={<RegisterClinicContainer />} />
+      <Route path="/portal/register" element={<RegisterFamily />} />
       <Route path="/family/register" element={<RegisterFamily />} />
       <Route path="/ajuda" element={<HelpContactContainer />} />
 
@@ -151,15 +155,7 @@ export function AppRoutes() {
         path="/copilot"
         element={
           <ProtectedRoute allowedRoles={['professional']}>
-            <Navigate to="/patients" replace />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/session/:patientId"
-        element={
-          <ProtectedRoute allowedRoles={['professional']}>
-            <WithLayout><SessionContainer /></WithLayout>
+            <WithLayout><TherapistCopilotContainer /></WithLayout>
           </ProtectedRoute>
         }
       />
@@ -167,13 +163,29 @@ export function AppRoutes() {
         path="/copilot/:patientId"
         element={
           <ProtectedRoute allowedRoles={['professional']}>
-            <CopilotLegacyRedirect />
+            <WithLayout><TherapistCopilotContainer /></WithLayout>
           </ProtectedRoute>
         }
       />
-      {/* Family Portal (PWA mobile-first) */}
       <Route
-        path="/family/link"
+        path="/session"
+        element={
+          <ProtectedRoute allowedRoles={['professional']}>
+            <WithLayout><TherapistSessionContainer /></WithLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/session/:patientId"
+        element={
+          <ProtectedRoute allowedRoles={['professional']}>
+            <WithLayout><TherapistSessionContainer /></WithLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Portal Unithery (PWA mobile-first) — cuidador ou paciente, mesmas rotas */}
+      <Route
+        path="/portal/link"
         element={
           <ProtectedRoute allowedRoles={['family']}>
             <LinkInvite />
@@ -181,55 +193,51 @@ export function AppRoutes() {
         }
       />
       <Route
-        path="/family/diary"
+        path="/portal/diary"
         element={
           <ProtectedRoute allowedRoles={['family']}>
-            <WithFamilyLayout><RoutineDiary /></WithFamilyLayout>
+            <WithPortalLayout><SmartDiary /></WithPortalLayout>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/family/calendar"
+        path="/portal/calendar"
         element={
           <ProtectedRoute allowedRoles={['family']}>
-            <WithFamilyLayout><FamilyCalendar /></WithFamilyLayout>
+            <WithPortalLayout><FamilyCalendar /></WithPortalLayout>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/family/agreements"
+        path="/portal/agreements"
         element={
           <ProtectedRoute allowedRoles={['family']}>
-            <WithFamilyLayout><Agreements /></WithFamilyLayout>
+            <WithPortalLayout><Agreements /></WithPortalLayout>
           </ProtectedRoute>
         }
       />
-      {/* Legacy diary route → new portal */}
-      <Route path="/diary" element={<Navigate to="/family/diary" replace />} />
       <Route
-        path="/billing"
-        element={<Navigate to="/assinatura" replace />}
-      />
-      <Route
-        path="/billing/invoices"
-        element={<Navigate to="/assinatura" replace />}
-      />
-      <Route
-        path="/settings/invoices"
-        element={<Navigate to="/assinatura" replace />}
-      />
-      <Route
-        path="/settings/plan"
-        element={<Navigate to="/assinatura" replace />}
-      />
-      <Route
-        path="/assinatura"
+        path="/portal/ivy"
         element={
-          <ProtectedRoute ownerOnly>
-            <WithLayout><AssinaturaContainer /></WithLayout>
+          <ProtectedRoute allowedRoles={['family']}>
+            <WithPortalLayout><PortalCompanion /></WithPortalLayout>
           </ProtectedRoute>
         }
       />
+      {/*
+        Rotas antigas preservadas: há PWA instalado com `/family/diary` como start_url e
+        e-mails de convite já enviados apontando para cá. Redirecionar custa nada; quebrar
+        o atalho de quem já usa o app custa uma reinstalação.
+      */}
+      <Route path="/family/link" element={<Navigate to="/portal/link" replace />} />
+      {LEGACY_PORTAL_REDIRECTS.map(({ from, to }) => (
+        <Route key={from} path={from} element={<Navigate to={to} replace />} />
+      ))}
+      <Route path="/billing" element={<RedirectToSettings />} />
+      <Route path="/billing/invoices" element={<RedirectToSettings />} />
+      <Route path="/settings/invoices" element={<RedirectToSettings />} />
+      <Route path="/settings/plan" element={<RedirectToSettings />} />
+      <Route path="/assinatura" element={<RedirectToSettings />} />
       <Route
         path="/settings"
         element={

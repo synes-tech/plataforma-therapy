@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { formatCurrency } from '@features/billing/format';
-import type { FinanceCustoRecorrente, FinanceCustoTitulo, FinanceExpenseKind } from './financeiro.types';
+import type { FinanceCustoRecorrente, FinanceCustoTitulo } from './financeiro.types';
 import {
   EXPENSE_KIND_LABEL,
   EXPENSE_STATUS_LABEL,
@@ -55,15 +55,6 @@ export function CustosMensaisTab({ month }: CustosMensaisTabProps) {
     onSuccess: () => invalidateFinanceQueries(qc),
   });
 
-  const openCreate = (kind: FinanceExpenseKind = 'FIXA') => {
-    setForm({
-      ...EMPTY_EXPENSE_FORM,
-      kind,
-      categoria: kind === 'FIXA' ? 'CUSTO_FIXO' : kind === 'VARIAVEL_PARCELADA' ? 'DESPESA_PARCELADA' : 'DESPESA_PONTUAL',
-    });
-    setModalOpen(true);
-  };
-
   const openEdit = (item: FinanceCustoRecorrente) => {
     setForm({
       ...EMPTY_EXPENSE_FORM,
@@ -82,22 +73,6 @@ export function CustosMensaisTab({ month }: CustosMensaisTabProps) {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-serif text-lg font-medium text-charcoal">Despesas</h2>
-          <p className="mt-0.5 text-sm text-charcoal-muted">
-            Fixa todo mês, parcelada no cartão ou pontual. O lucro do mês usa o que você baixar aqui.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => openCreate('FIXA')}
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90"
-        >
-          Nova despesa
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           label="Total no mês"
@@ -134,7 +109,7 @@ export function CustosMensaisTab({ month }: CustosMensaisTabProps) {
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white px-4 py-3">
         <div className="flex items-center justify-between gap-3 text-xs text-charcoal-muted">
           <span>Quanto do mês já saiu do caixa</span>
-          <span className="font-medium text-charcoal">
+          <span className="font-display font-bold tabular-nums tracking-tight text-charcoal">
             {formatCurrency(paidCents)} de {formatCurrency(totalCents)}
           </span>
         </div>
@@ -234,7 +209,7 @@ export function CustosMensaisTab({ month }: CustosMensaisTabProps) {
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_BADGE[item.status]}`}>
                       {EXPENSE_STATUS_LABEL[item.status] ?? item.status}
                     </span>
-                    <p className="text-sm font-semibold text-charcoal">{formatCurrency(item.valor_cents)}</p>
+                    <p className="font-display text-sm font-bold tabular-nums tracking-tight text-charcoal">{formatCurrency(item.valor_cents)}</p>
                     {canPay && (
                       <button
                         type="button"
@@ -329,9 +304,22 @@ function TemplateList({
                 )}
               </p>
               <p className="text-xs text-charcoal-muted">
-                {item.kind === 'VARIAVEL_PARCELADA'
-                  ? `${item.months_total}× ${formatCurrency(item.valor_cents)} · até ${item.ends_on ?? '—'}`
-                  : `Todo dia ${item.dia_vencimento} · ${formatCurrency(item.valor_cents)}`}
+                {item.kind === 'VARIAVEL_PARCELADA' ? (
+                  <>
+                    {item.months_total}×{' '}
+                    <span className="font-display font-bold tabular-nums tracking-tight text-charcoal">
+                      {formatCurrency(item.valor_cents)}
+                    </span>
+                    {` · até ${item.ends_on ?? '—'}`}
+                  </>
+                ) : (
+                  <>
+                    {`Todo dia ${item.dia_vencimento} · `}
+                    <span className="font-display font-bold tabular-nums tracking-tight text-charcoal">
+                      {formatCurrency(item.valor_cents)}
+                    </span>
+                  </>
+                )}
                 {item.kind ? ` · ${EXPENSE_KIND_LABEL[item.kind]}` : ''}
               </p>
             </div>
@@ -388,7 +376,7 @@ function SummaryCard({
     return (
       <div className={className}>
         <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
-        <p className="mt-1 font-serif text-xl text-charcoal">{value}</p>
+        <p className="mt-1 font-display text-xl font-bold tabular-nums tracking-tight text-charcoal">{value}</p>
         <p className="mt-1 text-[11px] text-charcoal-muted">{hint}</p>
       </div>
     );
@@ -397,7 +385,7 @@ function SummaryCard({
   return (
     <button type="button" onClick={onClick} className={className}>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
-      <p className="mt-1 font-serif text-xl text-charcoal">{value}</p>
+      <p className="mt-1 font-display text-xl font-bold tabular-nums tracking-tight text-charcoal">{value}</p>
       <p className="mt-1 text-[11px] text-charcoal-muted">{hint}</p>
     </button>
   );

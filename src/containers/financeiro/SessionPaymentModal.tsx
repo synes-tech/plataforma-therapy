@@ -6,6 +6,7 @@ import { LoadingButton } from '@containers/loading';
 import { formatCurrency } from '@features/billing/format';
 import type { PaymentPrompt } from './financeiro.types';
 import { centsToInputReais, reaisInputToCents } from './financeiro.types';
+import { competenceFromDate } from './classify-tab.utils';
 
 interface SessionPaymentModalProps {
   prompt: PaymentPrompt | null;
@@ -14,14 +15,16 @@ interface SessionPaymentModalProps {
 }
 
 export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentModalProps) {
-  const [mode, setMode] = useState<'pacote' | 'avulso' | 'cortesia' | 'nao'>('avulso');
+  const [mode, setMode] = useState<'pacote' | 'avulso' | 'cortesia'>('avulso');
   const [valor, setValor] = useState('');
   const [forma, setForma] = useState<'pix' | 'cartao' | 'dinheiro' | 'outro'>('pix');
+  const [paidOn, setPaidOn] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     if (!prompt) return;
     setValor(centsToInputReais(prompt.valor_sugerido_cents));
     setMode(prompt.pode_consumir_pacote ? 'pacote' : 'avulso');
+    setPaidOn(new Date().toISOString().slice(0, 10));
   }, [prompt]);
 
   const mutation = useMutation({
@@ -41,19 +44,14 @@ export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentM
           payment_action: 'cortesia',
         });
       }
-      if (mode === 'nao') {
-        return callFunction('financeiro-upsert-patient-plan', {
-          action: 'confirm_session_payment',
-          schedule_id: prompt.schedule_id,
-          payment_action: 'nao_realizado',
-        });
-      }
       return callFunction('financeiro-upsert-patient-plan', {
         action: 'confirm_session_payment',
         schedule_id: prompt.schedule_id,
         payment_action: 'receber_avulso',
         valor_cents: reaisInputToCents(valor),
         forma_pagamento: forma,
+        data_pagamento: paidOn,
+        competence_month: competenceFromDate(paidOn),
       });
     },
     onSuccess: () => onDone(),
@@ -63,7 +61,7 @@ export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentM
     <StandardModal
       isOpen={!!prompt}
       onClose={onClose}
-      title="Registrar pagamento da sessão"
+      title="Como foi cobrada esta sessão?"
       closeOnBackdropClick={false}
       footer={
         <>
@@ -81,7 +79,7 @@ export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentM
             fullWidth
             className="md:w-auto"
           >
-            Confirmar
+            Salvar
           </LoadingButton>
         </>
       }
@@ -92,7 +90,7 @@ export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentM
             Sessão de <strong className="text-charcoal">{prompt.patient_name}</strong>.
             {prompt.pode_consumir_pacote
               ? ` Este paciente possui ${prompt.saldo_sessoes} sessão(ões) no pacote.`
-              : ` Valor sugerido: ${formatCurrency(prompt.valor_sugerido_cents)}.`}
+              : ` Valor sugerido do contrato: ${formatCurrency(prompt.valor_sugerido_cents)}.`}
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -107,23 +105,35 @@ export function SessionPaymentModal({ prompt, onClose, onDone }: SessionPaymentM
             <ModeChip active={mode === 'cortesia'} onClick={() => setMode('cortesia')}>
               Cortesia / social
             </ModeChip>
-            <ModeChip active={mode === 'nao'} onClick={() => setMode('nao')}>
-              Não realizada
-            </ModeChip>
           </div>
 
           {mode === 'avulso' && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-sm font-medium text-charcoal">
-                Valor recebido (R$)
+                Valor desta sessão (R$)
                 <input
                   className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
                   value={valor}
                   onChange={(e) => setValor(e.target.value)}
                   inputMode="decimal"
                 />
+                <span className="mt-1 block text-[11px] font-normal text-charcoal-muted">
+                  Altera só esta sessão. O valor do contrato continua o mesmo.
+                </span>
               </label>
               <label className="text-sm font-medium text-charcoal">
+                Data da receita
+                <input
+                  type="date"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  value={paidOn}
+                  onChange={(e) => setPaidOn(e.target.value)}
+                />
+                <span className="mt-1 block text-[11px] font-normal text-charcoal-muted">
+                  A receita entra no mês desta data, não no mês de hoje.
+                </span>
+              </label>
+              <label className="text-sm font-medium text-charcoal sm:col-span-2">
                 Forma
                 <select
                   className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"

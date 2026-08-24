@@ -35,9 +35,9 @@ const makePlan = (id: string, overrides: Partial<PaywallPlanCard> = {}): Paywall
 
 const samplePlans: PaywallPlanCard[] = [
   makePlan('free', { preco_mensal_cents: 0, preco_anual_mensal_cents: null }),
-  makePlan('standard', { preco_mensal_cents: 23120, preco_anual_mensal_cents: 20346 }),
-  makePlan('advanced', { preco_mensal_cents: 46240, preco_anual_mensal_cents: 40691, recomendado: true }),
-  makePlan('premium', { preco_mensal_cents: 69360, preco_anual_mensal_cents: 61037 }),
+  makePlan('standard', { preco_mensal_cents: 23700, preco_anual_mensal_cents: 20700 }),
+  makePlan('advanced', { preco_mensal_cents: 42700, preco_anual_mensal_cents: 37700, recomendado: true }),
+  makePlan('premium', { preco_mensal_cents: 65700, preco_anual_mensal_cents: 57700 }),
   makePlan('starter'),
   makePlan('professional'),
 ];

@@ -14,6 +14,7 @@ import {
   computeAudioMinutesLimit,
   yearlyTotalCents,
   yearlySavingsCents,
+  costPerPatientCents,
 } from './therapist-plans';
 
 describe('therapist-plans (catálogo v2)', () => {
@@ -42,12 +43,12 @@ describe('therapist-plans (catálogo v2)', () => {
 
   it('preços oficiais em centavos', () => {
     expect(THERAPIST_PLANS.free.monthlyCents).toBe(0);
-    expect(THERAPIST_PLANS.standard.monthlyCents).toBe(23120);
-    expect(THERAPIST_PLANS.advanced.monthlyCents).toBe(46240);
-    expect(THERAPIST_PLANS.premium.monthlyCents).toBe(69360);
-    expect(THERAPIST_PLANS.standard.yearlyMonthlyCents).toBe(20346);
-    expect(THERAPIST_PLANS.advanced.yearlyMonthlyCents).toBe(40691);
-    expect(THERAPIST_PLANS.premium.yearlyMonthlyCents).toBe(61037);
+    expect(THERAPIST_PLANS.standard.monthlyCents).toBe(23700);
+    expect(THERAPIST_PLANS.advanced.monthlyCents).toBe(42700);
+    expect(THERAPIST_PLANS.premium.monthlyCents).toBe(65700);
+    expect(THERAPIST_PLANS.standard.yearlyMonthlyCents).toBe(20700);
+    expect(THERAPIST_PLANS.advanced.yearlyMonthlyCents).toBe(37700);
+    expect(THERAPIST_PLANS.premium.yearlyMonthlyCents).toBe(57700);
   });
 
   it('limites de sessões = pacientes × 4', () => {
@@ -81,9 +82,16 @@ describe('therapist-plans (catálogo v2)', () => {
   });
 
   it('ciclo anual: total e economia', () => {
-    expect(yearlyTotalCents(THERAPIST_PLANS.standard)).toBe(20346 * 12);
-    expect(yearlySavingsCents(THERAPIST_PLANS.standard)).toBe((23120 - 20346) * 12);
+    expect(yearlyTotalCents(THERAPIST_PLANS.standard)).toBe(20700 * 12);
+    expect(yearlySavingsCents(THERAPIST_PLANS.standard)).toBe((23700 - 20700) * 12);
     expect(yearlyTotalCents(THERAPIST_PLANS.free)).toBe(null);
+  });
+
+  it('custo por paciente = preço do plano ÷ teto de pacientes', () => {
+    expect(costPerPatientCents(23700, 10)).toBe(2370);
+    expect(costPerPatientCents(20700, 10)).toBe(2070);
+    expect(costPerPatientCents(57700, 30)).toBe(1923);
+    expect(costPerPatientCents(10000, 0)).toBe(0);
   });
 
   it('soma bônus de upsell ao limite base', () => {

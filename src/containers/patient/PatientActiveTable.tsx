@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { PatientAvatar } from './PatientAvatar';
-import { PatientFamilyLinkStatusBadge } from './PatientFamilyLinkStatusBadge';
+import { PatientCareTrackBadge } from './PatientCareTrackBadge';
 import type { PatientListItem } from './patient-list.types';
-import { getPatientAge, STATUS_LABEL, statusClass, statusDotClass } from './patient-list.utils';
+import { getPatientAge } from './patient-list.utils';
 
 interface PatientActiveTableProps {
   patients: PatientListItem[];
@@ -14,16 +14,14 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
 
   return (
     <>
-      {/* Desktop: tabela */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[880px] text-left text-sm">
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-charcoal-muted">
               <th className="px-5 py-3 font-semibold">Paciente</th>
               <th className="px-5 py-3 font-semibold">Idade</th>
               <th className="px-5 py-3 font-semibold">Diagnósticos</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Status de Vínculo</th>
+              <th className="px-5 py-3 font-semibold">Acompanhamento</th>
               <th className="px-5 py-3 text-right font-semibold">Ações</th>
             </tr>
           </thead>
@@ -45,10 +43,7 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                   <DiagnosisChips diagnoses={patient.diagnoses} max={3} />
                 </td>
                 <td className="px-5 py-3.5">
-                  <StatusBadge status={patient.status} />
-                </td>
-                <td className="px-5 py-3.5">
-                  <PatientFamilyLinkStatusBadge patient={patient} />
+                  <PatientCareTrackBadge patient={patient} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <button
@@ -68,7 +63,6 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
         </table>
       </div>
 
-      {/* Mobile: cards compactos */}
       <div className="divide-y divide-slate-100 md:hidden">
         {patients.map((patient) => (
           <article key={patient.id} className="px-4 py-4">
@@ -86,10 +80,7 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                   </p>
                 </div>
               </button>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <StatusBadge status={patient.status} />
-                <PatientFamilyLinkStatusBadge patient={patient} />
-              </div>
+              <PatientCareTrackBadge patient={patient} />
             </div>
             <div className="mt-3">
               <DiagnosisChips diagnoses={patient.diagnoses} max={3} />
@@ -105,18 +96,5 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
         ))}
       </div>
     </>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABEL[status] ?? status;
-
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(status)}`}
-    >
-      <span className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass(status)}`} aria-hidden />
-      {label}
-    </span>
   );
 }

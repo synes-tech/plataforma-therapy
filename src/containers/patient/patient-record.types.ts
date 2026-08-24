@@ -43,6 +43,12 @@ export interface SessionNote {
   created_at: string;
 }
 
+export interface DiaryEntryPayload {
+  mood_10?: number;
+  anxiety_10?: number;
+  triggers?: string;
+}
+
 export interface DiaryEntry {
   id: string;
   entry_date: string;
@@ -52,6 +58,8 @@ export interface DiaryEntry {
   crisis_level: number | null;
   categories: string[];
   notes: string | null;
+  payload?: DiaryEntryPayload | null;
+  author_access_level?: 'CAREGIVER' | 'SELF';
 }
 
 export interface EvolutionWeek {

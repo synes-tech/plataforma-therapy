@@ -40,13 +40,7 @@ export async function cancelSubscription(
     throw new ForbiddenError('Usuário sem clínica associada');
   }
 
-  if (await isUserBillingExempt(caller)) {
-    throw new AppError({
-      code: 'BILLING_EXEMPT',
-      message: 'Conta administrativa — sem assinatura ou cobrança para cancelar.',
-      statusCode: 409,
-    });
-  }
+  const billingExempt = await isUserBillingExempt(caller);
 
   const supabase = createServiceClient();
   const { data: clinic, error } = await supabase
@@ -64,7 +58,9 @@ export async function cancelSubscription(
 
   const row = clinic as unknown as ClinicBillingRow;
 
-  if (row.subscription_plan === 'free' && !row.stripe_subscription_id) {
+  const hasStripeSubscription = Boolean(row.stripe_subscription_id);
+
+  if (row.subscription_plan === 'free' && !hasStripeSubscription && !billingExempt) {
     throw new AppError({
       code: 'NOTHING_TO_CANCEL',
       message: 'Sua conta já está no plano Free, sem assinatura ativa.',
@@ -77,6 +73,42 @@ export async function cancelSubscription(
     .select('nome, preco_mensal_cents, preco_anual_mensal_cents')
     .eq('id', row.subscription_plan)
     .maybeSingle();
+
+  if (billingExempt && !hasStripeSubscription) {
+    const nowIso = new Date().toISOString();
+    if (payload.action === 'preview') {
+      return {
+        action: 'preview',
+        plan_id: row.subscription_plan,
+        plan_name: (plano?.nome as string) ?? row.subscription_plan,
+        subscription_status: row.subscription_status,
+        billing_cycle: row.billing_cycle,
+        in_trial: false,
+        effective_at: nowIso,
+        cancels_immediately: true,
+        yearly_commitment_active: false,
+        commitment_ends_at: row.commitment_ends_at,
+        fidelity_adjustment_cents: 0,
+        fidelity_months_used: 0,
+        requires_fidelity_acceptance: false,
+        billing_exempt: true,
+        has_stripe_subscription: false,
+      };
+    }
+    return {
+      action: 'confirm',
+      canceled: true,
+      cancels_immediately: true,
+      effective_at: nowIso,
+      downgraded_to_free: false,
+      payment_methods_detached: 0,
+      fidelity_adjustment_cents: 0,
+      fidelity_invoice_id: null,
+      fidelity_invoice_paid: false,
+      message:
+        'Conta administrativa: não há assinatura cobrável nem cartão para remover. O acesso de cortesia continua.',
+    };
+  }
 
   const mode = getStripeBillingMode();
   const stripe = getStripeClient(mode);
@@ -96,6 +128,7 @@ export async function cancelSubscription(
   const now = Date.now();
   const commitmentEnd = row.commitment_ends_at ? new Date(row.commitment_ends_at) : null;
   const yearlyCommitmentActive =
+    !billingExempt &&
     row.billing_cycle === 'yearly' &&
     !inTrial &&
     commitmentEnd !== null &&
@@ -134,6 +167,8 @@ export async function cancelSubscription(
       fidelity_adjustment_cents: fidelityCents,
       fidelity_months_used: fidelityMonths,
       requires_fidelity_acceptance: fidelityCents > 0,
+      billing_exempt: billingExempt,
+      has_stripe_subscription: hasStripeSubscription,
     };
   }
 

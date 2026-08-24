@@ -17,6 +17,7 @@ export interface PatientListItem {
   family_link_status?: FamilyLinkStatus;
   created_at: string;
   foto_url?: string | null;
+  profile_type?: 'CHILD' | 'ADOLESCENT' | 'ADULT' | null;
 }
 
 export interface PatientListFilters {

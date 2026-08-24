@@ -60,7 +60,7 @@ serve(async (req) => {
         .eq('patient_id', patientId)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(300),
     ]);
 
     return successResponse(

@@ -9,6 +9,7 @@ export interface SubmitDiaryPayload {
   notes?: string;
   audio_note_url?: string;
   transcricao?: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface SubmitDiaryResponse {

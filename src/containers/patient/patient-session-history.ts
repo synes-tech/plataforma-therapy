@@ -27,6 +27,8 @@ export interface PatientSessionHistoryItem {
   badgeClass: string;
   valor_cents: number;
   payable: boolean;
+  confirmable?: boolean;
+  schedule_id?: string | null;
   transacao?: FinanceTransacao;
 }
 
@@ -105,6 +107,8 @@ function chargeToHistory(charge: FinanceSessionCharge): PatientSessionHistoryIte
       badgeClass: statusBadge('CONFIRMACAO').className,
       valor_cents: charge.valor_previsto_cents,
       payable: false,
+      confirmable: true,
+      schedule_id: charge.schedule_id ?? null,
     };
   }
 
@@ -184,7 +188,8 @@ export function formatMonthLabel(yearMonth: string): string {
   const [year, month] = yearMonth.split('-');
   const date = new Date(Number(year), Number(month) - 1, 1);
   if (Number.isNaN(date.getTime())) return yearMonth;
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date);
+  const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function formatHistoryDate(value: string): string {
@@ -192,4 +197,68 @@ export function formatHistoryDate(value: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date);
+}
+
+export function formatHistoryDateTime(value: string): string {
+  const hasTime = value.includes('T');
+  const iso = hasTime ? value : `${value.slice(0, 10)}T12:00:00`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+  const day = new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
+  if (!hasTime) return day;
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return `${day} · ${time}`;
+}
+
+export function currentMonthKey(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function shiftMonth(yearMonth: string, delta: number): string {
+  const [yearRaw, monthRaw] = yearMonth.split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const date = new Date(Number.isFinite(year) ? year : 1970, (Number.isFinite(month) ? month : 1) - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function clampMonth(month: string, start: string, end: string): string {
+  if (month < start) return start;
+  if (month > end) return end;
+  return month;
+}
+
+export function itemsInMonth(
+  items: PatientSessionHistoryItem[],
+  monthKey: string,
+): PatientSessionHistoryItem[] {
+  return items
+    .filter((item) => item.date.slice(0, 7) === monthKey)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function contractMonthBounds(opts: {
+  contractStartsOn?: string | null;
+  durationMonths?: number | null;
+  itemMonths: string[];
+  currentMonth: string;
+}): { start: string; end: string } {
+  const startFromContract = opts.contractStartsOn?.slice(0, 7) || null;
+  const duration = opts.durationMonths && opts.durationMonths > 0 ? opts.durationMonths : null;
+  const endFromContract =
+    startFromContract && duration ? shiftMonth(startFromContract, duration - 1) : null;
+  const itemMonths = opts.itemMonths.filter((month) => /^\d{4}-\d{2}$/.test(month));
+
+  if (startFromContract && endFromContract) {
+    const start = [startFromContract, ...itemMonths].sort()[0] ?? startFromContract;
+    const end = [endFromContract, ...itemMonths].sort().at(-1) ?? endFromContract;
+    return { start, end };
+  }
+
+  const months = [opts.currentMonth, ...itemMonths].sort();
+  return { start: months[0] ?? opts.currentMonth, end: months.at(-1) ?? opts.currentMonth };
 }

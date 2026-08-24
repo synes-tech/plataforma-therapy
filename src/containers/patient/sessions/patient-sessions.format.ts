@@ -1,4 +1,6 @@
 import type { PatientSessionRecord } from '../session/session-history.types';
+import { buildSessionReportArtifactTitle } from '../documents/session-artifact-title';
+import type { PatientArtifact } from '../documents/patient-artifacts.types';
 
 export interface SessionReportBadge {
   label: string;
@@ -68,4 +70,33 @@ export function deriveSessionReportBadge(session: PatientSessionRecord): Session
     label: 'Registrada',
     className: 'bg-slate-100 text-charcoal-muted ring-slate-200',
   };
+}
+
+export function sessionSavedReportPath(patientId: string, artifactId: string): string {
+  return `/patients/${patientId}/documents?artifact=${encodeURIComponent(artifactId)}`;
+}
+
+export function resolveSessionSavedArtifactId(
+  session: PatientSessionRecord,
+  artifacts: PatientArtifact[] = [],
+  patientName = '',
+): string | null {
+  if (session.saved_artifact_id) return session.saved_artifact_id;
+
+  const byNote = artifacts.find(
+    (item) => item.tipo_artefato === 'relatorio_sessao' && item.session_note_id === session.id,
+  );
+  if (byNote) return byNote.id;
+
+  const expectedTitle = patientName ? buildSessionReportArtifactTitle(session.data_sessao, patientName) : '';
+  const byTitle = expectedTitle
+    ? artifacts.find((item) => item.tipo_artefato === 'relatorio_sessao' && item.titulo === expectedTitle)
+    : undefined;
+  if (byTitle) return byTitle.id;
+
+  const dateLabel = formatSessionDateShort(session.data_sessao);
+  const byDate = artifacts.filter(
+    (item) => item.tipo_artefato === 'relatorio_sessao' && (item.titulo ?? '').includes(dateLabel),
+  );
+  return byDate.length === 1 ? byDate[0].id : null;
 }

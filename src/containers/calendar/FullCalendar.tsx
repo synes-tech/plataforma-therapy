@@ -108,7 +108,7 @@ export default function FullCalendar() {
   }
 
   return (
-    <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
+    <div className="bg-[#F8FAF9] px-4 pb-8 sm:px-6 lg:px-8">
       <CalendarHeaderBar
         currentView={currentView}
         onViewChange={handleViewChange}

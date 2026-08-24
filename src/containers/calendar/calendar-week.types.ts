@@ -26,9 +26,12 @@ export interface LayoutedWeekEvent {
   totalColumns: number;
 }
 
-export const WEEK_HOUR_START = 7;
-export const WEEK_HOUR_END = 22;
-export const WEEK_HOUR_HEIGHT_PX = 64;
+export const WEEK_HOUR_START = 0;
+export const WEEK_HOUR_END = 24;
+export const WEEK_HOUR_HEIGHT_PX = 48;
+/** Janela em destaque ao abrir a semana (rolagem mostra o restante). */
+export const WEEK_FOCUS_HOUR_START = 8;
+export const WEEK_FOCUS_HOUR_END = 19;
 
 export interface WeekSlotClickPayload {
   dayISO: string;

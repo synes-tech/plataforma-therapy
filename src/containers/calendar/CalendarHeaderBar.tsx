@@ -15,8 +15,8 @@ function calendarTitle(view: CalendarView, year: number, month0: number, weekLab
 }
 
 function calendarSubtitle(view: CalendarView): string {
-  if (view === 'month') return 'Visão mensal com sessões e agendamentos.';
-  if (view === 'week') return 'Grade semanal por horário — domingo a sábado.';
+  if (view === 'month') return 'Mês completo com as sessões de cada dia.';
+  if (view === 'week') return 'Semana inteira visível — clique no dia ou no horário para agendar.';
   return 'Gerencie consultas e visualize sua rotina clínica.';
 }
 
@@ -44,6 +44,7 @@ export function CalendarHeaderBar({
   onNewSchedule,
 }: CalendarHeaderBarProps) {
   const showNav = currentView === 'month' || currentView === 'week';
+  const periodLabel = calendarTitle(currentView, year, month0, weekLabel);
 
   const mobileActions = [
     ...(showNav
@@ -71,17 +72,20 @@ export function CalendarHeaderBar({
 
   return (
     <PageHeader
-      title={calendarTitle(currentView, year, month0, weekLabel)}
+      title={periodLabel}
+      desktopTitle="Agenda"
       subtitle={calendarSubtitle(currentView)}
+      tabs={<CalendarViewTabs active={currentView} onChange={onViewChange} />}
       actions={
         <>
-          <div className="hidden w-full flex-col gap-2 sm:flex sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            {showNav && (
-              <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 sm:flex lg:flex-nowrap">
+            {showNav ? (
+              <>
+                <p className="hidden text-sm font-medium text-charcoal lg:block">{periodLabel}</p>
                 <button
                   type="button"
                   onClick={onToday}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-charcoal transition-colors hover:bg-slate-50"
+                  className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-charcoal transition-colors hover:bg-slate-50"
                 >
                   Hoje
                 </button>
@@ -107,12 +111,12 @@ export function CalendarHeaderBar({
                     </svg>
                   </button>
                 </div>
-              </div>
-            )}
+              </>
+            ) : null}
             <button
               type="button"
               onClick={onNewSchedule}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:w-auto"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -124,7 +128,6 @@ export function CalendarHeaderBar({
           <MobileActionsMenu items={mobileActions} className="w-full sm:hidden" />
         </>
       }
-      tabs={<CalendarViewTabs active={currentView} onChange={onViewChange} />}
     />
   );
 }

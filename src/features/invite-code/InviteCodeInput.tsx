@@ -1,4 +1,4 @@
 /**
- * @deprecated Use {@link InviteCodeForm} em `containers/family/invite-link`.
+ * @deprecated Use {@link InviteCodeForm} em `containers/portal/invite-link`.
  */
-export { InviteCodeForm as InviteCodeInput } from '@containers/family/invite-link/InviteCodeForm';
+export { InviteCodeForm as InviteCodeInput } from '@containers/portal/invite-link/InviteCodeForm';

@@ -216,11 +216,21 @@ export interface BuildSystemInstructionInput {
   /** Inventário completo (datas/status) — contagem autoritativa. */
   sessionInventory: SessionInventoryRow[];
   ragContext: string;
+  surface?: 'record' | 'workspace';
   professional?: {
     name: string;
     crp: string | null;
     specialty: string | null;
   };
+}
+
+/** Framing extra do workspace dedicado — copiloto ao lado do terapeuta. */
+export function workspaceSurfaceAddendum(patientName: string): string {
+  return `=== MODO COPILOTO AO TERAPEUTA ===
+Você está no workspace dedicado do terapeuta, como um colega clínico ao lado dele — não como um chatbot genérico.
+O paciente desta conversa é ${patientName}. O contexto está TRAVADO neste paciente. Nunca peça outro paciente, nunca misture casos e nunca invente um segundo prontuário.
+Tom: conversacional, colaborativo e preciso. Pode fazer UMA pergunta curta de esclarecimento se faltar um dado clínico essencial.
+Continue citando fontes (diário, sessão, inventário, anexos). Evite saudações longas depois da primeira resposta.`;
 }
 
 export function buildCopilotSystemInstruction(input: BuildSystemInstructionInput): string {
@@ -241,7 +251,11 @@ export function buildCopilotSystemInstruction(input: BuildSystemInstructionInput
 - Ao redigir documentos para a família, assine com o nome e registro acima. Proibido usar [Seu Nome e Credenciais] ou placeholders similares.`
     : '';
 
-  return `Você é um Copiloto Clínico auxiliando um terapeuta. O paciente atual é ${patient.name}, ${ageLabel} anos. Diagnóstico/Contexto: ${contextSummary}. Relatos recentes da família: ${diaryBlock}. Responda sempre de forma técnica, direta e estruturada, como um parceiro de discussão clínica.
+  const surfaceBlock = input.surface === 'workspace'
+    ? `\n${workspaceSurfaceAddendum(patient.name)}\n`
+    : '';
+
+  return `Você é um Copiloto Clínico auxiliando um terapeuta. O paciente atual é ${patient.name}, ${ageLabel} anos. Diagnóstico/Contexto: ${contextSummary}. Relatos recentes da família: ${diaryBlock}. Responda sempre de forma técnica, direta e estruturada, como um parceiro de discussão clínica.${surfaceBlock}
 
 INSTRUÇÃO DE MEMÓRIA (CRÍTICA):
 - Os dados acima (cadastro, diário e sessões) foram injetados automaticamente pelo sistema para ESTE paciente específico.
@@ -265,6 +279,7 @@ REGRAS INVIOLÁVEIS (GUARDRAILS DE ENTRADA — cumpra na PRIMEIRA resposta, sem 
 - NÃO invente dados. NÃO extrapole além do que está documentado.
 - Produza UMA resposta completa e definitiva — não rascunhe, não se corrija no meio, não diga "deixe-me reformular".
 - Quando o histórico semântico incluir document_type "patient_attachment", trate como laudos, relatórios escolares ou exames enviados pelo terapeuta — cite o nome do arquivo quando disponível nos metadados.
+- Quando o histórico semântico incluir document_type "companion_summary", trate como resumo clínico consentido do Acompanhante (Ivy) — em terceira pessoa, sem transcrição do chat. Cite como "segundo os registros do Acompanhante". Nunca peça nem invente o diálogo original.
 
 ${ANAMNESIS_AI_INSTRUCTIONS}
 

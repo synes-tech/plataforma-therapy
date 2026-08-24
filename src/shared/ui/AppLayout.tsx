@@ -2,11 +2,18 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@shared/hooks/useAuth';
+import { useSidebarCollapsed } from '@shared/hooks/useSidebarCollapsed';
 import { callFunction } from '@shared/lib/api';
 import { canAccessFinance, isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
-import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { ProfessionalMobileTabBar } from './ProfessionalMobileTabBar';
+import { shouldShowProfessionalMobileTabs } from './professional-mobile-tabs';
+import { BRAND_ICON_SRC, BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { ClinicalSevereToast } from '@containers/dashboard/ClinicalSevereToast';
+import { TheryTourProvider } from '@containers/onboarding-thery/TheryTourProvider';
+import { professionalNavTourId } from '@containers/onboarding-thery/thery-tour.utils';
+import { TheryAvatar } from './TheryAvatar';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -26,6 +33,7 @@ interface NavItemConfig {
   roles: string[];
   ownerOnly?: boolean;
   financeOnly?: boolean;
+  variant?: 'default' | 'card';
 }
 
 /** Camadas de fundo — gradiente, textura e formas orgânicas (igual ao Login). */
@@ -88,22 +96,12 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Terapeutas',
-    href: '/professionals',
-    roles: ['master', 'clinic_admin'],
+    label: 'Iniciar sessão',
+    href: '/session',
+    roles: ['professional'],
     icon: (
       <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Pacientes',
-    href: '/patients',
-    roles: ['professional', 'clinic_admin', 'master'],
-    icon: (
-      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
       </svg>
     ),
   },
@@ -119,6 +117,26 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
+    label: 'Pacientes',
+    href: '/patients',
+    roles: ['professional', 'clinic_admin', 'master'],
+    icon: (
+      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Terapeutas',
+    href: '/professionals',
+    roles: ['master', 'clinic_admin'],
+    icon: (
+      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
     label: 'Diário',
     href: '/diary',
     roles: ['family'],
@@ -129,13 +147,14 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Gestão da Assinatura',
-    href: '/assinatura',
+    label: 'Perfil e configurações',
+    href: '/settings',
     roles: ['master', 'clinic_admin', 'professional'],
     ownerOnly: true,
     icon: (
       <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
   },
@@ -150,66 +169,148 @@ const NAV_ITEMS: NavItemConfig[] = [
     ),
   },
   {
-    label: 'Perfil/Configurações',
-    href: '/settings',
-    roles: ['master', 'clinic_admin', 'professional'],
-    ownerOnly: true,
-    icon: (
-      <svg className="h-[1.125rem] w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
+    label: 'IVY - Assistente Virtual',
+    href: '/copilot',
+    roles: ['professional'],
+    variant: 'card',
+    icon: <TheryAvatar pose="profile" variant="circle" size="sm" decorative />,
   },
 ];
 
-function SidebarNav({
-  user,
-  isActive,
-  onNavigate,
-}: {
-  user: AuthenticatedUser | null;
-  isActive: (path: string) => boolean;
-  onNavigate?: () => void;
-}) {
+function visibleNavItems(user: AuthenticatedUser | null) {
   const owner = isClinicOwner(user);
   const finance = canAccessFinance(user);
-  const visibleItems = NAV_ITEMS.filter((item) => {
+  return NAV_ITEMS.filter((item) => {
     if (!user || !item.roles.includes(user.role)) return false;
     if (item.ownerOnly && !owner) return false;
     if (item.financeOnly && !finance) return false;
     return true;
   });
+}
+
+function SidebarNav({
+  user,
+  isActive,
+  onNavigate,
+  collapsed = false,
+}: {
+  user: AuthenticatedUser | null;
+  isActive: (path: string) => boolean;
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
+  const items = visibleNavItems(user);
 
   return (
-    <nav className="space-y-1 px-3 py-4" aria-label="Menu principal">
-      <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-charcoal-muted/60">
-        Navegação
-      </p>
-      {visibleItems.map((item) => (
-        <Link
-          key={item.href}
-          to={item.href}
-          onClick={onNavigate}
-          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-            isActive(item.href)
-              ? 'bg-white/80 font-medium text-primary-dark shadow-sm'
-              : 'text-charcoal-muted hover:bg-white/50 hover:text-charcoal'
-          }`}
-        >
-          {item.icon}
-          {item.label}
-        </Link>
-      ))}
+    <nav className={`space-y-1 py-4 ${collapsed ? 'px-2' : 'px-3'}`} aria-label="Menu principal">
+      {collapsed ? null : (
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-charcoal-muted/60">
+          Navegação
+        </p>
+      )}
+      {items.map((item) => {
+        const active = isActive(item.href);
+        const isCard = item.variant === 'card';
+        const [title, subtitle] = item.label.includes(' - ')
+          ? (item.label.split(' - ') as [string, string])
+          : [item.label, null];
+
+        if (isCard) {
+          return (
+            <div
+              key={item.href}
+              className={`overflow-hidden rounded-2xl bg-primary shadow-sm ${
+                active ? 'ring-2 ring-white/50' : ''
+              }`}
+            >
+              <Link
+                to={item.href}
+                data-tour={professionalNavTourId(item.href)}
+                onClick={onNavigate}
+                title={collapsed ? item.label : undefined}
+                aria-label={item.label}
+                className={`flex items-center text-sm text-white transition-colors hover:bg-primary-dark ${
+                  collapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-2'
+                }`}
+              >
+                {item.icon}
+                {collapsed ? (
+                  <span className="sr-only">{item.label}</span>
+                ) : subtitle ? (
+                  <span className="min-w-0 leading-tight">
+                    <span className="block font-semibold tracking-tight">{title}</span>
+                    <span className="block text-[11px] font-medium text-white/80">{subtitle}</span>
+                  </span>
+                ) : (
+                  <span className="leading-snug">{item.label}</span>
+                )}
+              </Link>
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            data-tour={professionalNavTourId(item.href)}
+            onClick={onNavigate}
+            title={collapsed ? item.label : undefined}
+            className={`flex items-center text-sm transition-all ${
+              collapsed ? 'justify-center rounded-xl px-0 py-2.5' : 'gap-3 rounded-xl px-3 py-2.5'
+            } ${
+              active
+                ? 'bg-white/80 font-medium text-primary-dark shadow-sm'
+                : 'text-charcoal-muted hover:bg-white/50 hover:text-charcoal'
+            }`}
+          >
+            {item.icon}
+            {collapsed ? <span className="sr-only">{item.label}</span> : <span className="leading-snug">{item.label}</span>}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+function SidebarCollapseItem({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+      title={collapsed ? 'Expandir' : 'Recolher'}
+      className={`flex w-full items-center rounded-xl text-sm text-charcoal-muted transition-all hover:bg-white/50 hover:text-charcoal ${
+        collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'
+      }`}
+    >
+      <svg
+        className={`h-[1.125rem] w-[1.125rem] transition-transform ${collapsed ? 'rotate-180' : ''}`}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        aria-hidden
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+      {collapsed ? <span className="sr-only">Expandir</span> : 'Recolher'}
+    </button>
+  );
+}
+
+function AppLayoutChrome({ children }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { collapsed, toggle } = useSidebarCollapsed();
   const canOpenProfile = isClinicOwner(user);
 
   const { data: clinicSettings } = useQuery({
@@ -236,11 +337,16 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   function isActive(path: string) {
-    if (path === '/assinatura') {
-      return location.pathname === '/assinatura' || location.pathname.startsWith('/assinatura/');
-    }
     if (path === '/settings') {
       return location.pathname === '/settings';
+    }
+    if (path === '/calendar') {
+      return (
+        location.pathname === '/calendar' ||
+        location.pathname.startsWith('/calendar/') ||
+        location.pathname === '/agenda' ||
+        location.pathname.startsWith('/agenda/')
+      );
     }
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   }
@@ -260,33 +366,62 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   const isPatientCopilotTab = /^\/patients\/[^/]+\/copilot\/?$/.test(location.pathname);
+  const isTherapistCopilot = location.pathname === '/copilot' || /^\/copilot\/[^/]+\/?$/.test(location.pathname);
+  const isTherapistSession = location.pathname === '/session' || location.pathname.startsWith('/session/');
+  const isImmersiveChat = isPatientCopilotTab || isTherapistCopilot || isTherapistSession;
+  const showMobileTabs = shouldShowProfessionalMobileTabs(user?.role);
 
   return (
-    <div className="flex h-dvh min-h-dvh overflow-hidden bg-[#F8FAF9]">
+    <div
+      className="flex h-dvh min-h-dvh overflow-hidden bg-[#F8FAF9]"
+      data-sidebar={collapsed ? 'collapsed' : 'expanded'}
+    >
       {/* Desktop Sidebar — altura fixa; fundo pastel do Login; só a navegação rola */}
-      <aside className="relative sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-[#EDE4DC]/80 lg:flex">
+      <aside
+        className={`relative sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#EDE4DC]/80 transition-[width] duration-200 lg:flex ${
+          collapsed ? 'w-[4.5rem]' : 'w-64'
+        }`}
+      >
         <SidebarWarmBackground />
 
-        <div className="relative z-10 flex shrink-0 items-center justify-center px-6 py-5">
+        <div className={`relative z-10 flex shrink-0 items-center justify-center py-5 ${collapsed ? 'px-2' : 'px-6'}`}>
           <img
-            src={BRAND_LOGO_SRC}
+            src={collapsed ? BRAND_ICON_SRC : BRAND_LOGO_SRC}
             alt="Unithery"
-            className="h-12 w-auto object-contain"
+            className={`object-contain ${collapsed ? 'h-10 w-10 rounded-xl' : 'h-12 w-auto'}`}
           />
         </div>
 
         <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
-          <SidebarNav user={user} isActive={isActive} />
+          <SidebarNav user={user} isActive={isActive} collapsed={collapsed} />
         </div>
 
-        <div className="relative z-10 shrink-0 border-t border-charcoal/8 p-4">
+        <div className={`relative z-10 shrink-0 ${collapsed ? 'px-2 pb-1' : 'px-3 pb-1'}`}>
+          <SidebarCollapseItem collapsed={collapsed} onToggle={toggle} />
+        </div>
+
+        <div className={`relative z-10 shrink-0 border-t border-charcoal/8 ${collapsed ? 'flex flex-col items-center gap-2 p-2' : 'p-4'}`}>
           <UserProfile
             name={displayName}
             role={displayRole}
             fotoUrl={profileFotoUrl}
             onLogout={handleLogout}
             onOpenProfile={canOpenProfile ? openProfileSettings : undefined}
+            compact={collapsed}
           />
+          {collapsed ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg p-1.5 text-charcoal-muted transition-colors hover:bg-white/70 hover:text-charcoal"
+              aria-label="Sair da conta"
+              title="Sair"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       </aside>
 
@@ -362,14 +497,28 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         <div
           className={
-            isPatientCopilotTab
+            isImmersiveChat
               ? 'relative flex h-full min-h-0 flex-1 flex-col overflow-hidden pt-14 lg:pt-0'
               : 'relative min-h-0 flex-1 overflow-y-auto pt-14 lg:pt-0'
           }
         >
           {children}
         </div>
+
+        {user?.role === 'professional' || user?.role === 'clinic_admin' || user?.role === 'master' ? (
+          <ClinicalSevereToast />
+        ) : null}
+
+        {showMobileTabs ? <ProfessionalMobileTabBar pathname={location.pathname} /> : null}
       </main>
     </div>
+  );
+}
+
+export function AppLayout({ children }: AppLayoutProps) {
+  return (
+    <TheryTourProvider>
+      <AppLayoutChrome>{children}</AppLayoutChrome>
+    </TheryTourProvider>
   );
 }

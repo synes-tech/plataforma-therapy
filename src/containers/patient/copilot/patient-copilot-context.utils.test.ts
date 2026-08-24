@@ -3,6 +3,7 @@ import {
   calculatePatientAge,
   formatDiaryContextBlock,
   formatDiaryEntryLine,
+  workspaceSurfaceAddendum,
 } from './patient-copilot-context.utils';
 
 describe('formatDiaryEntryLine', () => {
@@ -60,5 +61,14 @@ describe('formatDiaryContextBlock', () => {
 describe('calculatePatientAge', () => {
   it('calcula idade corretamente', () => {
     expect(calculatePatientAge('2018-03-10', new Date('2026-06-09'))).toBe(8);
+  });
+});
+
+describe('workspaceSurfaceAddendum', () => {
+  it('identifica o workspace e isola o paciente', () => {
+    const text = workspaceSurfaceAddendum('Ana Souza');
+    expect(text).toContain('COPILOTO AO TERAPEUTA');
+    expect(text).toContain('Ana Souza');
+    expect(text).toContain('TRAVADO');
   });
 });

@@ -112,7 +112,7 @@ serve(async (req: Request) => {
           clinicId: session.clinic_id as string,
           professionalId: professional.id as string,
           professionalName: (professional.name as string) || 'terapeuta',
-          professionalEmail: (professional.email as string) || null,
+          professionalEmail: (professional.email as string) || user.email || null,
           previousScheduledAtIso: previousScheduledAt,
           scheduledAtIso: parsed.toISOString(),
           durationMinutes: session.duration_minutes ? Number(session.duration_minutes) : null,
@@ -124,6 +124,8 @@ serve(async (req: Request) => {
           patientId: session.patient_id as string,
           clinicId: session.clinic_id as string,
           professionalId: professional.id as string,
+          professionalName: (professional.name as string) || 'terapeuta',
+          professionalEmail: (professional.email as string) || user.email || null,
           scheduledAtIso: parsed.toISOString(),
         });
 

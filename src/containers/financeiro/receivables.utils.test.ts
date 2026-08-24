@@ -72,4 +72,16 @@ describe('receivables.utils', () => {
     expect(next.summary.pago_cents).toBe(35000);
     expect(next.summary.a_receber_cents).toBe(0);
   });
+
+  it('aceita valor diferente só neste título', () => {
+    const data: FinanceReceivablesResponse = {
+      mode: 'receivables',
+      month: '2026-08',
+      items: [item({ id: '1', status: 'PENDENTE', valor_cents: 15000 })],
+      summary: summarizeReceivables([item({ id: '1', status: 'PENDENTE', valor_cents: 15000 })]),
+    };
+    const next = applyReceivablePaid(data, '1', '2026-08-14', 12000);
+    expect(next.items[0]?.valor_cents).toBe(12000);
+    expect(next.summary.pago_cents).toBe(12000);
+  });
 });

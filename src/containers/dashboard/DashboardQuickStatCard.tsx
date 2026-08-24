@@ -69,7 +69,7 @@ export function DashboardQuickStatCard({
         {loading ? (
           <SkeletonBlock className="mt-1.5 h-6 w-10 rounded-md" />
         ) : (
-          <p className={`mt-0.5 font-display text-xl font-semibold tabular-nums ${styles.value}`}>{value}</p>
+          <p className={`mt-0.5 font-display text-xl font-bold tabular-nums tracking-tight ${styles.value}`}>{value}</p>
         )}
       </div>
       {action ? (

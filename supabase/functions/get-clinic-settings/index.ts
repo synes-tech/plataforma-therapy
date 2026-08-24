@@ -3,7 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireClinicOwner } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { resolveClinicId, resolveOwnerName, getMonthlyAiUsage } from '../_shared/clinic.ts';
+import { resolveClinicId, resolveOwnerName, resolveOwnerRecord, getMonthlyAiUsage } from '../_shared/clinic.ts';
 import { AppError } from '../_shared/errors.ts';
 import { isBillingExemptEmail } from '../_shared/billing-exempt.ts';
 
@@ -53,39 +53,63 @@ serve(async (req: Request) => {
 
     const ownerName = await resolveOwnerName(supabase, user);
 
-    const { data: adminProfile } = await supabase
-      .from('clinic_admins')
-      .select('name, email, foto_url')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .maybeSingle();
-
+    const ownerRef = await resolveOwnerRecord(supabase, user);
     let ownerProfile: Record<string, unknown>;
 
-    if (adminProfile) {
+    if (ownerRef?.kind === 'clinic_admin') {
+      const adminSelect = await supabase
+        .from('clinic_admins')
+        .select('name, email, foto_url')
+        .eq('id', ownerRef.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      const adminProfile = adminSelect.error
+        ? (await supabase
+            .from('clinic_admins')
+            .select('name, email')
+            .eq('id', ownerRef.id)
+            .is('deleted_at', null)
+            .maybeSingle()).data
+        : adminSelect.data;
       ownerProfile = {
         kind: 'clinic_admin',
-        name: adminProfile.name,
-        email: adminProfile.email,
-        foto_url: adminProfile.foto_url ?? null,
+        name: adminProfile?.name ?? ownerName,
+        email: adminProfile?.email ?? user.email,
+        foto_url: (adminProfile as { foto_url?: string | null } | null)?.foto_url ?? null,
         specialty: null,
         crp: null,
       };
-    } else {
-      const { data: profProfile } = await supabase
+    } else if (ownerRef?.kind === 'professional') {
+      const profSelect = await supabase
         .from('professionals')
         .select('name, email, specialty, crp, foto_url')
-        .eq('user_id', user.id)
+        .eq('id', ownerRef.id)
         .is('deleted_at', null)
         .maybeSingle();
-
+      const profProfile = profSelect.error
+        ? (await supabase
+            .from('professionals')
+            .select('name, email, specialty, crp')
+            .eq('id', ownerRef.id)
+            .is('deleted_at', null)
+            .maybeSingle()).data
+        : profSelect.data;
       ownerProfile = {
         kind: 'professional',
         name: profProfile?.name ?? ownerName,
         email: profProfile?.email ?? user.email,
         specialty: profProfile?.specialty ?? null,
         crp: profProfile?.crp ?? null,
-        foto_url: profProfile?.foto_url ?? null,
+        foto_url: (profProfile as { foto_url?: string | null } | null)?.foto_url ?? null,
+      };
+    } else {
+      ownerProfile = {
+        kind: 'professional',
+        name: ownerName,
+        email: user.email,
+        specialty: null,
+        crp: null,
+        foto_url: null,
       };
     }
 

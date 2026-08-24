@@ -17,6 +17,8 @@ const schema = z.object({
   action: z.enum(['consumir_pacote', 'receber_avulso', 'cortesia', 'nao_realizado']),
   valor_cents: z.number().int().min(0).optional(),
   forma_pagamento: z.enum(['pix', 'cartao', 'dinheiro', 'outro']).optional(),
+  data_pagamento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  competence_month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 serve(async (req) => {
@@ -85,8 +87,9 @@ serve(async (req) => {
           descricao: 'Sessão avulsa',
           valor_cents: valor,
           status: 'PAGO',
-          data_vencimento: new Date().toISOString().slice(0, 10),
-          data_pagamento: new Date().toISOString().slice(0, 10),
+          data_vencimento: p.data_pagamento ?? new Date().toISOString().slice(0, 10),
+          data_pagamento: p.data_pagamento ?? new Date().toISOString().slice(0, 10),
+          competence_month: p.competence_month ?? `${(p.data_pagamento ?? new Date().toISOString().slice(0, 10)).slice(0, 7)}-01`,
           paciente_id: session.patient_id,
           sessao_id: session.id,
           professional_id: professionalId ?? session.professional_id,

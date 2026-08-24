@@ -74,7 +74,7 @@ export function PayExpenseModal({ item, onClose, onDone }: PayExpenseModalProps)
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-100 bg-[#F8FAF9] px-4 py-3">
               <p className="text-sm font-medium text-charcoal">{item.descricao}</p>
-              <p className="mt-1 font-serif text-xl text-charcoal">{formatCurrency(item.valor_cents)}</p>
+              <p className="mt-1 font-display text-xl font-bold tabular-nums tracking-tight text-charcoal">{formatCurrency(item.valor_cents)}</p>
               {parcela && <p className="mt-1 text-xs text-charcoal-muted">{parcela.label}</p>}
             </div>
             <label className="block text-xs font-medium text-charcoal-muted">

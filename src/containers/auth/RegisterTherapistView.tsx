@@ -402,7 +402,7 @@ export function RegisterTherapistView({
               <p className="mt-3 text-center text-sm text-charcoal-muted lg:text-left">
                 Recebeu convite do terapeuta?{' '}
                 <Link
-                  to="/family/register"
+                  to="/portal/register"
                   className="font-medium text-charcoal underline decoration-charcoal/30 underline-offset-4 hover:text-primary"
                 >
                   Crie o seu acesso

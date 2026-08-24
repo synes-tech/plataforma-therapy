@@ -19,10 +19,12 @@ interface PatientArtifactActionsProps {
   artifact: PatientArtifact;
   onView?: (artifact: PatientArtifact) => void;
   onEdit?: (artifact: PatientArtifact) => void;
+  onDuplicate?: (artifact: PatientArtifact) => void;
   onExportPdf: (artifact: PatientArtifact) => void;
   onRequestDelete: (artifact: PatientArtifact) => void;
   exportingId: string | null;
   deletingId: string | null;
+  duplicatingId?: string | null;
   layout?: 'table' | 'modal';
 }
 
@@ -30,16 +32,20 @@ export function PatientArtifactActions({
   artifact,
   onView,
   onEdit,
+  onDuplicate,
   onExportPdf,
   onRequestDelete,
   exportingId,
   deletingId,
+  duplicatingId = null,
   layout = 'table',
 }: PatientArtifactActionsProps) {
   const isExporting = exportingId === artifact.id;
   const isDeleting = deletingId === artifact.id;
-  const isBusy = isExporting || isDeleting;
+  const isDuplicating = duplicatingId === artifact.id;
+  const isBusy = isExporting || isDeleting || isDuplicating;
   const canEdit = !artifact.is_legacy && !!onEdit;
+  const canDuplicate = !artifact.is_legacy && !!onDuplicate;
 
   if (layout === 'modal') {
     return (
@@ -47,11 +53,21 @@ export function PatientArtifactActions({
         {canEdit ? (
           <button
             type="button"
-            onClick={() => onEdit(artifact)}
+            onClick={() => onEdit?.(artifact)}
             disabled={isBusy}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
           >
             Editar
+          </button>
+        ) : null}
+        {canDuplicate ? (
+          <button
+            type="button"
+            onClick={() => onDuplicate?.(artifact)}
+            disabled={isBusy}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-medium text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+          >
+            {isDuplicating ? 'Duplicando...' : 'Duplicar'}
           </button>
         ) : null}
         <button
@@ -96,13 +112,25 @@ export function PatientArtifactActions({
       {canEdit ? (
         <button
           type="button"
-          onClick={() => onEdit(artifact)}
+          onClick={() => onEdit?.(artifact)}
           disabled={isBusy}
           className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold tracking-wide text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
           aria-label="Editar documento"
           title="Editar"
         >
           EDITAR
+        </button>
+      ) : null}
+      {canDuplicate ? (
+        <button
+          type="button"
+          onClick={() => onDuplicate?.(artifact)}
+          disabled={isBusy}
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold tracking-wide text-charcoal transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+          aria-label="Duplicar documento como cópia"
+          title="Duplicar"
+        >
+          {isDuplicating ? '…' : 'DUPLICAR'}
         </button>
       ) : null}
       <button

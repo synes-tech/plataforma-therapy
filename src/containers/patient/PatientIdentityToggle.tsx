@@ -43,7 +43,9 @@ export function PatientIdentityToggle({ mode, onChange, disabled }: PatientIdent
             disabled={disabled}
             className="h-4 w-4 border-slate-300 text-primary focus:ring-primary/20"
           />
-          <span className="text-sm font-medium text-charcoal">Não, usar dados do responsável</span>
+          <span className="text-sm font-medium text-charcoal">
+            O paciente não possui CPF próprio
+          </span>
         </label>
       </div>
     </fieldset>

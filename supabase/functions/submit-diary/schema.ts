@@ -11,4 +11,10 @@ export const SubmitDiarySchema = z.object({
   notes: z.string().max(1000).optional(),
   audio_note_url: z.string().max(500).optional(),
   transcricao: z.string().max(5000).optional(),
+  /**
+   * Campos que só existem em alguns modos do diário (auto-relato: humor e ansiedade 1–10,
+   * gatilhos do dia). O allowlist por modo é aplicado no serviço — o cliente não decide o
+   * que entra no JSONB.
+   */
+  payload: z.record(z.unknown()).optional(),
 });

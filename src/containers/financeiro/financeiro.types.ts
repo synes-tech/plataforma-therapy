@@ -46,6 +46,12 @@ export const CATEGORIA_LABEL: Record<string, string> = {
   SESSAO_SOCIAL: 'Sessão social',
   PACOTE: 'Pacote',
   RENDIMENTO_EXTRA: 'Rendimento extra',
+  OUTROS: 'Outros',
+  CUSTO_FIXO: 'Custo fixo',
+  CUSTO_VARIAVEL: 'Custo variável',
+  IMPOSTO: 'Imposto',
+  DESPESA_PARCELADA: 'Despesa parcelada',
+  DESPESA_PONTUAL: 'Despesa pontual',
 };
 
 export const STATUS_BADGE: Record<FinanceStatus, string> = {

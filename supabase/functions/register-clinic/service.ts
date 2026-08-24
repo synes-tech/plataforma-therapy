@@ -1,4 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureAuthUser } from '../_shared/ensure-auth-user.ts';
 import { verifyFirebaseIdentity } from '../_shared/auth.ts';
 import {
   buildSignupConfirmRedirect,
@@ -67,6 +68,7 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
     if (existingProf || existingAdmin) {
       throw new ConflictError('Já existe uma conta Unithery com este Google. Faça login.');
     }
+    await ensureAuthUser(userId, adminEmail);
   }
 
   const { data: existingClinic } = await supabase
@@ -97,6 +99,7 @@ export async function registerClinic(payload: RegisterClinicPayload): Promise<Re
         claims: { role: userRole },
       });
       userId = user.id;
+      await ensureAuthUser(userId, adminEmail);
     } catch (err) {
       if (isIdpEmailExistsError(err)) {
         throw new ConflictError('Já existe uma conta com este email.');

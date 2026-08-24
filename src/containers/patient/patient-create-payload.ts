@@ -1,5 +1,6 @@
 import type { PatientCreateIdentity } from './patient-cpf.types';
-import { parseDiagnoses, type PatientAnamnesisForm } from './patient-anamnesis.types';
+import { parseDiagnoses, profileFromForm, type PatientAnamnesisForm } from './patient-anamnesis.types';
+import { deriveProfileType, normalizeModules } from '@shared/lib/clinical-profile';
 
 export type CreatePatientPayload =
   | ({
@@ -13,20 +14,36 @@ export type CreatePatientPayload =
     } & ReturnType<typeof anamnesisFieldsFromForm>);
 
 function anamnesisFieldsFromForm(form: PatientAnamnesisForm) {
+  // O backend confere o perfil declarado contra a data de nascimento e recusa divergência.
+  // Enviamos o mesmo valor que o wizard usou para montar os passos, então os dois lados
+  // concordam por construção.
+  const profileType = profileFromForm(form) ?? deriveProfileType(form.birth_date);
+  const isAdult = profileType === 'ADULT';
+
   return {
     name: form.name.trim(),
     birth_date: form.birth_date,
+    profile_type: profileType,
+    active_modules: normalizeModules([]),
+    condition_ids: form.conditions.length > 0 ? form.conditions.map((c) => c.id) : undefined,
     diagnoses: parseDiagnoses(form.diagnoses),
+    // Campos que só existem para adulto não são enviados vazios para um menor, e vice-versa:
+    // o prontuário não deveria carregar uma "rede de apoio" em branco de uma criança.
+    support_network: isAdult ? form.support_network.trim() || undefined : undefined,
+    occupation_routine: isAdult ? form.occupation_routine.trim() || undefined : undefined,
+    mapped_triggers:
+      profileType !== 'CHILD' ? form.mapped_triggers.trim() || undefined : undefined,
+    portal_invite: { send: form.portal_invite_send },
     nome_social: form.nome_social.trim() || undefined,
     escolaridade_ocupacao: form.escolaridade_ocupacao.trim() || undefined,
     queixa_principal: form.queixa_principal.trim() || undefined,
     medicamentos: form.medicamentos.trim() || undefined,
     acompanhamento_multi: form.acompanhamento_multi,
     clinical_observations: form.clinical_observations.trim() || undefined,
-    composicao_familiar: form.composicao_familiar.trim() || undefined,
-    responsaveis: form.responsaveis.trim() || undefined,
+    composicao_familiar: isAdult ? undefined : form.composicao_familiar.trim() || undefined,
+    responsaveis: isAdult ? undefined : form.responsaveis.trim() || undefined,
     objetivos_terapeuticos: form.objetivos_terapeuticos.trim() || undefined,
-    hiperfocos_interesses: form.hiperfocos_interesses.trim() || undefined,
+    hiperfocos_interesses: isAdult ? undefined : form.hiperfocos_interesses.trim() || undefined,
     informacoes_adicionais: form.informacoes_adicionais.trim() || undefined,
     contact_scope: form.contact_scope || undefined,
     email_paciente: form.email_paciente.trim() || undefined,

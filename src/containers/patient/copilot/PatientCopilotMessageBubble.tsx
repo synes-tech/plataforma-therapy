@@ -1,6 +1,6 @@
 import { ThinkingIndicator } from '@features/copilot/ThinkingIndicator';
 import { AiMarkdownContent } from '@shared/ui/AiMarkdownContent';
-import { BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
+import { TheryAvatar } from '@shared/ui/TheryAvatar';
 import { PatientCopilotArtifactToolbar } from './PatientCopilotArtifactToolbar';
 import { DOC_TYPE_LABELS } from './patient-copilot.constants';
 import type { AiArtifactType, CopilotMessage } from './patient-copilot.types';
@@ -48,14 +48,12 @@ export function PatientCopilotMessageBubble({
 
   return (
     <div className="flex justify-start gap-2.5">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-100 bg-white shadow-sm">
-        <img src={BRAND_LOGO_SRC} alt="" className="h-5 w-5 object-contain" aria-hidden />
-      </div>
+      <TheryAvatar pose="profile" size="xs" decorative className="mt-0.5" />
 
       <div
-        className={`max-w-[85%] rounded-2xl rounded-bl-none border border-gray-100 bg-white px-4 py-3 shadow-sm ${
-          message.guardrail_triggered ? 'border-amber-200' : ''
-        }`}
+        className={`rounded-2xl rounded-bl-none border border-gray-100 bg-white px-4 py-3 shadow-sm ${
+          message.streaming ? 'w-[min(92%,36rem)] max-w-[92%]' : 'max-w-[85%]'
+        } ${message.guardrail_triggered ? 'border-amber-200' : ''}`}
       >
         {message.streaming && !message.content && <ThinkingIndicator />}
 

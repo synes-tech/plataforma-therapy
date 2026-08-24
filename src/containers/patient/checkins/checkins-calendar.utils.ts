@@ -39,7 +39,7 @@ export function getCheckinTextDetails(day: {
 
   const legacy: Array<{ kind: string; label: string; text: string }> = [];
   if (day.notes?.trim()) {
-    legacy.push({ kind: 'notes', label: 'Observações da família', text: day.notes.trim() });
+    legacy.push({ kind: 'notes', label: 'Observações', text: day.notes.trim() });
   }
   if (day.transcricao?.trim()) {
     legacy.push({

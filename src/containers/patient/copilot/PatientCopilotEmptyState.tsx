@@ -1,3 +1,4 @@
+import { TheryAvatar } from '@shared/ui/TheryAvatar';
 import { PATIENT_COPILOT_QUICK_PROMPTS } from './patient-copilot.constants';
 import { patientFirstName } from './patient-copilot.utils';
 
@@ -29,6 +30,7 @@ export function PatientCopilotEmptyState({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 py-6 text-center lg:px-6">
+      <TheryAvatar pose="profile" size="md" decorative className="mb-5" />
       <h2 className="font-serif text-xl font-medium text-charcoal md:text-2xl">
         Como vamos planejar a sessão de {firstName} hoje?
       </h2>

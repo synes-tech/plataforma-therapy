@@ -7,8 +7,9 @@ export default function SettingsHubContainer() {
   return (
     <div className="bg-[#F8FAF9] px-4 sm:px-6 lg:px-8">
       <PageHeader
-        title="Perfil/Configurações"
-        subtitle="Sua foto, dados pessoais e preferências da conta."
+        title="Perfil e configurações"
+        desktopTitle="Configurações"
+        subtitle="Sua identidade, o consultório e as preferências da conta."
       />
 
       <div className="mt-6 pb-6 lg:mt-8 lg:pb-8">

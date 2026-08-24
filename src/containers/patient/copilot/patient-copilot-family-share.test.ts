@@ -7,11 +7,11 @@ import {
 
 describe('patient-copilot-family-share.utils', () => {
   it('retorna microcopy privado quando toggle off', () => {
-    expect(getFamilyShareStatusLabel(false)).toBe('🔒 Apenas visualização interna');
+    expect(getFamilyShareStatusLabel(false)).toBe('Visível internamente/privado');
   });
 
   it('retorna microcopy compartilhado quando toggle on', () => {
-    expect(getFamilyShareStatusLabel(true)).toBe('📱 Visível para a família');
+    expect(getFamilyShareStatusLabel(true)).toBe('Visível para o paciente/família');
   });
 
   it('monta toast de save privado', () => {

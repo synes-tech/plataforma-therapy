@@ -1,4 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureAuthUser } from '../_shared/ensure-auth-user.ts';
 import {
   createIdpUser,
   deleteIdpUser,
@@ -47,6 +48,7 @@ export async function registerProfessional(
       claims: { role: 'professional', clinic_id: clinicId },
     });
     userId = user.id;
+    await ensureAuthUser(userId, payload.email);
   } catch (err) {
     if (isIdpEmailExistsError(err)) {
       throw new ConflictError('An account with this email already exists');

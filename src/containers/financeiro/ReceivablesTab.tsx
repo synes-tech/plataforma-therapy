@@ -5,11 +5,8 @@ import {
   STATUS_BADGE,
   STATUS_LABEL,
   type FinanceReceivableItem,
-  type PendingSessionItem,
 } from './financeiro.types';
 import { RecordPaymentModal } from './RecordPaymentModal';
-import { MODELO_LABEL } from './financeiro.types';
-import type { PaymentPrompt } from './financeiro.types';
 import { useReceivables } from './useReceivables';
 import {
   RECEIVABLE_FILTERS,
@@ -19,11 +16,9 @@ import {
 
 interface ReceivablesTabProps {
   month: string;
-  pendingItems: PendingSessionItem[];
-  onConfirmSession: (prompt: PaymentPrompt) => void;
 }
 
-export function ReceivablesTab({ month, pendingItems, onConfirmSession }: ReceivablesTabProps) {
+export function ReceivablesTab({ month }: ReceivablesTabProps) {
   const [filter, setFilter] = useState<ReceivableFilter>('all');
   const [query, setQuery] = useState('');
   const [payItem, setPayItem] = useState<FinanceReceivableItem | null>(null);
@@ -70,7 +65,7 @@ export function ReceivablesTab({ month, pendingItems, onConfirmSession }: Receiv
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white px-4 py-3">
         <div className="flex items-center justify-between gap-3 text-xs text-charcoal-muted">
           <span>Quanto do previsto já entrou</span>
-          <span className="font-medium text-charcoal">
+          <span className="font-display font-bold tabular-nums tracking-tight text-charcoal">
             {formatCurrency(receivedCents)} de {formatCurrency(previstoCents)}
           </span>
         </div>
@@ -86,6 +81,10 @@ export function ReceivablesTab({ month, pendingItems, onConfirmSession }: Receiv
           </p>
         )}
       </div>
+
+      <p className="text-sm text-charcoal-muted">
+        Mensalidades, sessões e rendimentos avulsos. Paciente é opcional.
+      </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5">
@@ -145,11 +144,11 @@ export function ReceivablesTab({ month, pendingItems, onConfirmSession }: Receiv
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-charcoal">
-                      {item.paciente_nome || 'Sem paciente'}
+                      {item.paciente_nome || item.descricao || 'Receita avulsa'}
                     </p>
                     <p className="text-xs text-charcoal-muted">
                       {CATEGORIA_LABEL[item.categoria] ?? item.categoria}
-                      {item.descricao ? ` · ${item.descricao}` : ''}
+                      {item.paciente_nome && item.descricao ? ` · ${item.descricao}` : ''}
                       {` · vence ${formatFinanceDate(item.data_vencimento)}`}
                     </p>
                   </div>
@@ -157,7 +156,7 @@ export function ReceivablesTab({ month, pendingItems, onConfirmSession }: Receiv
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_BADGE[item.status]}`}>
                       {STATUS_LABEL[item.status]}
                     </span>
-                    <p className="text-sm font-semibold text-charcoal">{formatCurrency(item.valor_cents)}</p>
+                    <p className="font-display text-sm font-bold tabular-nums tracking-tight text-charcoal">{formatCurrency(item.valor_cents)}</p>
                     {payable && (
                       <button
                         type="button"
@@ -180,53 +179,6 @@ export function ReceivablesTab({ month, pendingItems, onConfirmSession }: Receiv
             )}
           </ul>
         )}
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="font-serif text-base font-medium text-charcoal">Sessões sem status</h3>
-        <p className="text-sm text-charcoal-muted">
-          Atendimentos que passaram do horário e ainda precisam de confirmação clínica.
-        </p>
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white">
-          {pendingItems.map((item) => (
-            <li key={item.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-charcoal">{item.patient_name}</p>
-                <p className="text-xs text-charcoal-muted">
-                  {item.schedule?.scheduled_at
-                    ? new Date(item.schedule.scheduled_at).toLocaleString('pt-BR')
-                    : 'Horário não informado'}
-                  {' · '}
-                  {MODELO_LABEL[(item.modelo as keyof typeof MODELO_LABEL) ?? 'avulso'] ?? item.modelo}
-                  {item.sessoes_disponiveis > 0 ? ` · saldo pacote: ${item.sessoes_disponiveis}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="text-sm font-medium text-charcoal">{formatCurrency(item.valor_previsto_cents)}</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onConfirmSession({
-                      schedule_id: item.schedule_id,
-                      patient_id: item.patient_id,
-                      patient_name: item.patient_name,
-                      modelo: item.modelo,
-                      saldo_sessoes: item.sessoes_disponiveis,
-                      valor_sugerido_cents: item.valor_previsto_cents,
-                      pode_consumir_pacote: item.sessoes_disponiveis > 0,
-                    })
-                  }
-                  className="rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  Confirmar
-                </button>
-              </div>
-            </li>
-          ))}
-          {pendingItems.length === 0 && (
-            <li className="px-4 py-8 text-center text-sm text-charcoal-muted">Nenhuma sessão pendente.</li>
-          )}
-        </ul>
       </div>
 
       <RecordPaymentModal
@@ -267,7 +219,7 @@ function SummaryCard({
     return (
       <div className={className}>
         <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
-        <p className="mt-1 font-serif text-xl text-charcoal">{value}</p>
+        <p className="mt-1 font-display text-xl font-bold tabular-nums tracking-tight text-charcoal">{value}</p>
         <p className="mt-1 text-[11px] text-charcoal-muted">{hint}</p>
       </div>
     );
@@ -276,7 +228,7 @@ function SummaryCard({
   return (
     <button type="button" onClick={onClick} className={className}>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-muted">{label}</p>
-      <p className="mt-1 font-serif text-xl text-charcoal">{value}</p>
+      <p className="mt-1 font-display text-xl font-bold tabular-nums tracking-tight text-charcoal">{value}</p>
       <p className="mt-1 text-[11px] text-charcoal-muted">{hint}</p>
     </button>
   );

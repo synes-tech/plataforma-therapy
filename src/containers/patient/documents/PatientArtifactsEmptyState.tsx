@@ -31,8 +31,8 @@ export function PatientArtifactsEmptyState({ filtered = false }: PatientArtifact
         {filtered ? 'Nenhum documento neste filtro' : 'Pasta vazia'}
       </p>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-charcoal-muted">
-        Nenhum documento salvo aqui. Interaja com o Copiloto e salve respostas importantes para
-        preencher este espaço.
+        Nenhum documento salvo aqui. Relatórios de sessão aprovados entram automaticamente;
+        o Copiloto também pode salvar ações e resumos.
       </p>
     </div>
   );

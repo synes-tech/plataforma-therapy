@@ -52,7 +52,7 @@ serve(async (req: Request) => {
     // Get professional record
     const { data: professional } = await supabase
       .from('professionals')
-      .select('id, clinic_id, name')
+      .select('id, clinic_id, name, email')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .single();
@@ -176,6 +176,7 @@ serve(async (req: Request) => {
         clinicId: professional.clinic_id,
         professionalId: professional.id,
         professionalName: (professional.name as string) || 'terapeuta',
+        professionalEmail: (professional.email as string) || user.email || null,
         scheduledAtIso: scheduled_at,
         durationMinutes: duration_minutes,
       });

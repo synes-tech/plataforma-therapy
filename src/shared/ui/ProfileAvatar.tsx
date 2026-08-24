@@ -8,7 +8,7 @@ interface ProfileAvatarProps {
   name: string;
   fotoUrl?: string | null;
   previewUrl?: string | null;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'profile' | '2xl';
   className?: string;
 }
 
@@ -17,6 +17,8 @@ const SIZE_CLASS = {
   md: 'h-10 w-10 text-sm',
   lg: 'h-14 w-14 text-base',
   xl: 'h-20 w-20 text-lg',
+  profile: 'h-28 w-28 text-2xl',
+  '2xl': 'h-40 w-40 text-3xl',
 } as const;
 
 export function ProfileAvatar({

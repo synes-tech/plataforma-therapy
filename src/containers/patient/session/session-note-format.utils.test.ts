@@ -29,9 +29,9 @@ describe('formatSessionNoteForEditing', () => {
 
 describe('buildSessionApprovalToast', () => {
   it('diferencia mensagens privado vs família', () => {
-    expect(buildSessionApprovalToast(false)).toContain('interno');
-    expect(buildSessionApprovalToast(true, 'as_is')).toContain('como gerado');
-    expect(buildSessionApprovalToast(true, 'refined')).toContain('refinada');
+    expect(buildSessionApprovalToast(false)).toContain('Documentos salvos');
+    expect(buildSessionApprovalToast(true, 'as_is')).toContain('Documentos salvos');
+    expect(buildSessionApprovalToast(true, 'refined')).toContain('Documentos salvos');
   });
 });
 

@@ -27,7 +27,7 @@ self.addEventListener('push', (event: PushEvent) => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     tag: data.tag ?? 'unithery-diary-reminder',
-    data: { url: data.url ?? '/family/diary' },
+    data: { url: data.url ?? '/portal/diary' },
     requireInteraction: false,
   };
 
@@ -36,7 +36,7 @@ self.addEventListener('push', (event: PushEvent) => {
 
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
-  const targetUrl = (event.notification.data?.url as string | undefined) ?? '/family/diary';
+  const targetUrl = (event.notification.data?.url as string | undefined) ?? '/portal/diary';
   const absoluteUrl = new URL(targetUrl, self.location.origin).href;
 
   event.waitUntil(

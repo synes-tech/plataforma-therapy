@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unithery — Relatório de custo unitário · agosto 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #1A86E2;
+      --primary-50: #EBF5FE;
+      --primary-dark: #1565C0;
+      --charcoal: #0F172A;
+      --muted: #475569;
+      --slate: #64748B;
+      --border: #E2E8F0;
+      --surface: #F8FAF9;
+      --white: #FFFFFF;
+      --mint: #10B981;
+      --mint-dark: #059669;
+      --alert: #F59E0B;
+      --error: #EF4444;
+      --ai: #7C3AED;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #DCE4EA; color: var(--charcoal); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 10.4pt;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .toolbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 28px;
+      background: rgba(15, 23, 42, .94);
+      color: white;
+    }
+    .toolbar p { font-size: 12.5px; color: #CBD5E1; max-width: 760px; }
+    .toolbar strong { color: white; }
+    .btn-print {
+      appearance: none; border: 0; cursor: pointer; white-space: nowrap;
+      background: var(--primary); color: white;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 600; font-size: 13px;
+      padding: 11px 18px; border-radius: 12px;
+    }
+    .btn-print:hover { background: var(--primary-dark); }
+
+    .sheet {
+      padding: 28px 0 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      background: var(--white);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 22px 55px rgba(15, 23, 42, .14);
+      page-break-after: always;
+      break-after: page;
+    }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+
+    .accent {
+      position: absolute; top: 0; left: 0; right: 0; height: 4.5px;
+      background: linear-gradient(90deg, var(--primary) 0%, #38BDF8 55%, var(--mint) 100%);
+    }
+
+    .mark {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 700; font-size: 11pt; letter-spacing: -.02em; color: var(--charcoal);
+    }
+    .mark span { color: var(--primary); }
+
+    .header, .footer {
+      position: absolute; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16mm;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 7.6pt; letter-spacing: .08em; text-transform: uppercase; color: var(--slate);
+    }
+    .header { top: 8.5mm; }
+    .footer {
+      bottom: 7.5mm; height: 13mm;
+      border-top: 1px solid var(--border);
+      padding-top: 4.5mm;
+    }
+    .content {
+      position: absolute;
+      top: 19mm; left: 16mm; right: 16mm; bottom: 21mm;
+    }
+
+    h1, h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 600; letter-spacing: -.02em; }
+    h2 { font-size: 17pt; line-height: 1.2; margin-bottom: 2.8mm; }
+    h3 {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 600; font-size: 9.6pt; margin: 4.2mm 0 2mm;
+    }
+    p { color: var(--muted); }
+    .lead { font-size: 11pt; }
+
+    .kicker {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 7.6pt; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--primary); margin-bottom: 2mm;
+    }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3.2mm; margin: 4.5mm 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3.4mm 3.2mm 3mm;
+    }
+    .stat .lbl {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 6.7pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate);
+    }
+    .stat .val {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 15.5pt; font-weight: 600; margin-top: 1.1mm; line-height: 1.05;
+    }
+    .stat .sub { font-size: 7.3pt; color: var(--slate); margin-top: .5mm; }
+    .stat.warn { background: #FFFBEB; border-color: #FDE68A; }
+    .stat.info { background: var(--primary-50); border-color: #BFDBFE; }
+    .stat.mint { background: #ECFDF5; border-color: #A7F3D0; }
+    .stat.danger { background: #FEF2F2; border-color: #FECACA; }
+
+    .callout {
+      border-radius: 12px;
+      padding: 3.3mm 4mm 3.1mm 4.2mm;
+      margin: 3.6mm 0 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-left: 4px solid var(--primary);
+    }
+    .callout.warn { background: #FFFBEB; border-color: #FDE68A; border-left-color: var(--alert); }
+    .callout.ok { background: #ECFDF5; border-color: #A7F3D0; border-left-color: var(--mint-dark); }
+    .callout.danger { background: #FEF2F2; border-color: #FECACA; border-left-color: var(--error); }
+    .callout.info { background: var(--primary-50); border-color: #BFDBFE; border-left-color: var(--primary); }
+    .callout h4 {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 8pt; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+      margin-bottom: 1.1mm;
+    }
+    .callout p { font-size: 9.4pt; }
+    .callout strong { color: var(--charcoal); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 8.15pt; margin: 2.4mm 0 2.8mm; }
+    th {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 6.7pt; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--slate); text-align: left; padding: 2mm 1.8mm;
+      border-bottom: 1.5px solid var(--charcoal);
+      background: var(--surface);
+    }
+    td {
+      padding: 1.85mm 1.8mm;
+      border-bottom: 1px solid var(--border);
+      color: var(--charcoal);
+      vertical-align: top;
+    }
+    td.muted { color: var(--muted); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tr.total td { font-weight: 600; background: var(--primary-50); border-bottom-color: transparent; }
+    tr.row-danger td:first-child { box-shadow: inset 3px 0 0 var(--error); }
+    tr.row-warn td:first-child { box-shadow: inset 3px 0 0 var(--alert); }
+    tr.row-ok td:first-child { box-shadow: inset 3px 0 0 var(--mint-dark); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3.4mm; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 3.6mm 4mm;
+      background: white;
+    }
+    .card h4 {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-size: 9.4pt; font-weight: 700; margin-bottom: 1.5mm;
+    }
+    .card p { font-size: 9pt; }
+    .card .big {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 13.2pt; font-weight: 600; color: var(--charcoal);
+    }
+
+    .cover .content { top: 0; bottom: 0; left: 0; right: 0; }
+    .cover-hero {
+      height: 124mm;
+      background: var(--charcoal);
+      color: white;
+      padding: 16mm 16mm 12mm;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-hero::before {
+      content: "";
+      position: absolute; right: -28mm; top: -42mm;
+      width: 150mm; height: 150mm; border-radius: 50%;
+      background: radial-gradient(circle, rgba(26,134,226,.42), transparent 70%);
+    }
+    .cover-hero::after {
+      content: "";
+      position: absolute; left: -20mm; bottom: -50mm;
+      width: 110mm; height: 110mm; border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,.18), transparent 70%);
+    }
+    .cover-brand {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cover-word {
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 700; font-size: 18pt; letter-spacing: -.03em; color: white;
+    }
+    .cover-word span { color: #7DD3FC; }
+    .cover-tag {
+      font-size: 7pt; letter-spacing: .18em; text-transform: uppercase; color: #94A3B8;
+      font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 600;
+    }
+    .cover-kicker {
+      margin-top: 22mm; position: relative; z-index: 1;
+      color: #93C5FD; letter-spacing: .18em;
+    }
+    .cover-hero h1 {
+      font-size: 28pt; line-height: 1.12; margin-top: 4mm;
+      color: white; position: relative; z-index: 1; max-width: 168mm;
+    }
+    .cover-hero .meta {
+      margin-top: 9mm; color: #CBD5E1; font-size: 9.4pt;
+      position: relative; z-index: 1; max-width: 155mm;
+    }
+    .cover-body { padding: 7.5mm 16mm 0; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: white; border: 1px solid var(--border); border-radius: 999px;
+      padding: 1.3mm 3.1mm; font-size: 7.3pt; color: var(--muted);
+      font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 600;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+
+    .toc { list-style: none; margin-top: 3.5mm; }
+    .toc li {
+      display: flex; align-items: baseline; gap: 3mm;
+      padding: 2mm 0;
+      border-bottom: 1px dotted var(--border);
+      font-size: 10.2pt;
+    }
+    .toc .t { color: var(--charcoal); font-weight: 500; }
+    .toc .d { flex: 1; border-bottom: 1px dotted #CBD5E1; transform: translateY(-3px); }
+    .toc .n {
+      color: var(--primary);
+      font-family: "Plus Jakarta Sans", Inter, sans-serif;
+      font-weight: 700; width: 8mm; text-align: right;
+    }
+
+    .fine { font-size: 8pt; color: var(--slate); margin-top: 1.8mm; }
+    code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; }
+
+    @media print {
+      .toolbar { display: none !important; }
+      html, body { background: white; }
+      .sheet { padding: 0; gap: 0; }
+      .page { box-shadow: none; margin: 0; }
+    }
+    @page { size: A4; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <p><strong>Exportar PDF:</strong> clique em Imprimir, escolha “Salvar como PDF”, ative <em>Gráficos de fundo</em> e deixe as margens em <em>Nenhuma</em>. Folha A4, retrato.</p>
+    <button class="btn-print" type="button" onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
+
+  <div class="sheet">
+
+    <section class="page cover">
+      <div class="accent"></div>
+      <div class="content">
+        <div class="cover-hero">
+          <div class="cover-brand">
+            <div class="cover-word">Unithe<span>ry</span></div>
+            <div class="cover-tag">Cuidado humano potencializado</div>
+          </div>
+          <div class="kicker cover-kicker">Documento interno · unit economics</div>
+          <h1>Custo unitário da Unithery — da infraestrutura ao paciente</h1>
+          <p class="meta">Agosto de 2026 · Região GCP us-central1 · Câmbio 1 USD = R$ 5,50<br />Lista de preços oficiais (não é fatura) · Gemini 2.5 Pro + gemini-embedding-001</p>
+        </div>
+        <div class="cover-body">
+          <div style="display:flex; gap:7px; flex-wrap:wrap; margin-bottom:5.5mm;">
+            <span class="badge"><span class="dot"></span> Staging GCP no ar</span>
+            <span class="badge">Cloud SQL db-f1-micro</span>
+            <span class="badge">Stripe BR 3,99% + R$ 0,39</span>
+            <span class="badge">SES US$ 0,10 / 1.000</span>
+          </div>
+          <div class="stats">
+            <div class="stat warn">
+              <div class="lbl">Por sessão 60 min</div>
+              <div class="val">R$ 1,45</div>
+              <div class="sub">≈ US$ 0,26</div>
+            </div>
+            <div class="stat info">
+              <div class="lbl">Por paciente / mês</div>
+              <div class="val">R$ 6,44</div>
+              <div class="sub">≈ US$ 1,17</div>
+            </div>
+            <div class="stat mint">
+              <div class="lbl">Standard 10 pac. (IA e uso)</div>
+              <div class="val">R$ 64,39</div>
+              <div class="sub">uso realista, não o teto</div>
+            </div>
+            <div class="stat danger">
+              <div class="lbl">Piso fixo GCP</div>
+              <div class="val">R$ 258,78</div>
+              <div class="sub">SQL + disco + IP + LB + ops</div>
+            </div>
+          </div>
+          <div class="callout warn">
+            <h4>A conclusão em uma frase</h4>
+            <p>Cada sessão de 60 minutos custa cerca de <strong>R$ 1,45</strong> em IA e processamento. Cada paciente ativo custa cerca de <strong>R$ 6,44</strong> por mês — barato frente ao Standard de <strong>R$ 237,00</strong>. O que aperta a margem no início não é o paciente: é o piso fixo da GCP (banco + load balancer), que existe mesmo com um único psicólogo na plataforma.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>Relatório de custo unitário · ago/2026</span></header>
+      <div class="content">
+        <div class="kicker">Conteúdo</div>
+        <h2>Como ler este documento</h2>
+        <p class="lead">Há dois relógios na fatura. O relógio fixo (Cloud SQL + Load Balancer) gira mesmo sem login. O relógio variável (Vertex, Cloud Run, GCS, SES) só anda quando alguém grava sessão, pergunta ao copiloto ou armazena arquivo.</p>
+        <ol class="toc">
+          <li><span class="n">03</span><span class="t">O que é a infraestrutura hoje</span><span class="d"></span></li>
+          <li><span class="n">05</span><span class="t">Como cada recurso é precificado</span><span class="d"></span></li>
+          <li><span class="n">06</span><span class="t">Features e o que cada uma gasta</span><span class="d"></span></li>
+          <li><span class="n">07</span><span class="t">Premissas de uso (o contrato deste relatório)</span><span class="d"></span></li>
+          <li><span class="n">08</span><span class="t">Custo por sessão e por paciente</span><span class="d"></span></li>
+          <li><span class="n">09</span><span class="t">Cenários dos planos e break-even</span><span class="d"></span></li>
+          <li><span class="n">10</span><span class="t">Teto perigoso da cota de IA</span><span class="d"></span></li>
+          <li><span class="n">11</span><span class="t">Custo do plano com a fatia de máquina</span><span class="d"></span></li>
+        </ol>
+        <div class="grid-2" style="margin-top:7mm;">
+          <div class="card">
+            <h4>O que realmente custa por uso</h4>
+            <p class="big">Sessão 60 min ≈ R$ 1,45</p>
+            <p class="big" style="margin:1mm 0 2.4mm;">Paciente / mês ≈ R$ 6,44</p>
+            <p>Carteira Standard (10) ≈ R$ 64,39 · Advanced (20) ≈ R$ 128,77 · Premium (30) ≈ R$ 193,16. SES e storage são ruído. A transcrição no Gemini 2.5 Pro é o motor.</p>
+          </div>
+          <div class="card">
+            <h4>O que custa mesmo sem paciente</h4>
+            <p class="big">Piso GCP ≈ R$ 258,78 / mês</p>
+            <p style="margin:2mm 0;">SQL micro + disco 50 GB + IP público + LB HTTPS. Identity, certificado, scheduler e secrets ≈ R$ 0 neste estágio.</p>
+            <p>Stripe: <strong>R$ 9,85</strong> em cada Standard. Um único consultório não paga a infra. A carteira de assinantes paga.</p>
+          </div>
+        </div>
+        <div class="callout ok" style="margin-top:4mm;">
+          <h4>Duas contas, não uma</h4>
+          <p>Capítulos 5–9 mostram o custo <strong>por uso</strong> (IA). A página 11 coloca a fatia da máquina no plano (50 terapeutas / 500 pacientes Standard): SQL 2 vCPU · 4 GB + Cloud Run quente + LB. Fatia de infra no Standard ≈ <strong>R$ 16,18</strong>. Margem cheia do Standard ≈ <strong>R$ 147</strong>.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 2 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>1 · Infraestrutura</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 1</div>
+        <h2>O que é a infraestrutura hoje</h2>
+        <p>A Unithery é um SaaS clínico. O terapeuta abre unithery.com, autentica, grava a sessão, fala com o copiloto e a família recebe e-mails. Por baixo, o front mora em Storage + CDN; a API mora no Cloud Run; o Postgres (incluindo vetores da IA) mora no Cloud SQL; a inteligência é Vertex AI; e-mail é Amazon SES; cobrança é Stripe.</p>
+        <table>
+          <thead>
+            <tr><th>Recurso</th><th>Papel</th><th>Como cobra</th><th class="num">Piso mensal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cloud SQL</strong><br /><span class="muted">db-f1-micro</span></td>
+              <td class="muted">Banco único: pacientes, sessões, embeddings</td>
+              <td class="muted">Hora da instância + disco SSD + IP público — ligada 24/7</td>
+              <td class="num">R$ 130,90</td>
+            </tr>
+            <tr>
+              <td><strong>Cloud Load Balancer</strong></td>
+              <td class="muted">HTTPS de unithery.com</td>
+              <td class="muted">US$ 0,025/h pelas primeiras 5 forwarding rules (não por rule)</td>
+              <td class="num">R$ 100,38</td>
+            </tr>
+            <tr>
+              <td><strong>Cloud CDN + GCS</strong></td>
+              <td class="muted">Site estático na borda</td>
+              <td class="muted">GiB servido + GB-mês (Standard US$ 0,02/GB)</td>
+              <td class="num">~ R$ 11,00</td>
+            </tr>
+            <tr>
+              <td><strong>GCS clínico</strong></td>
+              <td class="muted">Áudios e anexos</td>
+              <td class="muted">GB-mês + operações PUT/GET</td>
+              <td class="num">Variável</td>
+            </tr>
+            <tr>
+              <td><strong>Cloud Run</strong><br /><span class="muted">2 vCPU / 2 GiB</span></td>
+              <td class="muted">API + PostgREST</td>
+              <td class="muted">vCPU-s US$ 0,000024 + GiB-s US$ 0,0000025 + US$ 0,40/mi req. Scale to zero</td>
+              <td class="num">≈ 0 se idle</td>
+            </tr>
+            <tr>
+              <td><strong>Vertex AI</strong></td>
+              <td class="muted">Transcrição, copiloto, embeddings</td>
+              <td class="muted">Por milhão de tokens (Pro: US$ 1,25 in / US$ 10 out)</td>
+              <td class="num">R$ 0 sem uso</td>
+            </tr>
+            <tr>
+              <td><strong>Identity Platform</strong></td>
+              <td class="muted">Login e-mail / Google</td>
+              <td class="muted">MAU; 50 mil primeiros grátis (Tier 1)</td>
+              <td class="num">R$ 0,00</td>
+            </tr>
+            <tr>
+              <td><strong>Certificate Manager</strong></td>
+              <td class="muted">Certificado TLS</td>
+              <td class="muted">Até 100 certificados/mês grátis no projeto</td>
+              <td class="num">R$ 0,00</td>
+            </tr>
+            <tr>
+              <td><strong>Cloud Scheduler</strong></td>
+              <td class="muted">Fila de e-mail, lembretes, sync Stripe</td>
+              <td class="muted">3 primeiros jobs/mês no free tier</td>
+              <td class="num">R$ 0,00</td>
+            </tr>
+            <tr>
+              <td><strong>Secret Manager</strong></td>
+              <td class="muted">Chaves AWS / DB</td>
+              <td class="muted">Versão ativa + acessos (centavos)</td>
+              <td class="num">~ R$ 1,10</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout info">
+          <h4>Como ler a cobrança</h4>
+          <p>Identity, certificado, scheduler e secrets quase não aparecem na fatura neste estágio. Artifact Registry e Cloud Build somam centavos a poucos dólares. SES é irrelevante no volume atual. Stripe come da receita, não da GCP.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 3 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>1 · Infraestrutura</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 1 · continuação</div>
+        <h2>Composição do piso e crescimento do banco</h2>
+        <p>O piso de <strong>R$ 258,78 / mês</strong> (US$ 47,05) não depende de quantos pacientes existem. Ele é o preço de manter a plataforma ligada.</p>
+        <table>
+          <thead>
+            <tr><th>Componente do piso</th><th>Cálculo (lista)</th><th class="num">US$</th><th class="num">R$</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Cloud SQL compute</td><td class="muted">db-f1-micro, ~US$ 8 / mês</td><td class="num">US$ 8,00</td><td class="num">R$ 44,00</td></tr>
+            <tr><td>Disco SSD 50 GB</td><td class="muted">50 × US$ 0,17</td><td class="num">US$ 8,50</td><td class="num">R$ 46,75</td></tr>
+            <tr><td>IP público</td><td class="muted">US$ 0,01/h × 730 h</td><td class="num">US$ 7,30</td><td class="num">R$ 40,15</td></tr>
+            <tr class="total"><td>Subtotal SQL</td><td></td><td class="num">US$ 23,80</td><td class="num">R$ 130,90</td></tr>
+            <tr><td>Load Balancer HTTPS</td><td class="muted">US$ 0,025/h × 730 h</td><td class="num">US$ 18,25</td><td class="num">R$ 100,38</td></tr>
+            <tr><td>Ops (Build, Artifact, secrets, CDN)</td><td class="muted">Envelope conservador</td><td class="num">US$ 5,00</td><td class="num">R$ 27,50</td></tr>
+            <tr class="total"><td>Piso da plataforma</td><td></td><td class="num">US$ 47,05</td><td class="num">R$ 258,78</td></tr>
+          </tbody>
+        </table>
+        <h3>Se o banco crescer (referência, não o setup atual)</h3>
+        <table>
+          <thead>
+            <tr><th>Instância</th><th>Quando faz sentido</th><th class="num">Compute + disco + IP</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>db-f1-micro (hoje)</strong></td><td class="muted">Staging / poucos consultórios</td><td class="num">R$ 130,90</td></tr>
+            <tr><td><strong>1 vCPU / 3,75 GB</strong></td><td class="muted">Produção inicial com dezenas de terapeutas</td><td class="num">~ R$ 358,11</td></tr>
+            <tr><td><strong>2 vCPU / 7,5 GB</strong></td><td class="muted">Carteira maior, pgvector mais pesado</td><td class="num">~ R$ 629,33</td></tr>
+          </tbody>
+        </table>
+        <p class="fine">Shared-core (f1-micro) não tem SLA de produção nem CUD. HA regional praticamente dobra o compute. Números de vCPU/RAM: lista Enterprise us-central1 (~US$ 0,0413/vCPU-h e ~US$ 0,007/GB-h). Amazon SES: US$ 0,10 / 1.000 e-mails (a-la-carte). Stripe: 3,99% + R$ 0,39 por cobrança nacional bem-sucedida — vem da receita, não da GCP.</p>
+        <div class="callout">
+          <h4>Artifact Registry + Cloud Build</h4>
+          <p>Imagem Docker e build sob demanda. Cobra GB-mês da imagem e minutos de build — centavos a poucos dólares, já envelopados no item “ops” do piso.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 4 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>2 · Precificação</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 2</div>
+        <h2>Como cada recurso é precificado</h2>
+        <p class="lead" style="margin-bottom:5mm;">O storytelling da fatura: quatro motores, quatro lógicas diferentes.</p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Cloud Run não cobra “por container ligado 24h”</h4>
+            <p>Cobra o tempo em que a instância está atendendo request: 2 vCPUs × segundos × US$ 0,000024, mais 2 GiB × segundos × US$ 0,0000025, mais US$ 0,40 por milhão de requests depois do free tier (2 milhões). Se ninguém usa, escala a zero. Uma transcrição de ~60 s de processamento da API custa poucos décimos de centavo de dólar — irrelevante ao lado do Vertex.</p>
+          </div>
+          <div class="card">
+            <h4>Cloud SQL cobra por existir</h4>
+            <p>db-f1-micro ~US$ 8 de compute + 50 GB SSD × US$ 0,17 + IP público US$ 0,01/h (R$ 40,15). Total ~R$ 130,90/mês, ligado ALWAYS. Não importa se houve 4 ou 400 sessões: o Postgres está no ar para o Cloud Run conectar.</p>
+          </div>
+          <div class="card">
+            <h4>Vertex cobra por token — e áudio é token</h4>
+            <p>Gemini 2.5 Pro (≤200k): US$ 1,25 / 1M de input (texto, imagem, áudio) e US$ 10 / 1M de output, incluindo thinking. Google conta áudio a 32 tokens/segundo. Uma hora = 115.200 tokens de áudio ≈ US$ 0,14 só de input, antes do relatório SOAP e do raciocínio (~1.024 tokens de thinking no default do código).</p>
+          </div>
+          <div class="card">
+            <h4>Stripe come da receita, não da GCP</h4>
+            <p>No Brasil: 3,99% + R$ 0,39 por cobrança nacional bem-sucedida. No Standard de R$ 237,00 isso é R$ 9,85 que não chega na Unithery. Não há mensalidade da Stripe. Cartão internacional soma +2%.</p>
+          </div>
+        </div>
+        <div class="callout warn" style="margin-top:6mm;">
+          <h4>Implicação de produto</h4>
+          <p>Por isso a decisão mais cara da Unithery não é “qual banco” nem “quantos e-mails”. É transcrever toda sessão no Gemini 2.5 Pro, e não no Flash. SES e Cloud Run não mudam o decimal relevante.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 5 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>3 · Features</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 3</div>
+        <h2>Features e o que cada uma gasta</h2>
+        <p style="margin-bottom:3mm;">O consumo dominante de cada feature. Quase tudo que “pesa” passa pelo Gemini 2.5 Pro. O resto da GCP, por request, é ruído.</p>
+        <table>
+          <thead>
+            <tr><th>Feature</th><th>O que dispara</th><th class="num">Custo unitário</th><th>Peso</th></tr>
+          </thead>
+          <tbody>
+            <tr class="row-danger">
+              <td><strong>Transcrição + SOAP</strong></td>
+              <td class="muted">Áudio 60 min → vertexAudioToStructured (gemini-2.5-pro)</td>
+              <td class="num">R$ 1,00</td>
+              <td>Gargalo n.º 1 (~70% do variável)</td>
+            </tr>
+            <tr class="row-warn">
+              <td><strong>Copiloto (1 pergunta)</strong></td>
+              <td class="muted">query-copilot: embed + Gemini com ficha + inventário + RAG</td>
+              <td class="num">R$ 0,26</td>
+              <td>Gargalo n.º 2 se conversar muito</td>
+            </tr>
+            <tr class="row-warn">
+              <td><strong>Diário familiar (~2 min)</strong></td>
+              <td class="muted">process-family-audio / clinical return curto</td>
+              <td class="num">R$ 0,10</td>
+              <td>Baixo por evento; soma se for todo dia</td>
+            </tr>
+            <tr>
+              <td><strong>Anexo na base de conhecimento</strong></td>
+              <td class="muted">Extração de texto + gemini-embedding-001 (768d)</td>
+              <td class="num">R$ 0,19</td>
+              <td>Baixo; embeddings US$ 0,15/1M</td>
+            </tr>
+            <tr>
+              <td><strong>E-mail</strong></td>
+              <td class="muted">Scheduler → Cloud Run → SES</td>
+              <td class="num">R$ 0,00</td>
+              <td>Desprezível (US$ 0,0001/e-mail)</td>
+            </tr>
+            <tr>
+              <td><strong>Login / MFA</strong></td>
+              <td class="muted">Identity Platform</td>
+              <td class="num">R$ 0,00</td>
+              <td>Zero até 50 mil MAU (SMS MFA fora de uso)</td>
+            </tr>
+            <tr>
+              <td><strong>Front (PWA)</strong></td>
+              <td class="muted">CDN + GCS</td>
+              <td class="num">Centavos</td>
+              <td>Não escala com sessão clínica</td>
+            </tr>
+            <tr>
+              <td><strong>Financeiro do consultório</strong></td>
+              <td class="muted">Só Postgres + Run</td>
+              <td class="num">~ R$ 0 de IA</td>
+              <td>Não usa Vertex</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stats" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="stat danger">
+            <div class="lbl">Gemini áudio 60 min</div>
+            <div class="val">R$ 0,80</div>
+            <div class="sub">115.200 tok × US$ 1,25/1M + prompt</div>
+          </div>
+          <div class="stat warn">
+            <div class="lbl">SOAP + thinking</div>
+            <div class="val">R$ 0,19</div>
+            <div class="sub">~3.524 tok × US$ 10/1M</div>
+          </div>
+          <div class="stat info">
+            <div class="lbl">Copiloto 1,5×</div>
+            <div class="val">R$ 0,39</div>
+            <div class="sub">contexto + thinkingBudget 1024</div>
+          </div>
+        </div>
+        <p class="fine">Valores unitários: transcrição 60 min US$ 0,1811 (R$ 1,00); copiloto US$ 0,0477 (R$ 0,26); diário 2 min US$ 0,0189 (R$ 0,10); anexo + embed US$ 0,0338 (R$ 0,19). Cloud Run por sessão ≈ US$ 0,01. SES 2,2 e-mails ≈ US$ 0,0002.</p>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 6 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>4 · Premissas</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 4</div>
+        <h2>Premissas de uso — o contrato deste relatório</h2>
+        <div class="callout info">
+          <h4>Por que estas premissas</h4>
+          <p>O plano Standard vende 750 interações de IA/mês, mas isso é teto comercial, não comportamento real. Usar as 750 no Gemini 2.5 Pro estouraria a margem. O cenário base é o psicólogo que se prepara e registra sessão — não o que “conversa com o chat o dia inteiro”.</p>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Premissa</th><th>Valor</th><th>Origem</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Sessões / paciente / mês</td><td><strong>4</strong></td><td class="muted">Catálogo (SESSIONS_PER_PATIENT_PER_MONTH)</td></tr>
+            <tr><td>Duração Standard / Advanced / Premium</td><td><strong>60 min</strong></td><td class="muted">therapist-plans.ts</td></tr>
+            <tr><td>Duração Free</td><td><strong>50 min</strong></td><td class="muted">therapist-plans.ts</td></tr>
+            <tr><td>Transcrição Vertex por sessão</td><td><strong>1</strong></td><td class="muted">process-audio com áudio inline</td></tr>
+            <tr><td>Interações copiloto / sessão</td><td><strong>1,5</strong></td><td class="muted">preparo + plano de ação / histórico</td></tr>
+            <tr><td>Interações copiloto / paciente / mês</td><td><strong>6</strong></td><td class="muted">4 × 1,5</td></tr>
+            <tr><td>Áudios de diário familiar / paciente / mês</td><td><strong>4</strong></td><td class="muted">cerca de 1/semana, 2 min</td></tr>
+            <tr><td>Anexos vetorizados / paciente / mês</td><td><strong>0,5</strong></td><td class="muted">laudo ou relatório ocasional</td></tr>
+            <tr><td>E-mails / sessão</td><td><strong>2,2</strong></td><td class="muted">confirmação + lembrete 24h + 20% remarcação</td></tr>
+            <tr><td>Retenção de áudio no GCS</td><td><strong>12 meses</strong></td><td class="muted">premissa conservadora de arquivo clínico</td></tr>
+            <tr><td>Tamanho médio do áudio da sessão</td><td><strong>25 MB</strong></td><td class="muted">WAV/WebM misturado; não PCM 16 kHz cheio</td></tr>
+            <tr><td>Tokens copiloto (input / output+thinking)</td><td><strong>18.000 / 2.524</strong></td><td class="muted">contexto injetado + thinkingBudget 1024</td></tr>
+            <tr><td>Áudio → tokens</td><td><strong>32 / segundo</strong></td><td class="muted">documentação Google de contagem de tokens</td></tr>
+          </tbody>
+        </table>
+        <p class="fine">Se o terapeuta fizer 3 perguntas longas por sessão em vez de 1,5, o custo de copiloto dobra e ainda assim fica abaixo da transcrição de 60 minutos. Câmbio travado em 5,50 — a fatura Google é em USD.</p>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 7 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>5–6 · Unidade de custo</span></header>
+      <div class="content">
+        <div class="kicker">Capítulos 5 e 6</div>
+        <h2>Custo por sessão</h2>
+        <p>Uma sessão de 60 minutos, com transcrição, 1,5 perguntas ao copiloto, e-mails e um pedaço de Cloud Run:</p>
+        <table>
+          <thead>
+            <tr><th>Componente</th><th>Cálculo</th><th class="num">US$</th><th class="num">R$</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Gemini áudio 60 min</td><td class="muted">115.200 tok × US$ 1,25/1M + prompt</td><td class="num">US$ 0,15</td><td class="num">R$ 0,80</td></tr>
+            <tr><td>Gemini output SOAP + thinking</td><td class="muted">~3.524 tok × US$ 10/1M</td><td class="num">US$ 0,04</td><td class="num">R$ 0,19</td></tr>
+            <tr><td>Copiloto 1,5×</td><td class="muted">1,5 × US$ 0,05</td><td class="num">US$ 0,07</td><td class="num">R$ 0,39</td></tr>
+            <tr><td>Cloud Run (upload + job)</td><td class="muted">segundos de 2 vCPU / 2 GiB</td><td class="num">US$ 0,01</td><td class="num">R$ 0,06</td></tr>
+            <tr><td>SES 2,2 e-mails</td><td class="muted">US$ 0,0001 × 2,2</td><td class="num">US$ 0,00</td><td class="num">R$ 0,00</td></tr>
+            <tr class="total"><td>Total por sessão 60 min</td><td></td><td class="num">US$ 0,26</td><td class="num">R$ 1,45</td></tr>
+            <tr><td>Sessão Free 50 min</td><td class="muted">menos tokens de áudio</td><td class="num">US$ 0,24</td><td class="num">R$ 1,31</td></tr>
+          </tbody>
+        </table>
+        <h2 style="margin-top:4mm;">Custo por paciente / mês</h2>
+        <table>
+          <thead>
+            <tr><th>Linha</th><th class="num">Qtd</th><th class="num">US$</th><th class="num">R$</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>4 sessões × custo/sessão</td><td class="num">4</td><td class="num">US$ 1,05</td><td class="num">R$ 5,78</td></tr>
+            <tr><td>Diário familiar (4 × 2 min)</td><td class="num">4</td><td class="num">US$ 0,08</td><td class="num">R$ 0,42</td></tr>
+            <tr><td>Anexos</td><td class="num">0,5</td><td class="num">US$ 0,02</td><td class="num">R$ 0,09</td></tr>
+            <tr><td>GCS 12 meses de arquivo</td><td class="num">~1,3 GB</td><td class="num">US$ 0,03</td><td class="num">R$ 0,14</td></tr>
+            <tr class="total"><td>Total paciente / mês</td><td class="num">—</td><td class="num">US$ 1,17</td><td class="num">R$ 6,44</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <h4>Leitura para sócio</h4>
+          <p>Paciente a mais na carteira ≈ <strong>R$ 6,44</strong> a mais por mês de custo variável. Não reabre o Cloud SQL. Não duplica o load balancer. O custo da sessão é, na prática, o custo de mandar uma hora de áudio ao Gemini 2.5 Pro.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 8 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>7 · Planos</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 7</div>
+        <h2>Cenários dos planos (10 / 20 / 30 pacientes)</h2>
+        <p>Uso realista (4 sessões/paciente, 6 copiloto/paciente), não o teto de 750 / 1.500 / 2.250 interações. <strong>IA e uso</strong> = Gemini (transcrição, copiloto, diário) + arquivos no GCS + e-mail SES + Cloud Run da request. Receita = preço de lista. Stripe = 3,99% + R$ 0,39. Ainda sem a fatia do SQL — isso entra na página 11.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plano</th>
+              <th class="num">Receita</th>
+              <th class="num">Stripe</th>
+              <th class="num">IA e uso</th>
+              <th class="num">Margem</th>
+              <th class="num">/ paciente</th>
+              <th class="num">/ sessão</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Free</td>
+              <td class="num">R$ 0,00</td>
+              <td class="num">R$ 0,00</td>
+              <td class="num">R$ 5,91</td>
+              <td class="num">−R$ 5,91</td>
+              <td class="num">R$ 5,91</td>
+              <td class="num">R$ 1,48</td>
+            </tr>
+            <tr>
+              <td><strong>Standard (10)</strong></td>
+              <td class="num">R$ 237,00</td>
+              <td class="num">R$ 9,85</td>
+              <td class="num">R$ 64,39</td>
+              <td class="num"><strong>R$ 162,76</strong></td>
+              <td class="num">R$ 6,44</td>
+              <td class="num">R$ 1,61</td>
+            </tr>
+            <tr>
+              <td>Advanced (20)</td>
+              <td class="num">R$ 427,00</td>
+              <td class="num">R$ 17,43</td>
+              <td class="num">R$ 128,77</td>
+              <td class="num">R$ 280,80</td>
+              <td class="num">R$ 6,44</td>
+              <td class="num">R$ 1,61</td>
+            </tr>
+            <tr>
+              <td>Premium (30)</td>
+              <td class="num">R$ 657,00</td>
+              <td class="num">R$ 26,60</td>
+              <td class="num">R$ 193,16</td>
+              <td class="num">R$ 437,24</td>
+              <td class="num">R$ 6,44</td>
+              <td class="num">R$ 1,61</td>
+            </tr>
+          </tbody>
+        </table>
+        <h3>O mesmo, com a infra fixa jogada em cima de UM consultório</h3>
+        <p class="fine" style="margin-bottom:2mm;">Útil no dia 1, quando a plataforma inteira existe para um único Standard. A infra (R$ 258,78) é da Unithery, não do paciente.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plano (1 tenant na GCP)</th>
+              <th class="num">Receita − Stripe − IA e uso − infra</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-danger"><td>Free</td><td class="num">−R$ 264,69</td><td>Não cobre o piso sozinho</td></tr>
+            <tr class="row-danger"><td>Standard</td><td class="num">−R$ 96,02</td><td>Não cobre o piso sozinho</td></tr>
+            <tr class="row-warn"><td>Advanced</td><td class="num">R$ 22,02</td><td>Cobre o piso</td></tr>
+            <tr class="row-ok"><td>Premium</td><td class="num">R$ 178,46</td><td>Cobre o piso</td></tr>
+          </tbody>
+        </table>
+        <div class="callout ok">
+          <h4>Quantos Standard pagam o piso fixo</h4>
+          <p>Contribuição Standard ≈ <strong>R$ 162,76</strong> por consultório (ainda sem ratear o SQL). Piso GCP hoje ≈ <strong>R$ 258,78</strong>. Break-even de infra ≈ <strong>1,6 assinantes Standard</strong>. A página 11 já coloca a fatia da máquina dentro do custo do plano.</p>
+        </div>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 9 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>8–9 · Risco e fechamento</span></header>
+      <div class="content">
+        <div class="kicker">Capítulos 8 e 9</div>
+        <h2>Teto perigoso: se o terapeuta queimar a cota</h2>
+        <p>O catálogo promete 750 / 1.500 / 2.250 interações. Se todas forem Gemini 2.5 Pro no tamanho de prompt atual, o copiloto vira o vilão — não a transcrição.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plano</th>
+              <th class="num">Cota copiloto</th>
+              <th class="num">Se 100% da cota</th>
+              <th class="num">Realista (6× pac.)</th>
+              <th class="num">Diferença</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Standard</td>
+              <td class="num">750</td>
+              <td class="num">R$ 196,93</td>
+              <td class="num">R$ 15,75</td>
+              <td class="num">R$ 181,17</td>
+            </tr>
+            <tr>
+              <td>Advanced</td>
+              <td class="num">1.500</td>
+              <td class="num">R$ 393,86</td>
+              <td class="num">R$ 31,51</td>
+              <td class="num">R$ 362,35</td>
+            </tr>
+            <tr>
+              <td>Premium</td>
+              <td class="num">2.250</td>
+              <td class="num">R$ 590,78</td>
+              <td class="num">R$ 47,26</td>
+              <td class="num">R$ 543,52</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout danger">
+          <h4>Risco de produto</h4>
+          <p>Standard a R$ 237 com 750 chats Pro no tamanho atual de contexto pode custar da ordem de <strong>R$ 196,93 só de copiloto</strong>, além das transcrições. A cota comercial está desconectada do custo marginal do Pro. Ou se limita o contexto, ou se usa Flash no chat, ou a cota precisa ser menor.</p>
+        </div>
+        <h3>O que ainda não está neste número</h3>
+        <p>Impostos brasileiros sobre a receita, suporte humano, domínio Hostinger, tempo de engenharia, créditos GCP de trial, SMS MFA, Cloud Armor/VPC (não usados). O SQL de produção e o Cloud Run quente entram na página 11.</p>
+        <p class="fine" style="margin-top:3mm;">Fontes de IA e Stripe: Vertex Agent Platform · SES US$ 0,10/1.000 · stripe.com/br/pricing · vertex.ts (gemini-2.5-pro, thinkingBudget 1024). Estimativa de lista, não fatura.</p>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial</span><span>Página 10 / 11</span></footer>
+    </section>
+
+    <section class="page">
+      <div class="accent"></div>
+      <header class="header"><div class="mark">Unithe<span>ry</span></div><span>10 · Custo cheio do plano</span></header>
+      <div class="content">
+        <div class="kicker">Capítulo 10</div>
+        <h2>O que entra no custo de cada plano</h2>
+        <p>Este é o custo de entregar o plano, <strong>já com a fatia da máquina dentro</strong>. <strong>IA e uso</strong> = Gemini (transcrição, copiloto, diário) + GCS + e-mail + Cloud Run da request. <strong>Infra</strong> = SQL 2 vCPU · 4 GB + Cloud Run quente + load balancer + CDN + ops, rateada em 50 Standard (500 pacientes). <strong>Custo total</strong> = Stripe + IA e uso + infra.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plano</th>
+              <th class="num">Receita</th>
+              <th class="num">Stripe</th>
+              <th class="num">IA e uso</th>
+              <th class="num">Infra (máquina)</th>
+              <th class="num">Custo total</th>
+              <th class="num">Margem</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Free (1 pac.)</td>
+              <td class="num">R$ 0,00</td>
+              <td class="num">R$ 0,00</td>
+              <td class="num">R$ 5,91</td>
+              <td class="num">R$ 1,62</td>
+              <td class="num">R$ 7,53</td>
+              <td class="num">−R$ 7,53</td>
+            </tr>
+            <tr>
+              <td><strong>Standard (10)</strong></td>
+              <td class="num">R$ 237,00</td>
+              <td class="num">R$ 9,85</td>
+              <td class="num">R$ 64,39</td>
+              <td class="num"><strong>R$ 16,18</strong></td>
+              <td class="num">R$ 90,42</td>
+              <td class="num"><strong>R$ 146,58</strong></td>
+            </tr>
+            <tr>
+              <td>Advanced (20)</td>
+              <td class="num">R$ 427,00</td>
+              <td class="num">R$ 17,43</td>
+              <td class="num">R$ 128,77</td>
+              <td class="num">R$ 32,35</td>
+              <td class="num">R$ 178,55</td>
+              <td class="num">R$ 248,45</td>
+            </tr>
+            <tr>
+              <td>Premium (30)</td>
+              <td class="num">R$ 657,00</td>
+              <td class="num">R$ 26,60</td>
+              <td class="num">R$ 193,16</td>
+              <td class="num">R$ 48,53</td>
+              <td class="num">R$ 268,29</td>
+              <td class="num">R$ 388,71</td>
+            </tr>
+          </tbody>
+        </table>
+        <h3>Por paciente, já com a máquina dentro</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Linha</th>
+              <th class="num">IA e uso</th>
+              <th class="num">SQL</th>
+              <th class="num">Run + LB + ops</th>
+              <th class="num">Custo / paciente</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Standard / Advanced / Premium</td>
+              <td class="num">R$ 6,44</td>
+              <td class="num">R$ 1,06</td>
+              <td class="num">R$ 0,56</td>
+              <td class="num"><strong>R$ 8,06</strong></td>
+            </tr>
+            <tr>
+              <td>Free (sessão 50 min)</td>
+              <td class="num">R$ 5,91</td>
+              <td class="num">R$ 1,06</td>
+              <td class="num">R$ 0,56</td>
+              <td class="num">R$ 7,53</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Se a carteira for 50 Premium</h4>
+            <p>30 × 50 = <strong>1.500 pacientes</strong>. A mesma pilha de R$ 808,87 dividido por 1.500 cai para <strong>R$ 0,54 / paciente</strong> (SQL R$ 0,35). Só use esse denominador se o pgvector aguentar 1.500 ficha+índice em 4 GB. No preço do plano, ficamos no denominador 500 — mais caro por cabeça, mais seguro.</p>
+          </div>
+          <div class="card">
+            <h4>Se ligar HA no SQL</h4>
+            <p>Compute regional praticamente dobra. SQL sobe de R$ 531 para ~R$ 1.022. Fatia SQL por Standard: de R$ 10,62 para ~R$ 20,44. Margem Standard ainda fica acima de R$ 130. Não está no COGS-base; é o próximo degrau de produção.</p>
+          </div>
+        </div>
+        <div class="callout ok" style="margin-top:4mm;">
+          <h4>Número para colocar no plano</h4>
+          <p>No Standard, o custo total de <strong>R$ 90,42</strong> já inclui Stripe, Gemini e a fatia da máquina (R$ 16,18). Margem <strong>R$ 146,58</strong> (~62% da receita). Por paciente: R$ 6,44 de IA e uso + R$ 1,62 de infra = <strong>R$ 8,06</strong>.</p>
+        </div>
+        <p class="fine">Fontes do rateio: cloud.google.com/sql/pricing (Enterprise us-central1 vCPU/RAM/SSD/IP) · cloud.google.com/sql/docs/postgres/flags (max_connections vs RAM) · cloud.google.com/run/pricing (idle min instance) · cloud.google.com/vpc/network-pricing (LB US$ 0,025/h) · Identity Platform 50k MAU Tier 1. Lista, não fatura. Ago/2026.</p>
+      </div>
+      <footer class="footer"><span>Unithery · Confidencial · 1 USD = R$ 5,50</span><span>Página 11 / 11</span></footer>
+    </section>
+
+  </div>
+</body>
+</html>

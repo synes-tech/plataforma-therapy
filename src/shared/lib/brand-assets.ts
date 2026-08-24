@@ -5,3 +5,6 @@ export const BRAND_NAME = 'Unithery';
 
 /** URL resolvida pelo Vite no build (evita path quebrado em produção/Vercel). */
 export const BRAND_LOGO_SRC = brandLogo;
+
+/** Ícone quadrado (mesmo do favicon / PWA). */
+export const BRAND_ICON_SRC = '/icons/icon-192.png';

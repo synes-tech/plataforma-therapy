@@ -8,9 +8,9 @@ function MicIcon({ className = 'h-4 w-4' }: { className?: string }) {
 
 const styles = {
   header:
-    'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-primary/30 bg-gradient-to-b from-primary-50 to-white px-3.5 text-xs font-semibold text-primary shadow-sm ring-1 ring-primary/10 transition-all hover:border-primary/45 hover:from-primary-50 hover:to-primary-50/60 hover:shadow-md active:scale-[0.98] sm:px-4',
+    'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:px-4',
   headerMobile:
-    'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-gradient-to-b from-primary-50 to-white px-3 text-xs font-semibold text-primary shadow-sm ring-1 ring-primary/10 transition-all hover:border-primary/45 hover:shadow-md active:scale-[0.98] sm:hidden',
+    'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:hidden',
   empty:
     'inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-dark hover:shadow-md active:scale-[0.98]',
 } as const;
@@ -26,27 +26,18 @@ export function RecordSessionButton({
   variant = 'header',
   className = '',
 }: RecordSessionButtonProps) {
-  const isEmpty = variant === 'empty';
-  const label = variant === 'headerMobile' ? 'Gravar' : 'Gravar sessão';
+  const isHeader = variant === 'header' || variant === 'headerMobile';
+  const label = variant === 'headerMobile' ? 'Sessão' : 'Iniciar sessão';
 
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Gravar sessão"
-      title="Gravar sessão"
+      aria-label="Iniciar sessão"
+      title="Iniciar sessão"
       className={`${styles[variant]} ${className}`.trim()}
     >
-      <span
-        className={
-          isEmpty
-            ? 'flex h-5 w-5 items-center justify-center'
-            : 'flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/20'
-        }
-        aria-hidden
-      >
-        <MicIcon className={isEmpty ? 'h-4 w-4 text-white' : 'h-3.5 w-3.5 text-primary'} />
-      </span>
+      <MicIcon className={isHeader ? 'h-3.5 w-3.5 text-white' : 'h-4 w-4 text-white'} />
       {label}
     </button>
   );

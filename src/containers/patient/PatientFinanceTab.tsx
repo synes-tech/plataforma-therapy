@@ -42,6 +42,7 @@ export function PatientFinanceTab({ patientId }: PatientFinanceTabProps) {
           sessions_per_month?: number | null;
           sessions_custom?: boolean;
           contract_duration_months?: number | null;
+          contract_starts_on?: string | null;
           pacote_qtd_sessoes: number | null;
           pacote_valor_cents: number | null;
           observacoes: string | null;
@@ -175,6 +176,9 @@ export function PatientFinanceTab({ patientId }: PatientFinanceTabProps) {
         suggestedCents={contract?.valor_sessao_cents ?? contract?.valor_acordado_cents ?? 0}
         monthlyContract={contract?.billing_type === 'MENSAL_RECORRENTE'}
         canRegister={Boolean(contract)}
+        contractStartsOn={contract?.contract_starts_on}
+        durationMonths={contract?.contract_duration_months}
+        saldoSessoes={saldo}
       />
 
       <PatientFinancialSetupModal

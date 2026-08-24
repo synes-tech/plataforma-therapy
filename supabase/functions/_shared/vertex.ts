@@ -22,6 +22,10 @@ let sa: ServiceAccount | null = null;
 const LOCATION = Deno.env.get('GCP_LOCATION') ?? 'us-central1';
 
 export const CHAT_MODEL = Deno.env.get('VERTEX_CHAT_MODEL') ?? 'gemini-2.5-pro';
+/** Chat do Acompanhante e classificador de risco — flash por margem e latência (ADR-07). */
+export const COMPANION_CHAT_MODEL = Deno.env.get('VERTEX_COMPANION_MODEL') ?? 'gemini-2.5-flash';
+/** Resumo clínico semanal do Acompanhante — pro (ADR-07). */
+export const COMPANION_SUMMARY_MODEL = Deno.env.get('VERTEX_SUMMARY_MODEL') ?? 'gemini-2.5-pro';
 export const EMBED_MODEL = Deno.env.get('VERTEX_EMBED_MODEL') ?? 'gemini-embedding-001';
 export const EMBED_DIMS = 768;
 
@@ -65,6 +69,7 @@ interface GenerateOptions {
   thinkingBudget?: number;
   // deno-lint-ignore no-explicit-any
   responseSchema?: Record<string, any>;
+  safetySettings?: Array<{ category: string; threshold: string }>;
 }
 
 export interface VertexGenerateResult {
@@ -186,6 +191,9 @@ async function generateContent(
   const body: Record<string, any> = { contents, generationConfig };
   if (opts.system) {
     body.systemInstruction = { parts: [{ text: opts.system }] };
+  }
+  if (opts.safetySettings?.length) {
+    body.safetySettings = opts.safetySettings;
   }
 
   const res = await fetch(`${vertexBase()}/${model}:generateContent`, {
@@ -319,6 +327,9 @@ export async function* vertexChatStream(
   const body: Record<string, any> = { contents, generationConfig };
   if (opts.system) {
     body.systemInstruction = { parts: [{ text: opts.system }] };
+  }
+  if (opts.safetySettings?.length) {
+    body.safetySettings = opts.safetySettings;
   }
 
   const res = await fetch(`${vertexBase()}/${model}:streamGenerateContent?alt=sse`, {

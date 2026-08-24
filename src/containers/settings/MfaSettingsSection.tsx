@@ -110,69 +110,58 @@ export function MfaSettingsSection() {
 
   if (!firebaseReady) {
     return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3.5">
-        <p className="text-sm font-medium text-charcoal">Autenticação em duas etapas (SMS)</p>
-        <p className="mt-1 text-xs leading-relaxed text-charcoal-muted">
-          Disponível após entrar com Google ou com a sessão Identity Platform (Firebase).
-          Seu login atual ainda usa o provedor legado.
+      <div className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0">
+        <p className="text-sm font-medium text-charcoal">Autenticação em duas etapas</p>
+        <p className="text-xs leading-relaxed text-charcoal-muted">
+          Disponível após entrar com Google ou com a sessão Identity Platform.
         </p>
       </div>
     );
   }
 
   const enrolled = factors.length > 0;
+  const phoneLabel = factors[0]?.phoneNumber || factors[0]?.displayName;
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <div className="rounded-xl border border-slate-100 bg-white px-4 py-3.5 sm:px-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-charcoal">Autenticação em duas etapas (SMS)</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-charcoal-muted">
-              {enrolled
-                ? 'No próximo login será pedido um código enviado por SMS.'
-                : 'Adicione um celular para exigir SMS além da senha ou do Google.'}
-            </p>
-            {enrolled && (
-              <ul className="mt-2 space-y-1">
-                {factors.map((f) => (
-                  <li key={f.uid} className="text-sm text-charcoal">
-                    {f.phoneNumber || f.displayName || 'Telefone'}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-            {!enrolled ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setInfo(null);
-                  setError(null);
-                  setModalOpen(true);
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50"
-              >
-                Ativar MFA
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  const first = factors[0];
-                  if (first) void handleUnenroll(first.uid);
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-error/20 bg-white px-4 text-sm font-medium text-error transition-colors hover:bg-error-light/40 disabled:opacity-60"
-              >
-                Desativar MFA
-              </button>
-            )}
-          </div>
+    <div className="flex w-full flex-col">
+      <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-charcoal">Autenticação em duas etapas</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-charcoal-muted">
+            {enrolled
+              ? `SMS no próximo login${phoneLabel ? ` · ${phoneLabel}` : ''}.`
+              : 'Peça um código por SMS além da senha ou do Google.'}
+          </p>
+          {info && <p className="mt-2 text-xs font-medium text-mint-dark">{info}</p>}
+          {error && !modalOpen && <p className="mt-2 text-xs text-error">{error}</p>}
         </div>
-        {info && <p className="mt-3 text-sm font-medium text-mint-dark">{info}</p>}
-        {error && !modalOpen && <p className="mt-3 text-sm text-error">{error}</p>}
+        <div className="shrink-0">
+          {!enrolled ? (
+            <button
+              type="button"
+              onClick={() => {
+                setInfo(null);
+                setError(null);
+                setModalOpen(true);
+              }}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal transition-colors hover:border-primary/40 hover:bg-primary-50"
+            >
+              Ativar
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const first = factors[0];
+                if (first) void handleUnenroll(first.uid);
+              }}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-error/20 bg-white px-4 text-sm font-medium text-error transition-colors hover:bg-error-light/40 disabled:opacity-60"
+            >
+              Desativar
+            </button>
+          )}
+        </div>
       </div>
 
       <StandardModal

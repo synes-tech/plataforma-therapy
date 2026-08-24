@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyPatientListFilters, getPaginationMeta, paginatePatients, resolveFamilyLinkStatus } from './patient-list.utils';
+import {
+  applyPatientListFilters,
+  getPaginationMeta,
+  paginatePatients,
+  resolveFamilyLinkStatus,
+  resolvePatientCareTrack,
+} from './patient-list.utils';
 import type { PatientListItem } from './patient-list.types';
 
 const SAMPLE: PatientListItem[] = [
@@ -65,5 +71,12 @@ describe('patient-list.utils', () => {
         created_at: '2026-01-01',
       }),
     ).toBe('pendente');
+  });
+
+  it('marca criança e adolescente no acompanhamento infantil', () => {
+    expect(resolvePatientCareTrack({ birth_date: '2018-01-01' })).toBe('infantil');
+    expect(resolvePatientCareTrack({ birth_date: '2010-01-01' })).toBe('infantil');
+    expect(resolvePatientCareTrack({ birth_date: '1990-01-01' })).toBe('individual');
+    expect(resolvePatientCareTrack({ birth_date: '2018-01-01', profile_type: 'ADULT' })).toBe('individual');
   });
 });

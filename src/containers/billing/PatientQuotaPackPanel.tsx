@@ -21,6 +21,7 @@ export interface PatientQuotaPackPanelProps {
   onQuotaUpdated?: (newBonus: number) => void;
   onPurchaseSuccess?: () => void;
   showSubmitButton?: boolean;
+  showUsageCard?: boolean;
 }
 
 function UsersIcon() {
@@ -46,6 +47,7 @@ export function PatientQuotaPackPanel({
   onQuotaUpdated,
   onPurchaseSuccess,
   showSubmitButton = true,
+  showUsageCard = true,
 }: PatientQuotaPackPanelProps) {
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
@@ -113,6 +115,7 @@ export function PatientQuotaPackPanel({
           </div>
         </div>
 
+        {showUsageCard ? (
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium text-charcoal">Pacientes ativos</p>
@@ -133,6 +136,7 @@ export function PatientQuotaPackPanel({
             {quotaBonus > 0 ? ` · +${quotaBonus} extras via módulos` : ''}
           </p>
         </div>
+        ) : null}
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-4">

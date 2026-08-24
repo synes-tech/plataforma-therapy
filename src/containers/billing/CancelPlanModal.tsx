@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { StandardModal } from '@shared/ui/StandardModal';
+import { TheryAvatar } from '@shared/ui/TheryAvatar';
 import { LoadingButton, PageLoader } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { formatBRL } from '@shared/lib/therapist-plans';
@@ -18,6 +19,8 @@ interface CancelPreview {
   fidelity_adjustment_cents: number;
   fidelity_months_used: number;
   requires_fidelity_acceptance: boolean;
+  billing_exempt?: boolean;
+  has_stripe_subscription?: boolean;
 }
 
 interface CancelResult {
@@ -40,12 +43,13 @@ export function CancelPlanModal({ isOpen, onClose }: CancelPlanModalProps) {
   const [acceptFidelity, setAcceptFidelity] = useState(false);
   const [result, setResult] = useState<CancelResult | null>(null);
 
-  const { data: preview, isLoading, error } = useQuery({
+  const { data: preview, isLoading, error, refetch } = useQuery({
     queryKey: ['cancel-subscription-preview'],
     queryFn: () => callFunction<CancelPreview>('cancel-subscription', { action: 'preview' }),
     enabled: isOpen && !result,
     staleTime: 0,
     gcTime: 0,
+    retry: false,
   });
 
   const mutation = useMutation({
@@ -69,23 +73,33 @@ export function CancelPlanModal({ isOpen, onClose }: CancelPlanModalProps) {
     onClose();
   };
 
+  const courtesyAccount = Boolean(preview?.billing_exempt) && !preview?.has_stripe_subscription;
+
   const confirmDisabled =
-    Boolean(preview?.requires_fidelity_acceptance) && !acceptFidelity;
+    courtesyAccount || (Boolean(preview?.requires_fidelity_acceptance) && !acceptFidelity);
 
   return (
     <StandardModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Cancelar plano e revogar método de pagamento"
+      title="Tem certeza de que deseja cancelar a assinatura?"
       size="lg"
       footer={
-        result ? (
+        result || courtesyAccount ? (
           <button
             type="button"
             onClick={handleClose}
             className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-charcoal px-5 text-sm font-semibold text-white transition-colors hover:bg-charcoal-light md:w-auto"
           >
             Entendi
+          </button>
+        ) : error || !preview ? (
+          <button
+            type="button"
+            onClick={handleClose}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-charcoal transition-colors hover:bg-slate-50 md:w-auto"
+          >
+            Fechar
           </button>
         ) : (
           <div className="flex w-full flex-col gap-2 md:flex-row md:justify-end">
@@ -101,7 +115,7 @@ export function CancelPlanModal({ isOpen, onClose }: CancelPlanModalProps) {
               type="button"
               variant="danger"
               loading={mutation.isPending}
-              disabled={confirmDisabled || isLoading || Boolean(error)}
+              disabled={confirmDisabled || isLoading}
               onClick={() => mutation.mutate()}
               className="font-semibold"
             >
@@ -133,11 +147,34 @@ export function CancelPlanModal({ isOpen, onClose }: CancelPlanModalProps) {
       ) : isLoading ? (
         <PageLoader label="Calculando efeitos do cancelamento..." className="min-h-[20vh]" />
       ) : error || !preview ? (
-        <div role="alert" className="rounded-xl border border-error/20 bg-error-light px-4 py-3 text-sm text-error">
-          Não foi possível carregar os detalhes do cancelamento. Tente novamente.
+        <div className="space-y-3">
+          <div role="alert" className="rounded-xl border border-error/20 bg-error-light px-4 py-3 text-sm text-error">
+            {(error as Error | undefined)?.message ??
+              'Não foi possível carregar os detalhes do cancelamento. Tente novamente.'}
+          </div>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-charcoal hover:bg-slate-50"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : courtesyAccount ? (
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <TheryAvatar pose="sad" size="lg" variant="figure" decorative />
+          </div>
+          <p className="text-sm leading-relaxed text-charcoal">
+            Esta é uma conta administrativa, sem cobrança Stripe. Não há assinatura nem cartão para
+            cancelar — o acesso de cortesia continua.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="flex justify-center">
+            <TheryAvatar pose="sad" size="lg" variant="figure" decorative />
+          </div>
           <p className="text-sm leading-relaxed text-charcoal">
             Você está cancelando o <strong>{preview.plan_name}</strong>
             {preview.billing_cycle === 'yearly' ? ' (ciclo anual)' : ' (ciclo mensal)'}. Ao confirmar:

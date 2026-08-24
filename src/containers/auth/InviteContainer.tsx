@@ -1,4 +1,4 @@
-import { InviteCodeForm } from '@containers/family/invite-link/InviteCodeForm';
+import { InviteCodeForm } from '@containers/portal/invite-link/InviteCodeForm';
 
 export default function InviteContainer() {
   return (

@@ -39,6 +39,7 @@ export function mapArtifactRow(row: {
   conteudo: unknown;
   criado_em: string;
   compartilhado_familia?: boolean | null;
+  session_note_id?: string | null;
 }): { item: import('./types.ts').PatientArtifactItem | null } {
   if (row.tipo_artefato && row.conteudo_texto?.trim()) {
     const tipo = row.tipo_artefato as import('./types.ts').ArtifactType;
@@ -55,6 +56,7 @@ export function mapArtifactRow(row: {
         criado_em: row.criado_em,
         is_legacy: false,
         compartilhado_familia: row.compartilhado_familia === true,
+        session_note_id: row.session_note_id ?? null,
       },
     };
   }
@@ -71,6 +73,7 @@ export function mapArtifactRow(row: {
       criado_em: row.criado_em,
       is_legacy: true,
       compartilhado_familia: row.compartilhado_familia === true,
+      session_note_id: row.session_note_id ?? null,
     },
   };
 }

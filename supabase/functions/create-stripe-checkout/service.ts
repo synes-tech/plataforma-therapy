@@ -216,6 +216,7 @@ export async function createStripeCheckout(
     cancel_url: `${origin}/checkout/return?canceled=1&plan=${payload.plan_id}`,
     metadata: {
       source: 'unithery_billing',
+      account_type: 'clinic',
       clinic_id: clinicId,
       plan_id: payload.plan_id,
       user_id: caller.id,
@@ -227,6 +228,7 @@ export async function createStripeCheckout(
     subscription_data: {
       ...(grantTrial ? { trial_period_days: TRIAL_DAYS } : {}),
       metadata: {
+        account_type: 'clinic',
         clinic_id: clinicId,
         plan_id: payload.plan_id,
         billing_cycle: billingCycle,

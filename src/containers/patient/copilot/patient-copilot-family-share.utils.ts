@@ -2,7 +2,7 @@ import type { AiArtifactType } from './patient-copilot.types';
 import { ARTIFACT_TOAST_MESSAGES } from './patient-copilot-artifact.constants';
 
 export function getFamilyShareStatusLabel(shared: boolean): string {
-  return shared ? '📱 Visível para a família' : '🔒 Apenas visualização interna';
+  return shared ? 'Visível para o paciente/família' : 'Visível internamente/privado';
 }
 
 export function buildArtifactSaveToast(tipo: AiArtifactType, shared: boolean): string {

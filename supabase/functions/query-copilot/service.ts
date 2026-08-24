@@ -1,4 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
+import { persistCopilotTurn } from '../_shared/copilot-thread.ts';
 import { AppError } from '../_shared/errors.ts';
 import { assertCanUseAiPaywall } from '../_shared/paywall.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
@@ -22,6 +23,9 @@ async function finalizeCopilotAnswer(
   ctx: {
     startTime: number;
     patientId: string;
+    userMessage: string;
+    inputSource: 'text' | 'audio';
+    surface: 'record' | 'workspace';
     sources: QueryCopilotResponse['sources'];
     rerankedCount: number;
   },
@@ -30,6 +34,24 @@ async function finalizeCopilotAnswer(
 ): Promise<QueryCopilotResponse> {
   const supabase = createServiceClient();
   const safe = enforceSafeOutput(answer);
+
+  try {
+    await persistCopilotTurn(supabase, caller, {
+      patientId: ctx.patientId,
+      userContent: ctx.userMessage,
+      assistantContent: safe.answer,
+      inputSource: ctx.inputSource,
+      sources: ctx.sources,
+      answerIncomplete,
+    });
+  } catch (persistError) {
+    console.error(JSON.stringify({
+      level: 'error',
+      action: 'copilot_thread.persist_failed',
+      patient_id: ctx.patientId,
+      message: persistError instanceof Error ? persistError.message : 'persist failed',
+    }));
+  }
 
   await supabase.from('audit_logs').insert({
     user_id: caller.id,
@@ -42,6 +64,7 @@ async function finalizeCopilotAnswer(
       chunks_retrieved: ctx.rerankedCount,
       latency_ms: Date.now() - ctx.startTime,
       model: CHAT_MODEL,
+      surface: ctx.surface,
       guardrail_triggered: false,
       output_sanitized: safe.sanitized || Boolean(safetyMeta?.sanitized),
       output_fallback: safe.usedFallback || Boolean(safetyMeta?.usedFallback),

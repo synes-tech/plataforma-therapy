@@ -16,7 +16,7 @@ const MONTHS_PT = [
 const ARTIFACT_TITLE_PREFIX: Record<string, string> = {
   acao_recomendada: 'Plano de Ação',
   resumo_proativo: 'Resumo',
-  relatorio_sessao: 'Relatório',
+  relatorio_sessao: 'Relatório da sessão',
 };
 
 /** Ex.: "19 de Junho de 2026" */
@@ -42,11 +42,13 @@ export function formatArtifactDateShort(iso: string): string {
   }).format(date);
 }
 
-/** Título dinâmico: "Plano de Ação - 19/06/2026" */
+/** Título dinâmico: "Plano de Ação - 19/06/2026" ou "Relatório da sessão de 19/06/2026". */
 export function buildArtifactTitle(tipo: string, criadoEm: string): string {
   const prefix = ARTIFACT_TITLE_PREFIX[tipo] ?? 'Documento';
   const shortDate = formatArtifactDateShort(criadoEm);
-  return shortDate ? `${prefix} - ${shortDate}` : prefix;
+  if (!shortDate) return prefix;
+  if (tipo === 'relatorio_sessao') return `${prefix} de ${shortDate}`;
+  return `${prefix} - ${shortDate}`;
 }
 
 /** Título exibido: customizado pelo profissional ou derivado do tipo + data. */

@@ -39,9 +39,22 @@ import { RecurrenceWindowsModal } from './RecurrenceWindowsModal';
 
 const CREATE_FORM_ID = 'create-patient-anamnesis-form';
 
+/** Resultado do convite do portal, para quem abriu o modal dar o retorno ao terapeuta. */
+export interface PatientCreatedSummary {
+  patientId: string;
+  patientName: string;
+  portalInvite: {
+    code: string;
+    recipient: 'patient' | 'caregiver';
+    email: string | null;
+    sent: boolean;
+  } | null;
+}
+
 interface PatientCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: (summary: PatientCreatedSummary) => void;
 }
 
 function cpfErrorMessage(phase: CpfLookupPhase): string | null {
@@ -53,7 +66,7 @@ function resolvePhaseFromMatch(match: VerifyPatientCpfMatch): CpfLookupPhase {
   return match.status_vinculo === 'desvinculado' ? 'found_backup' : 'found_active';
 }
 
-export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps) {
+export function PatientCreateModal({ isOpen, onClose, onCreated }: PatientCreateModalProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { interceptNewPatient, handlePaymentRequired, refreshState } = usePaywall();
@@ -289,6 +302,12 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
         patient_id: string;
         needs_windows?: boolean;
         next_step?: string | null;
+        portal_invite?: {
+          code: string;
+          recipient: 'patient' | 'caregiver';
+          email: string | null;
+          sent: boolean;
+        } | null;
       }>('create-patient', payload);
 
       setCreateProgressStep(2);
@@ -318,6 +337,11 @@ export function PatientCreateModal({ isOpen, onClose }: PatientCreateModalProps)
           name: payload.name?.trim() || 'paciente',
         });
       }
+      onCreated?.({
+        patientId: res.patient_id,
+        patientName: payload.name?.trim() || 'paciente',
+        portalInvite: res.portal_invite ?? null,
+      });
       onClose();
     } catch (err) {
       stopProgressCycle();

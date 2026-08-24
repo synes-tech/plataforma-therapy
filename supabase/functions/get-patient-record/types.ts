@@ -47,6 +47,8 @@ export interface DiaryEntrySummary {
   crisis_level: number | null;
   categories: string[];
   notes: string | null;
+  payload?: Record<string, unknown> | null;
+  author_access_level?: 'CAREGIVER' | 'SELF';
 }
 
 export interface EvolutionWeek {

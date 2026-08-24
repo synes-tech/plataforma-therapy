@@ -10,6 +10,7 @@ interface OwnerProfilePhotoUploadProps {
   onFileSelected: (file: File) => void;
   onValidationError: (message: string) => void;
   previewUrl?: string | null;
+  size?: 'xl' | 'profile' | '2xl';
 }
 
 export function OwnerProfilePhotoUpload({
@@ -20,6 +21,7 @@ export function OwnerProfilePhotoUpload({
   onFileSelected,
   onValidationError,
   previewUrl,
+  size = 'profile',
 }: OwnerProfilePhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -44,7 +46,7 @@ export function OwnerProfilePhotoUpload({
   }
 
   return (
-    <div className="flex w-full flex-col items-center">
+    <div className="flex w-full flex-col items-center md:w-auto md:items-start">
       <div
         role="button"
         tabIndex={0}
@@ -63,10 +65,10 @@ export function OwnerProfilePhotoUpload({
         } ${disabled || uploading ? 'cursor-not-allowed opacity-60' : ''}`}
         aria-label="Selecionar foto de perfil"
       >
-        <ProfileAvatar name={name} fotoUrl={fotoUrl} previewUrl={previewUrl} size="xl" />
+        <ProfileAvatar name={name} fotoUrl={fotoUrl} previewUrl={previewUrl} size={size} />
 
         {!disabled && !uploading && (
-          <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-charcoal text-white shadow-sm transition-colors group-hover:bg-charcoal-light">
+          <span className="absolute bottom-0.5 right-0.5 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-charcoal text-white shadow-sm transition-colors group-hover:bg-charcoal-light">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <circle cx="12" cy="13" r="3" />
@@ -87,9 +89,11 @@ export function OwnerProfilePhotoUpload({
         />
       </div>
 
-      <p className="mt-3 max-w-sm text-center text-xs leading-relaxed text-charcoal-muted">
-        {uploading ? 'Enviando foto...' : 'Clique ou arraste · PNG, JPG ou WebP · máx. 5 MB'}
-      </p>
+      {(uploading || !disabled) && (
+        <p className="mt-2.5 text-center text-xs font-medium text-primary md:text-left">
+          {uploading ? 'Enviando foto...' : 'Alterar foto'}
+        </p>
+      )}
     </div>
   );
 }

@@ -2,7 +2,8 @@ export type SessionEmailKind =
   | 'booking_confirmation'
   | 'reminder_24h'
   | 'reminder_manual'
-  | 'reschedule_notice';
+  | 'reschedule_notice'
+  | 'cancel_notice';
 
 export type SessionEmailAudience = 'contact' | 'professional';
 
@@ -109,7 +110,7 @@ function sessionDetailsCard(params: {
 }
 
 const COPY: Record<
-  Exclude<SessionEmailKind, 'reschedule_notice'>,
+  Exclude<SessionEmailKind, 'reschedule_notice' | 'cancel_notice'>,
   {
     subject: (patientName: string) => string;
     title: string;
@@ -117,36 +118,51 @@ const COPY: Record<
       contactName: string;
       patientName: string;
       professionalName: string;
+      audience: SessionEmailAudience;
     }) => string;
   }
 > = {
   booking_confirmation: {
     subject: (patientName) => `Sessão agendada — ${patientName} | Unithery`,
     title: 'Sessão terapêutica agendada',
-    lead: ({ contactName, patientName, professionalName }) =>
-      `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
-       Uma sessão terapêutica foi agendada para <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>
-       com o(a) psicólogo(a) <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong>.
-       Confira abaixo os detalhes do atendimento.`,
+    lead: ({ contactName, patientName, professionalName, audience }) =>
+      audience === 'professional'
+        ? `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           Esta é a cópia da confirmação enviada à família: a sessão de
+           <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong> foi agendada
+           na sua agenda.`
+        : `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           Uma sessão terapêutica foi agendada para <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>
+           com o(a) psicólogo(a) <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong>.
+           Confira abaixo os detalhes do atendimento.`,
   },
   reminder_24h: {
     subject: (patientName) => `Lembrete: atendimento em 24h — ${patientName} | Unithery`,
     title: 'Lembrete de atendimento',
-    lead: ({ contactName, patientName, professionalName }) =>
-      `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
-       Este é um lembrete da Unithery: o atendimento de
-       <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong> com
-       <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong>
-       acontece nas próximas 24 horas.`,
+    lead: ({ contactName, patientName, professionalName, audience }) =>
+      audience === 'professional'
+        ? `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           Lembrete: o atendimento de <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>
+           acontece nas próximas 24 horas. A família também recebeu este aviso.`
+        : `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           Este é um lembrete da Unithery: o atendimento de
+           <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong> com
+           <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong>
+           acontece nas próximas 24 horas.`,
   },
   reminder_manual: {
     subject: (patientName) => `Lembrete de atendimento — ${patientName} | Unithery`,
     title: 'Lembrete de atendimento',
-    lead: ({ contactName, patientName, professionalName }) =>
-      `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
-       <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong> está enviando um lembrete
-       sobre o atendimento de <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>.
-       Veja data, horário e duração abaixo.`,
+    lead: ({ contactName, patientName, professionalName, audience }) =>
+      audience === 'professional'
+        ? `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           Você enviou um lembrete sobre o atendimento de
+           <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>.
+           Esta é a cópia para o seu e-mail.`
+        : `Olá, <strong style="color:${BRAND.text};">${escapeHtml(contactName)}</strong>!<br/><br/>
+           <strong style="color:${BRAND.text};">${escapeHtml(professionalName)}</strong> está enviando um lembrete
+           sobre o atendimento de <strong style="color:${BRAND.text};">${escapeHtml(patientName)}</strong>.
+           Veja data, horário e duração abaixo.`,
   },
 };
 
@@ -182,6 +198,38 @@ function buildRescheduleCopy(params: {
       Novo horário: <strong style="color:${BRAND.text};">${escapeHtml(params.newFullLabel)}</strong>.`,
     leadText:
       `A sessão de ${params.patientName} com ${params.professionalName} foi reagendada. Anterior: ${params.previousFullLabel}. Novo: ${params.newFullLabel}.`,
+  };
+}
+
+function buildCancelCopy(params: {
+  audience: SessionEmailAudience;
+  contactName: string;
+  patientName: string;
+  professionalName: string;
+  fullLabel: string;
+}): { subject: string; title: string; leadHtml: string; leadText: string } {
+  if (params.audience === 'professional') {
+    return {
+      subject: `Atendimento cancelado — ${params.patientName} | Unithery`,
+      title: 'Atendimento cancelado',
+      leadHtml: `Olá, <strong style="color:${BRAND.text};">${escapeHtml(params.contactName)}</strong>!<br/><br/>
+        O atendimento de <strong style="color:${BRAND.text};">${escapeHtml(params.patientName)}</strong>
+        previsto para <strong style="color:${BRAND.text};">${escapeHtml(params.fullLabel)}</strong> foi cancelado.
+        A família também recebeu este aviso.`,
+      leadText:
+        `O atendimento de ${params.patientName} previsto para ${params.fullLabel} foi cancelado. A família também foi avisada.`,
+    };
+  }
+
+  return {
+    subject: `Atendimento cancelado — ${params.patientName} | Unithery`,
+    title: 'Atendimento cancelado',
+    leadHtml: `Olá, <strong style="color:${BRAND.text};">${escapeHtml(params.contactName)}</strong>!<br/><br/>
+      O atendimento de <strong style="color:${BRAND.text};">${escapeHtml(params.patientName)}</strong>
+      com o(a) psicólogo(a) <strong style="color:${BRAND.text};">${escapeHtml(params.professionalName)}</strong>
+      previsto para <strong style="color:${BRAND.text};">${escapeHtml(params.fullLabel)}</strong> foi cancelado.`,
+    leadText:
+      `O atendimento de ${params.patientName} com ${params.professionalName} previsto para ${params.fullLabel} foi cancelado.`,
   };
 }
 
@@ -250,12 +298,55 @@ export function buildSessionEmailContent(params: {
     return { subject: copy.subject, html: wrapLayout(copy.title, bodyHtml), text };
   }
 
+  if (params.kind === 'cancel_notice') {
+    const audience = params.audience ?? 'contact';
+    const copy = buildCancelCopy({
+      audience,
+      contactName: params.contactName,
+      patientName: params.patientName,
+      professionalName: params.professionalName,
+      fullLabel,
+    });
+
+    const bodyHtml = `
+      <p style="margin:0 0 4px;">${copy.leadHtml}</p>
+      ${sessionDetailsCard({
+        patientName: params.patientName,
+        professionalName: params.professionalName,
+        dateLabel,
+        timeLabel,
+        durationMinutes: params.durationMinutes,
+      })}
+      <p style="margin:0;font-size:13px;color:${BRAND.muted};">
+        Enviado pela <strong style="color:${BRAND.primary};">Unithery</strong> em nome do consultório.
+      </p>
+    `;
+
+    const text = [
+      'Unithery',
+      copy.title,
+      '',
+      `Olá, ${params.contactName}!`,
+      copy.leadText,
+      `Paciente: ${params.patientName}`,
+      `Profissional: ${params.professionalName}`,
+      `Data e horário cancelados: ${fullLabel}`,
+      `Duração prevista: ${durationText}`,
+      '',
+      'Este e-mail foi enviado pela plataforma Unithery em nome do consultório/clínica.',
+    ].join('\n');
+
+    return { subject: copy.subject, html: wrapLayout(copy.title, bodyHtml), text };
+  }
+
   const copy = COPY[params.kind];
+  const audience = params.audience ?? 'contact';
   const bodyHtml = `
     <p style="margin:0 0 4px;">${copy.lead({
       contactName: params.contactName,
       patientName: params.patientName,
       professionalName: params.professionalName,
+      audience,
     })}</p>
     ${sessionDetailsCard({
       patientName: params.patientName,

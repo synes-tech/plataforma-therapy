@@ -1,6 +1,8 @@
 import { createUserClient, createServiceClient } from '../_shared/supabase.ts';
-import { AppError, ForbiddenError } from '../_shared/errors.ts';
+import { AppError, ForbiddenError, ValidationError } from '../_shared/errors.ts';
 import { resolveEntryDate, validateDiaryEntryDate } from '../_shared/diary-entry-date.ts';
+import { getFamilyPatientLink } from '../_shared/family-access.ts';
+import { normalizeCategories, normalizeDiaryPayload } from '../_shared/portal-diary.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { SubmitDiaryPayload, SubmitDiaryResponse } from './types.ts';
 
@@ -43,7 +45,23 @@ export async function submitDiary(
     });
   }
 
-  // 4. Insert diary entry (RLS will also validate)
+  // 4. O modo do diário vem do vínculo, nunca do cliente. Deixar o PWA declarar que é um
+  // auto-relato permitiria a um cuidador gravar entradas assinadas como se fossem do
+  // paciente — e o prontuário perderia a distinção entre observação e primeira pessoa.
+  const link = await getFamilyPatientLink(caller.id);
+  if (link.patient_id !== payload.patient_id) {
+    throw new ForbiddenError('You are not authorized to submit entries for this patient');
+  }
+
+  const { payload: dynamicPayload, errors: payloadErrors } = normalizeDiaryPayload(
+    link.access_level,
+    payload.payload,
+  );
+  if (Object.keys(payloadErrors).length > 0) {
+    throw new ValidationError(payloadErrors);
+  }
+
+  // 5. Insert diary entry (RLS will also validate)
   const entryDate = resolveEntryDate(payload.entry_date);
   validateDiaryEntryDate(entryDate);
 
@@ -58,10 +76,14 @@ export async function submitDiary(
       sleep_quality: payload.sleep_quality,
       crisis_occurred: payload.crisis_occurred,
       crisis_level: payload.crisis_occurred ? payload.crisis_level : null,
-      categories: payload.categories,
+      categories: normalizeCategories(link.access_level, payload.categories),
       notes: payload.notes ?? payload.transcricao ?? null,
       audio_note_url: payload.audio_note_url ?? null,
       transcricao: payload.transcricao ?? null,
+      payload: dynamicPayload,
+      author_access_level: link.access_level,
+      portal_link_id: link.link_id,
+      author_user_id: caller.id,
     })
     .select('id')
     .single();
@@ -78,7 +100,7 @@ export async function submitDiary(
     throw new AppError({ code: 'DIARY_CREATE_FAILED', message: error.message, statusCode: 500 });
   }
 
-  // 5. Audit log
+  // 6. Audit log
   await serviceClient.from('audit_logs').insert({
     user_id: caller.id,
     clinic_id: clinicId,
@@ -89,10 +111,11 @@ export async function submitDiary(
       patient_id: payload.patient_id,
       mood_score: payload.mood_score,
       crisis_occurred: payload.crisis_occurred,
+      access_level: link.access_level,
     },
   });
 
-  // 6. Notify professional via Realtime (crisis alert was auto-created by DB trigger)
+  // 7. Notify professional via Realtime (crisis alert was auto-created by DB trigger)
   if (payload.crisis_occurred && payload.crisis_level && payload.crisis_level >= 3) {
     // The DB trigger already created the crisis_alert.
     // The professional's frontend subscribes to crisis_alerts table via Realtime.

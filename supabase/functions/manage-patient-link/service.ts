@@ -1,5 +1,5 @@
 import { createServiceClient } from '../_shared/supabase.ts';
-import { hardDeletePatientData } from '../_shared/hard-delete-patient.ts';
+import { hardDeletePatientData, postgrestErrorMessage } from '../_shared/hard-delete-patient.ts';
 import { assertCanUnlinkToBackup } from '../_shared/paywall.ts';
 import { AppError } from '../_shared/errors.ts';
 import { verifyProfessionalPatientWrite } from '../_shared/verify-patient-access.ts';
@@ -95,9 +95,11 @@ export async function managePatientLink(
   try {
     await hardDeletePatientData(patient.id, patient.clinic_id as string);
   } catch (err) {
+    const detail = postgrestErrorMessage(err);
+    console.error('[manage-patient-link] hard delete failed', { patient_id: patient.id, detail });
     throw new AppError({
       code: 'DELETE_FAILED',
-      message: err instanceof Error ? err.message : 'Falha ao excluir paciente',
+      message: detail || 'Falha ao excluir paciente',
       statusCode: 500,
     });
   }

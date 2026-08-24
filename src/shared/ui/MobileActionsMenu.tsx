@@ -14,6 +14,7 @@ interface MobileActionsMenuProps {
   items: MobileActionItem[];
   label?: string;
   className?: string;
+  dataTour?: string;
 }
 
 function ChevronDownIcon({ open }: { open: boolean }) {
@@ -41,7 +42,7 @@ interface MenuPosition {
  * Botão "Ações" com menu dropdown — apenas mobile (< sm).
  * Menu renderizado via portal para sobrepor todo o conteúdo da página.
  */
-export function MobileActionsMenu({ items, label = 'Ações', className = '' }: MobileActionsMenuProps) {
+export function MobileActionsMenu({ items, label = 'Ações', className = '', dataTour }: MobileActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -127,7 +128,7 @@ export function MobileActionsMenu({ items, label = 'Ações', className = '' }: 
                   setOpen(false);
                   item.onClick();
                 }}
-                className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-base font-medium leading-snug transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   item.variant === 'primary'
                     ? 'text-primary hover:bg-primary-50'
                     : 'text-charcoal hover:bg-slate-50'
@@ -144,14 +145,14 @@ export function MobileActionsMenu({ items, label = 'Ações', className = '' }: 
 
   return (
     <>
-      <div className={`relative sm:hidden ${className}`.trim()}>
+      <div className={`relative sm:hidden ${className}`.trim()} data-tour={dataTour}>
         <button
           ref={buttonRef}
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-haspopup="menu"
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-charcoal shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-base font-semibold text-charcoal shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
         >
           {label}
           <ChevronDownIcon open={open} />

@@ -85,7 +85,7 @@ export function PatientArchiveReactivateFlow({
         isOpen={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
         message={upgradeMessage}
-        ctaHref="/assinatura?plans=1"
+        ctaHref="/settings?plans=1"
         ctaLabel="Ver plano"
       />
     </>

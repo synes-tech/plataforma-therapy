@@ -76,7 +76,7 @@ export async function getPatientRecord(
 
   const { data: diaryEntries } = await supabase
     .from('diary_entries')
-    .select('id, entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes, audio_note_url, transcricao')
+    .select('id, entry_date, mood_score, sleep_quality, crisis_occurred, crisis_level, categories, notes, audio_note_url, transcricao, payload, author_access_level')
     .eq('patient_id', payload.patient_id)
     .is('deleted_at', null)
     .gte('entry_date', fourteenDaysAgo)

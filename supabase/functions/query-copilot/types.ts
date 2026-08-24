@@ -1,7 +1,11 @@
+export type CopilotSurface = 'record' | 'workspace';
+
 export interface QueryCopilotPayload {
   patient_id: string;
   message: string;
   stream?: boolean;
+  surface?: CopilotSurface;
+  input_source?: 'text' | 'audio';
   conversation_history?: ConversationMessage[];
 }
 

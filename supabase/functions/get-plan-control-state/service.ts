@@ -8,21 +8,22 @@ import { isBillingExemptEmail } from '../_shared/billing-exempt.ts';
 export const BACKUP_PACK_SIZE = 5;
 export const BACKUP_PRICE_CENTS_PER_PACK = 1990;
 
-const SOLO_PLANS = new Set([
-  'free',
-  'standard',
-  'advanced',
-  'premium',
-  // legado
-  'inicial',
-  'intermediario',
-  'consultorio',
-]);
-
 const ADDON_BY_PLAN: Record<string, string> = {
   standard: 'modulo_sa',
   advanced: 'modulo_sa',
   premium: 'modulo_p',
+};
+
+const PLAN_BASE_FALLBACK: Record<string, number> = {
+  free: 1,
+  standard: 10,
+  advanced: 20,
+  premium: 30,
+  inicial: 10,
+  consultorio: 10,
+  intermediario: 40,
+  starter: 40,
+  professional: 60,
 };
 
 export async function getPlanControlState(
@@ -49,7 +50,6 @@ export async function getPlanControlState(
   }
 
   const planId = clinic.subscription_plan as string;
-  const isSolo = clinic.is_solo_professional === true || SOLO_PLANS.has(planId);
   const billingExempt =
     clinic.billing_exempt === true || isBillingExemptEmail(clinic.email as string);
 
@@ -69,15 +69,13 @@ export async function getPlanControlState(
       .select('max_patients_per_professional')
       .eq('clinic_id', clinicId)
       .maybeSingle(),
-    isSolo
-      ? supabase
-          .from('professionals')
-          .select('id, patient_quota_bonus')
-          .eq('clinic_id', clinicId)
-          .eq('user_id', caller.id)
-          .is('deleted_at', null)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from('professionals')
+      .select('id, patient_quota_bonus')
+      .eq('clinic_id', clinicId)
+      .eq('user_id', caller.id)
+      .is('deleted_at', null)
+      .maybeSingle(),
   ]);
 
   if (countError) {
@@ -108,24 +106,36 @@ export async function getPlanControlState(
       .eq('status', 'active'),
   ]);
 
-  if (isSolo && ownerProfessional?.id) {
-    const planBase = Number(settings?.max_patients_per_professional ?? 0);
-    const bonus = Number(ownerProfessional.patient_quota_bonus ?? 0);
+  const isAdminViewer = caller.role === 'clinic_admin' || caller.role === 'master';
+  const canSeeQuota = Boolean(ownerProfessional?.id) || isAdminViewer;
 
-    const { count: activeCount } = await supabase
-      .from('patients')
-      .select('id', { count: 'exact', head: true })
-      .eq('professional_id', ownerProfessional.id)
+  if (canSeeQuota) {
+    const planBaseRaw = Number(settings?.max_patients_per_professional ?? 0);
+    const planBase = planBaseRaw > 0 ? planBaseRaw : PLAN_BASE_FALLBACK[planId] ?? 30;
+    const bonusFromProfessional = Number(ownerProfessional?.patient_quota_bonus ?? 0);
+    const bonusFromAddons = (activeAddonRows ?? []).reduce((sum, row) => {
+      const catalog = row.plan_addons as unknown as { pacientes_bonus?: number } | null;
+      return sum + Number(row.quantidade ?? 0) * Number(catalog?.pacientes_bonus ?? 5);
+    }, 0);
+    const bonus = ownerProfessional?.id ? bonusFromProfessional : bonusFromAddons;
+
+    const activeFilter = ownerProfessional?.id
+      ? supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .eq('professional_id', ownerProfessional.id)
+      : supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId);
+
+    const { count: activeCount } = await activeFilter
       .eq('status', 'active')
       .eq('status_vinculo', 'ativo')
       .is('deleted_at', null);
 
-    patientQuota = {
-      plan_base_limit: billingExempt ? 0 : planBase,
-      quota_bonus: billingExempt ? 0 : bonus,
-      total_limit: billingExempt ? 0 : planBase + bonus,
-      active_count: activeCount ?? 0,
-      addon: billingExempt ? null : addonCatalogRow
+    const addon =
+      addonCatalogRow
         ? {
             addon_id: addonCatalogRow.id as string,
             nome: addonCatalogRow.nome as string,
@@ -135,7 +145,14 @@ export async function getPlanControlState(
               ? Number(addonCatalogRow.preco_anual_mensal_cents)
               : null,
           }
-        : null,
+        : null;
+
+    patientQuota = {
+      plan_base_limit: planBase,
+      quota_bonus: bonus,
+      total_limit: planBase + bonus,
+      active_count: activeCount ?? 0,
+      addon,
     };
   }
 

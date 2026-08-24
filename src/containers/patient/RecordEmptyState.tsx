@@ -11,7 +11,7 @@ interface RecordEmptyStateProps {
 const COPY: Record<EmptyVariant, { title: string; description: string }> = {
   sessions: {
     title: 'Nenhuma sessão registrada',
-    description: 'Grave uma sessão para iniciar o histórico clínico deste paciente.',
+    description: 'Inicie uma sessão para começar o histórico clínico deste paciente.',
   },
   diary: {
     title: 'Diário familiar vazio',

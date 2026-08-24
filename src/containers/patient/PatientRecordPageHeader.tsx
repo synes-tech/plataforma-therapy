@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@containers/layout';
+import { sessionWorkspacePath } from '@containers/session-workspace/session-workspace.utils';
 import { MobileActionsMenu } from '@shared/ui/MobileActionsMenu';
 import { PatientAvatar } from './PatientAvatar';
 import { FamilyDiaryAlertButton } from './family-diary/FamilyDiaryAlertButton';
 import { PatientFamilyInviteButton } from './PatientFamilyInvite';
 import { PatientLinkManageFlow } from './PatientLinkManageFlow';
-import { PatientRecordTabs } from './PatientRecordTabs';
 import { RecordSessionButton } from './RecordSessionButton';
-import type { PatientInfo, PatientRecordTab } from './patient-record.types';
+import type { PatientInfo } from './patient-record.types';
 
 interface PatientRecordPageHeaderProps {
   patient: PatientInfo;
@@ -16,22 +16,8 @@ interface PatientRecordPageHeaderProps {
   diaryCount: number;
   onDiaryOpen: () => void;
   onFamilyInvite: () => void;
-  activeTab: PatientRecordTab;
-  onTabChange: (tab: PatientRecordTab) => void;
-  clinicalDirty?: boolean;
   bleed?: boolean;
 }
-
-function SparkIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-    </svg>
-  );
-}
-
-const btnPrimary =
-  'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-dark active:scale-[0.98] sm:px-4';
 
 export function PatientRecordPageHeader({
   patient,
@@ -39,20 +25,13 @@ export function PatientRecordPageHeader({
   diaryCount,
   onDiaryOpen,
   onFamilyInvite,
-  activeTab,
-  onTabChange,
-  clinicalDirty,
   bleed = true,
 }: PatientRecordPageHeaderProps) {
   const navigate = useNavigate();
   const openLinkManageRef = useRef<(() => void) | null>(null);
 
-  function goCopilot() {
-    if (activeTab !== 'copilot') onTabChange('copilot');
-  }
-
   function goRecordSession() {
-    navigate(`/session/${patient.id}`);
+    navigate(sessionWorkspacePath(patient.id));
   }
 
   const mobileActions = [
@@ -72,38 +51,33 @@ export function PatientRecordPageHeader({
       : []),
     {
       id: 'record',
-      label: 'Gravar sessão',
+      label: 'Iniciar sessão',
       onClick: goRecordSession,
-    },
-    {
-      id: 'copilot',
-      label: 'Copiloto IA',
-      onClick: goCopilot,
       variant: 'primary' as const,
-      icon: <SparkIcon className="h-4 w-4" />,
     },
   ];
 
   return (
     <PageHeader
       bleed={bleed}
-      backButton={{
-        onClick: () => navigate('/patients'),
-        label: 'Voltar para pacientes',
-      }}
       title={
-        <div className="flex items-start gap-3 sm:gap-4">
-          <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="lg" />
+        <div className="flex items-center gap-3 sm:gap-4">
+          <span className="lg:hidden">
+            <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="lg" />
+          </span>
+          <span className="hidden lg:inline-flex">
+            <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="sm" />
+          </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-serif text-xl font-medium tracking-tight text-charcoal sm:text-2xl md:text-3xl">
+              <h1 className="truncate font-serif text-xl font-medium tracking-tight text-charcoal sm:text-2xl lg:font-display lg:text-[20px] lg:font-semibold lg:leading-none lg:tracking-tight">
                 {patient.name}
               </h1>
               <FamilyDiaryAlertButton count={diaryCount} onClick={onDiaryOpen} />
             </div>
-            {patient.nome_social && (
-              <p className="mt-0.5 text-sm text-charcoal-muted">Nome social: {patient.nome_social}</p>
-            )}
+            {patient.nome_social ? (
+              <p className="mt-0.5 text-sm text-charcoal-muted lg:hidden">Nome social: {patient.nome_social}</p>
+            ) : null}
           </div>
         </div>
       }
@@ -141,22 +115,14 @@ export function PatientRecordPageHeader({
               }}
             />
             <RecordSessionButton onClick={goRecordSession} />
-            <button type="button" onClick={goCopilot} className={btnPrimary}>
-              <SparkIcon className="h-3.5 w-3.5" />
-              Copiloto IA
-            </button>
           </div>
 
-          <MobileActionsMenu items={mobileActions} className="w-full sm:w-auto" />
+          <MobileActionsMenu
+            items={mobileActions}
+            className="w-full sm:w-auto"
+            dataTour="cta-patient-actions"
+          />
         </div>
-      }
-      tabs={
-        <PatientRecordTabs
-          active={activeTab}
-          onChange={onTabChange}
-          clinicalDirty={clinicalDirty}
-          embedded
-        />
       }
     />
   );

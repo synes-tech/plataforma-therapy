@@ -13,6 +13,14 @@ export interface DiaryEntryFixture {
   notes: string | null;
 }
 
+export function workspaceSurfaceAddendum(patientName: string): string {
+  return `=== MODO COPILOTO AO TERAPEUTA ===
+Você está no workspace dedicado do terapeuta, como um colega clínico ao lado dele — não como um chatbot genérico.
+O paciente desta conversa é ${patientName}. O contexto está TRAVADO neste paciente. Nunca peça outro paciente, nunca misture casos e nunca invente um segundo prontuário.
+Tom: conversacional, colaborativo e preciso. Pode fazer UMA pergunta curta de esclarecimento se faltar um dado clínico essencial.
+Continue citando fontes (diário, sessão, inventário, anexos). Evite saudações longas depois da primeira resposta.`;
+}
+
 export function formatDiaryEntryLine(entry: DiaryEntryFixture): string {
   const categories = Array.isArray(entry.categories) && entry.categories.length > 0
     ? ` | Categorias: ${entry.categories.join(', ')}`

@@ -75,6 +75,7 @@ export function SessionNoteApprovalEditor({
       void queryClient.invalidateQueries({ queryKey: ['monthly-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['latest-agreements'] });
       void queryClient.invalidateQueries({ queryKey: ['family-shared-artifacts'] });
+      void queryClient.invalidateQueries({ queryKey: ['patient-artifacts', patientId] });
       if (data.payment_prompt) setPaymentPrompt(data.payment_prompt);
       onApproved?.(data.visivel_familia);
     },

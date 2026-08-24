@@ -42,6 +42,9 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
     'Não foi possível montar o contexto clínico. Verifique se as migrações do banco foram aplicadas ou tente novamente.',
   VALIDATION_ERROR: 'Dados inválidos. Verifique os campos abaixo.',
   REACTIVATION_COOLDOWN: 'Reativação temporariamente bloqueada por segurança.',
+  COMPANION_UNAVAILABLE: 'O Acompanhante está disponível para pacientes adultos com o plano de apoio ativo.',
+  BILLING_EXEMPT: 'Conta administrativa — sem assinatura ou cobrança para cancelar.',
+  NOTHING_TO_CANCEL: 'Não há assinatura ativa para cancelar.',
 };
 
 /**
@@ -297,6 +300,12 @@ export interface CopilotStreamMeta {
   answer_incomplete?: boolean;
   tokens_used: number;
   latency_ms: number;
+  /** Campos do Acompanhante B2C — ausentes no copiloto do terapeuta. */
+  risk_level?: string;
+  emergency_protocol_shown?: boolean;
+  thread_id?: string;
+  message_id?: string;
+  detector?: string;
 }
 
 function parseNdjsonEvents(
@@ -336,6 +345,14 @@ function parseNdjsonEvents(
       answer_incomplete: event.answer_incomplete as boolean | undefined,
       tokens_used: Number(event.tokens_used ?? 0),
       latency_ms: Number(event.latency_ms ?? 0),
+      risk_level: typeof event.risk_level === 'string' ? event.risk_level : undefined,
+      emergency_protocol_shown:
+        typeof event.emergency_protocol_shown === 'boolean'
+          ? event.emergency_protocol_shown
+          : undefined,
+      thread_id: typeof event.thread_id === 'string' ? event.thread_id : undefined,
+      message_id: typeof event.message_id === 'string' ? event.message_id : undefined,
+      detector: typeof event.detector === 'string' ? event.detector : undefined,
     });
     return true;
   }

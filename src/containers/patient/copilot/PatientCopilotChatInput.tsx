@@ -1,5 +1,6 @@
 import { useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { COPILOT_DISCLAIMER } from './patient-copilot.constants';
+import type { CopilotSurface } from './patient-copilot.types';
 import type { CopilotAudioInputState } from './useCopilotAudioInput';
 
 interface PatientCopilotChatInputProps {
@@ -14,6 +15,7 @@ interface PatientCopilotChatInputProps {
   onStopRecording?: () => void;
   onCancelRecording?: () => void;
   audioError?: string | null;
+  variant?: CopilotSurface;
 }
 
 function SendIcon() {
@@ -57,6 +59,7 @@ export function PatientCopilotChatInput({
   onStopRecording,
   onCancelRecording,
   audioError,
+  variant = 'record',
 }: PatientCopilotChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isRecording = audioState === 'recording';
@@ -83,7 +86,13 @@ export function PatientCopilotChatInput({
   }
 
   return (
-    <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 lg:px-6">
+    <div
+      className={
+        variant === 'workspace'
+          ? 'shrink-0 bg-gradient-to-t from-[#F8FAF9] via-[#F8FAF9] to-transparent px-4 pb-5 pt-3 lg:px-8'
+          : 'shrink-0 border-t border-slate-100 bg-white px-4 py-3 lg:px-6'
+      }
+    >
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
         {isRecording ? (
           <div
@@ -120,7 +129,13 @@ export function PatientCopilotChatInput({
             </div>
           </div>
         ) : (
-          <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-gray-50 p-2 shadow-sm">
+          <div
+            className={
+              variant === 'workspace'
+                ? 'flex items-end gap-2 rounded-3xl border border-slate-200 bg-white p-2.5 shadow-lg shadow-slate-200/70'
+                : 'flex items-end gap-2 rounded-2xl border border-slate-200 bg-gray-50 p-2 shadow-sm'
+            }
+          >
             <textarea
               ref={textareaRef}
               value={value}

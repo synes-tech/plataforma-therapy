@@ -63,9 +63,17 @@ export function applyReceivablePaid(
   data: FinanceReceivablesResponse,
   id: string,
   paidOn: string,
+  valorCents?: number,
 ): FinanceReceivablesResponse {
   const items = data.items.map((item) =>
-    item.id === id ? { ...item, status: 'PAGO' as const, data_pagamento: paidOn } : item,
+    item.id === id
+      ? {
+          ...item,
+          status: 'PAGO' as const,
+          data_pagamento: paidOn,
+          valor_cents: valorCents ?? item.valor_cents,
+        }
+      : item,
   );
   return { ...data, items, summary: summarizeReceivables(items) };
 }

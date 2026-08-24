@@ -54,7 +54,7 @@ describe('buildArtifactTitle', () => {
       /Plano de Ação - 19\/06\/2026/,
     );
     expect(buildArtifactTitle('relatorio_sessao', '2026-06-19T14:24:00.000Z')).toMatch(
-      /Relatório -/,
+      /Relatório da sessão de 19\/06\/2026/,
     );
   });
 });

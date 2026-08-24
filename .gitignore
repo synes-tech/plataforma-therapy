@@ -39,3 +39,6 @@ playwright-report/
 # PWA generated
 dev-dist/
 infra/gcp/dumps/
+
+# Binários de ferramentas locais (cloud-sql-proxy, deno)
+.tools/

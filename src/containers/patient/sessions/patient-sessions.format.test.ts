@@ -3,6 +3,8 @@ import type { PatientSessionRecord } from '../session/session-history.types';
 import {
   buildSessionPreview,
   deriveSessionReportBadge,
+  resolveSessionSavedArtifactId,
+  sessionSavedReportPath,
   truncateSessionPreview,
 } from './patient-sessions.format';
 
@@ -44,5 +46,43 @@ describe('patient-sessions.format', () => {
 
   it('monta preview a partir do subjetivo', () => {
     expect(buildSessionPreview(sampleSession())).toContain('engajado');
+  });
+
+  it('resolve o artefato salvo da sessão', () => {
+    expect(sessionSavedReportPath('p1', 'art-9')).toBe('/patients/p1/documents?artifact=art-9');
+    expect(
+      resolveSessionSavedArtifactId(sampleSession({ saved_artifact_id: 'art-1' }), []),
+    ).toBe('art-1');
+    expect(
+      resolveSessionSavedArtifactId(sampleSession(), [
+        {
+          id: 'art-2',
+          tipo_artefato: 'relatorio_sessao',
+          titulo: null,
+          conteudo_texto: 'Relatório',
+          criado_em: '2026-06-01T14:00:00Z',
+          is_legacy: false,
+          compartilhado_familia: false,
+          session_note_id: '1',
+        },
+      ]),
+    ).toBe('art-2');
+    expect(
+      resolveSessionSavedArtifactId(
+        sampleSession(),
+        [
+          {
+            id: 'art-3',
+            tipo_artefato: 'relatorio_sessao',
+            titulo: 'Relatório da sessão de 01/06/2026 — Ana',
+            conteudo_texto: 'Relatório',
+            criado_em: '2026-06-01T14:00:00Z',
+            is_legacy: false,
+            compartilhado_familia: false,
+          },
+        ],
+        'Ana',
+      ),
+    ).toBe('art-3');
   });
 });

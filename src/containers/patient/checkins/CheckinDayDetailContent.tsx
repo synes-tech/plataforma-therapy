@@ -103,7 +103,7 @@ export function CheckinDayDetailContent({ day, hideDateHeader = false }: Checkin
         ) : (
           <div className="rounded-xl border border-slate-100 bg-white px-4 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-charcoal-muted">
-              Observações da família
+              Observações
             </p>
             <p className="mt-2 text-sm italic text-charcoal-muted">
               Nenhuma observação escrita neste check-in.

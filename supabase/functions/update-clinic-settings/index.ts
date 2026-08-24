@@ -3,7 +3,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { authenticateRequest, requireClinicOwner, logAuthEvent } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { resolveClinicId } from '../_shared/clinic.ts';
+import { resolveClinicId, resolveOwnerName, resolveOwnerRecord } from '../_shared/clinic.ts';
 import { AppError, ValidationError } from '../_shared/errors.ts';
 import { UpdateClinicSettingsSchema } from './schema.ts';
 
@@ -42,13 +42,22 @@ serve(async (req: Request) => {
       if (clinicPatch.document !== undefined) updates.document = clinicPatch.document || null;
 
       if (Object.keys(updates).length > 0) {
-        const { error } = await supabase
+        const { data: clinicRow, error } = await supabase
           .from('clinics')
           .update(updates)
           .eq('id', clinicId)
-          .is('deleted_at', null);
+          .is('deleted_at', null)
+          .select('id')
+          .maybeSingle();
         if (error) {
           throw new AppError({ code: 'UPDATE_FAILED', message: error.message, statusCode: 500 });
+        }
+        if (!clinicRow) {
+          throw new AppError({
+            code: 'UPDATE_FAILED',
+            message: 'Não foi possível atualizar os dados do consultório.',
+            statusCode: 500,
+          });
         }
         changed.clinic = Object.keys(updates);
       }
@@ -62,14 +71,16 @@ serve(async (req: Request) => {
       if (ownerPatch.crp !== undefined) updates.crp = ownerPatch.crp || null;
 
       if (Object.keys(updates).length > 0) {
-        const { data: adminRow } = await supabase
-          .from('clinic_admins')
-          .select('id')
-          .eq('user_id', user.id)
-          .is('deleted_at', null)
-          .maybeSingle();
+        const ownerRef = await resolveOwnerRecord(supabase, user);
+        if (!ownerRef) {
+          throw new AppError({
+            code: 'UPDATE_FAILED',
+            message: 'Não foi possível localizar o perfil para atualizar.',
+            statusCode: 404,
+          });
+        }
 
-        const table = adminRow ? 'clinic_admins' : 'professionals';
+        const table = ownerRef.kind === 'clinic_admin' ? 'clinic_admins' : 'professionals';
         const tableUpdates: Record<string, unknown> = { ...updates };
         if (table === 'clinic_admins') {
           delete tableUpdates.specialty;
@@ -79,14 +90,23 @@ serve(async (req: Request) => {
         if (Object.keys(tableUpdates).length === 0) {
           // apenas specialty/crp para admin — ignorar silenciosamente
         } else {
-        const { error } = await supabase
+        const { data: ownerRow, error } = await supabase
           .from(table)
           .update(tableUpdates)
-          .eq('user_id', user.id)
-          .is('deleted_at', null);
+          .eq('id', ownerRef.id)
+          .is('deleted_at', null)
+          .select('id')
+          .maybeSingle();
 
         if (error) {
           throw new AppError({ code: 'UPDATE_FAILED', message: error.message, statusCode: 500 });
+        }
+        if (!ownerRow) {
+          throw new AppError({
+            code: 'UPDATE_FAILED',
+            message: 'Não foi possível atualizar o perfil. Recarregue a página e tente de novo.',
+            statusCode: 500,
+          });
         }
         changed.owner_profile = Object.keys(tableUpdates);
         }
@@ -118,7 +138,72 @@ serve(async (req: Request) => {
 
     logAuthEvent('clinic.settings.update', user, 'update-clinic-settings', { changed });
 
-    return successResponse({ updated: true, changed }, req, 200);
+    const ownerName = await resolveOwnerName(supabase, user);
+    const ownerRefFresh = await resolveOwnerRecord(supabase, user);
+
+    const { data: clinicFresh } = await supabase
+      .from('clinics')
+      .select('id, name, document, email, phone, subscription_plan, status, is_solo_professional, created_at')
+      .eq('id', clinicId)
+      .is('deleted_at', null)
+      .single();
+
+    let ownerFresh: Record<string, unknown>;
+    if (ownerRefFresh?.kind === 'clinic_admin') {
+      const { data: adminFresh } = await supabase
+        .from('clinic_admins')
+        .select('name, email, foto_url')
+        .eq('id', ownerRefFresh.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      ownerFresh = {
+        kind: 'clinic_admin',
+        name: adminFresh?.name ?? ownerName,
+        email: adminFresh?.email ?? user.email,
+        foto_url: adminFresh?.foto_url ?? null,
+        specialty: null,
+        crp: null,
+      };
+    } else if (ownerRefFresh?.kind === 'professional') {
+      const { data: profFresh } = await supabase
+        .from('professionals')
+        .select('name, email, specialty, crp, foto_url')
+        .eq('id', ownerRefFresh.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      ownerFresh = {
+        kind: 'professional',
+        name: profFresh?.name ?? ownerName,
+        email: profFresh?.email ?? user.email,
+        specialty: profFresh?.specialty ?? null,
+        crp: profFresh?.crp ?? null,
+        foto_url: profFresh?.foto_url ?? null,
+      };
+    } else {
+      ownerFresh = {
+        kind: 'professional',
+        name: ownerName,
+        email: user.email,
+        specialty: null,
+        crp: null,
+        foto_url: null,
+      };
+    }
+
+    const { data: prefsFresh } = await supabase
+      .from('clinic_preferences')
+      .select('crisis_alerts_email, weekly_digest_email, ai_usage_alerts')
+      .eq('clinic_id', clinicId)
+      .maybeSingle();
+
+    return successResponse({
+      updated: true,
+      changed,
+      admin_name: ownerName,
+      clinic: clinicFresh,
+      owner_profile: ownerFresh,
+      preferences: prefsFresh,
+    }, req, 200);
   } catch (error) {
     return errorResponse(error, req);
   }

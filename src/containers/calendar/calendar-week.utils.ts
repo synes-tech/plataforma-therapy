@@ -1,5 +1,11 @@
 import type { LayoutedWeekEvent, WeekSession } from './calendar-week.types';
-import { WEEK_HOUR_END, WEEK_HOUR_HEIGHT_PX, WEEK_HOUR_START } from './calendar-week.types';
+import {
+  WEEK_FOCUS_HOUR_END,
+  WEEK_FOCUS_HOUR_START,
+  WEEK_HOUR_END,
+  WEEK_HOUR_HEIGHT_PX,
+  WEEK_HOUR_START,
+} from './calendar-week.types';
 
 const BR_TZ = 'America/Sao_Paulo';
 
@@ -106,6 +112,18 @@ export function buildHourMarkers(): number[] {
   return hours;
 }
 
+export function weekFocusScrollTopPx(): number {
+  return (WEEK_FOCUS_HOUR_START - WEEK_HOUR_START) * WEEK_HOUR_HEIGHT_PX;
+}
+
+export function weekFocusViewportHeightPx(): number {
+  return (WEEK_FOCUS_HOUR_END - WEEK_FOCUS_HOUR_START) * WEEK_HOUR_HEIGHT_PX;
+}
+
+export function isWeekFocusHour(hour: number): boolean {
+  return hour >= WEEK_FOCUS_HOUR_START && hour < WEEK_FOCUS_HOUR_END;
+}
+
 function overlaps(a: LayoutedWeekEvent, b: LayoutedWeekEvent): boolean {
   return a.endMinutes > b.startMinutes && a.startMinutes < b.endMinutes;
 }
@@ -198,14 +216,10 @@ export function getTimeFromGridOffsetY(offsetY: number): string {
   return minutesToTimeLabel(getMinutesFromGridOffsetY(offsetY));
 }
 
-/** Horário a partir de um clique dentro de uma faixa horária da visão semanal. */
-export function getTimeFromHourSlotClick(hour: number, offsetYInHourPx: number): string {
-  const snappedInHour = Math.round(((offsetYInHourPx / WEEK_HOUR_HEIGHT_PX) * 60) / 15) * 15;
-  const clampedInHour = Math.max(0, Math.min(45, snappedInHour));
-  const totalMinutes = hour * 60 + clampedInHour;
-  return minutesToTimeLabel(
-    Math.max(WEEK_HOUR_START * 60, Math.min(WEEK_HOUR_END * 60 - 15, totalMinutes)),
-  );
+/** Clique no quadrado da hora: sempre o horário cheio (08:00, 09:00…). */
+export function getTimeFromHourSlotClick(hour: number): string {
+  const clampedHour = Math.max(WEEK_HOUR_START, Math.min(WEEK_HOUR_END - 1, hour));
+  return minutesToTimeLabel(clampedHour * 60);
 }
 
 export function formatDayHeader(iso: string, todayISO: string): { weekday: string; day: string; isToday: boolean } {
