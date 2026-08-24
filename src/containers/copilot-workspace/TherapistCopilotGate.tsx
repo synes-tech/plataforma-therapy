@@ -5,6 +5,7 @@ import { PatientCreateModal } from '@containers/patient/PatientCreateModal';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { useAuth } from '@shared/hooks/useAuth';
 import { TheryAvatar } from '@shared/ui/TheryAvatar';
+import { LayoutAccountSlot } from '@shared/ui/layout-account-context';
 import { filterWorkspacePatients, workspacePatientAgeLabel } from './copilot-workspace.utils';
 import { IvyWelcomeHero } from './IvyWelcomeHero';
 import { TherapistCopilotPatientsModal } from './TherapistCopilotPatientsModal';
@@ -95,6 +96,9 @@ export function TherapistCopilotGate({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-[#F8FAF9]">
+      <div className="hidden h-14 shrink-0 items-center justify-end px-6 lg:flex">
+        <LayoutAccountSlot />
+      </div>
       <div className="mx-auto my-auto w-full max-w-2xl px-5 py-8" data-tour={copy.dataTour}>
         <div className="mb-8 text-center">
           <div className="mx-auto mb-5 flex justify-center">

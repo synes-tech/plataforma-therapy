@@ -7,6 +7,8 @@ import { callFunction } from '@shared/lib/api';
 import { canAccessFinance, isClinicOwner } from '@shared/lib/roles';
 import type { AuthenticatedUser } from '@shared/types';
 import { UserProfile } from './UserProfile';
+import { DesktopAccountChip } from './DesktopAccountChip';
+import { LayoutAccountProvider } from './layout-account-context';
 import { ProfessionalMobileTabBar } from './ProfessionalMobileTabBar';
 import { shouldShowProfessionalMobileTabs } from './professional-mobile-tabs';
 import { BRAND_ICON_SRC, BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
@@ -193,13 +195,15 @@ function SidebarNav({
   isActive,
   onNavigate,
   collapsed = false,
+  omitCardItems = false,
 }: {
   user: AuthenticatedUser | null;
   isActive: (path: string) => boolean;
   onNavigate?: () => void;
   collapsed?: boolean;
+  omitCardItems?: boolean;
 }) {
-  const items = visibleNavItems(user);
+  const items = visibleNavItems(user).filter((item) => !(omitCardItems && item.variant === 'card'));
 
   return (
     <nav className={`space-y-1 py-4 ${collapsed ? 'px-2' : 'px-3'}`} aria-label="Menu principal">
@@ -211,41 +215,16 @@ function SidebarNav({
       {items.map((item) => {
         const active = isActive(item.href);
         const isCard = item.variant === 'card';
-        const [title, subtitle] = item.label.includes(' - ')
-          ? (item.label.split(' - ') as [string, string])
-          : [item.label, null];
 
         if (isCard) {
           return (
-            <div
+            <IvySidebarCard
               key={item.href}
-              className={`overflow-hidden rounded-2xl bg-primary shadow-sm ${
-                active ? 'ring-2 ring-white/50' : ''
-              }`}
-            >
-              <Link
-                to={item.href}
-                data-tour={professionalNavTourId(item.href)}
-                onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
-                aria-label={item.label}
-                className={`flex items-center text-sm text-white transition-colors hover:bg-primary-dark ${
-                  collapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-2'
-                }`}
-              >
-                {item.icon}
-                {collapsed ? (
-                  <span className="sr-only">{item.label}</span>
-                ) : subtitle ? (
-                  <span className="min-w-0 leading-tight">
-                    <span className="block font-semibold tracking-tight">{title}</span>
-                    <span className="block text-[11px] font-medium text-white/80">{subtitle}</span>
-                  </span>
-                ) : (
-                  <span className="leading-snug">{item.label}</span>
-                )}
-              </Link>
-            </div>
+              user={user}
+              isActive={isActive}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
           );
         }
 
@@ -270,6 +249,55 @@ function SidebarNav({
         );
       })}
     </nav>
+  );
+}
+
+function IvySidebarCard({
+  user,
+  isActive,
+  collapsed = false,
+  onNavigate,
+}: {
+  user: AuthenticatedUser | null;
+  isActive: (path: string) => boolean;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
+  const ivy = visibleNavItems(user).find((item) => item.variant === 'card');
+  if (!ivy) return null;
+
+  const active = isActive(ivy.href);
+  const [title, subtitle] = ivy.label.includes(' - ')
+    ? (ivy.label.split(' - ') as [string, string])
+    : [ivy.label, null];
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl bg-primary shadow-sm ${active ? 'ring-2 ring-white/50' : ''}`}
+    >
+      <Link
+        to={ivy.href}
+        data-tour={professionalNavTourId(ivy.href)}
+        onClick={onNavigate}
+        title={collapsed ? ivy.label : undefined}
+        aria-label={ivy.label}
+        className={`flex items-center text-sm text-white transition-colors hover:bg-primary-dark ${
+          collapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-2'
+        }`}
+      >
+        {ivy.icon}
+        {collapsed ? (
+          <span className="sr-only">{ivy.label}</span>
+        ) : subtitle ? (
+          <span className="min-w-0 leading-tight">
+            <span className="block font-semibold tracking-tight">{title}</span>
+            <span className="block text-[11px] font-medium text-white/80">{subtitle}</span>
+          </span>
+        ) : (
+          <span className="leading-snug">{ivy.label}</span>
+        )}
+      </Link>
+    </div>
   );
 }
 
@@ -371,7 +399,17 @@ function AppLayoutChrome({ children }: AppLayoutProps) {
   const isImmersiveChat = isPatientCopilotTab || isTherapistCopilot || isTherapistSession;
   const showMobileTabs = shouldShowProfessionalMobileTabs(user?.role);
 
+  const accountChip = (
+    <DesktopAccountChip
+      name={displayName}
+      fotoUrl={profileFotoUrl}
+      onLogout={handleLogout}
+      onOpenProfile={canOpenProfile ? openProfileSettings : undefined}
+    />
+  );
+
   return (
+    <LayoutAccountProvider value={accountChip}>
     <div
       className="flex h-dvh min-h-dvh overflow-hidden bg-[#F8FAF9]"
       data-sidebar={collapsed ? 'collapsed' : 'expanded'}
@@ -393,36 +431,18 @@ function AppLayoutChrome({ children }: AppLayoutProps) {
         </div>
 
         <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
-          <SidebarNav user={user} isActive={isActive} collapsed={collapsed} />
+          <SidebarNav user={user} isActive={isActive} collapsed={collapsed} omitCardItems />
         </div>
 
         <div className={`relative z-10 shrink-0 ${collapsed ? 'px-2 pb-1' : 'px-3 pb-1'}`}>
           <SidebarCollapseItem collapsed={collapsed} onToggle={toggle} />
         </div>
 
-        <div className={`relative z-10 shrink-0 border-t border-charcoal/8 ${collapsed ? 'flex flex-col items-center gap-2 p-2' : 'p-4'}`}>
-          <UserProfile
-            name={displayName}
-            role={displayRole}
-            fotoUrl={profileFotoUrl}
-            onLogout={handleLogout}
-            onOpenProfile={canOpenProfile ? openProfileSettings : undefined}
-            compact={collapsed}
-          />
-          {collapsed ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg p-1.5 text-charcoal-muted transition-colors hover:bg-white/70 hover:text-charcoal"
-              aria-label="Sair da conta"
-              title="Sair"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-              </svg>
-            </button>
-          ) : null}
-        </div>
+        {visibleNavItems(user).some((item) => item.variant === 'card') ? (
+          <div className={`relative z-10 shrink-0 ${collapsed ? 'px-2 pb-3' : 'px-3 pb-3'}`}>
+            <IvySidebarCard user={user} isActive={isActive} collapsed={collapsed} />
+          </div>
+        ) : null}
       </aside>
 
       {/* Mobile drawer overlay */}
@@ -512,6 +532,7 @@ function AppLayoutChrome({ children }: AppLayoutProps) {
         {showMobileTabs ? <ProfessionalMobileTabBar pathname={location.pathname} /> : null}
       </main>
     </div>
+    </LayoutAccountProvider>
   );
 }
 

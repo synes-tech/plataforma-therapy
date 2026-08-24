@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { PatientAvatar } from '@containers/patient/PatientAvatar';
+import { LayoutAccountSlot } from '@shared/ui/layout-account-context';
 import type { WorkspacePatient } from './copilot-workspace.types';
 
 interface TherapistCopilotHeaderProps {
@@ -21,15 +22,9 @@ export function TherapistCopilotHeader({
       <div className="flex flex-col gap-3 lg:h-full lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between lg:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="sm" />
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-sm font-medium text-charcoal lg:font-display lg:text-[20px] lg:font-semibold lg:leading-none">
-                {patient.name}
-              </p>
-              <p className="hidden shrink-0 text-[11px] font-medium text-ai lg:block">Contexto travado</p>
-            </div>
-            <p className="text-[11px] font-medium text-ai lg:hidden">Contexto travado neste paciente</p>
-          </div>
+          <p className="truncate text-sm font-medium text-charcoal lg:font-display lg:text-[20px] lg:font-semibold lg:leading-none">
+            {patient.name}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:flex-nowrap lg:overflow-x-auto">
@@ -59,6 +54,7 @@ export function TherapistCopilotHeader({
             Trocar paciente
           </button>
           {actions}
+          <LayoutAccountSlot className="border-l border-slate-200 pl-3" />
         </div>
       </div>
     </header>

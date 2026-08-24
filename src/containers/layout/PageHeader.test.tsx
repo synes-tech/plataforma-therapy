@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { LayoutAccountProvider } from '@shared/ui/layout-account-context';
 import { PageHeader } from './PageHeader';
 
 describe('PageHeader', () => {
@@ -69,5 +70,15 @@ describe('PageHeader', () => {
     expect(row?.className).toContain('lg:flex-nowrap');
     expect(row?.className).toContain('lg:h-14');
     expect(row?.className).toContain('lg:justify-start');
+  });
+
+  it('coloca a conta no fim da barra quando o layout informa', () => {
+    render(
+      <LayoutAccountProvider value={<span>JP</span>}>
+        <PageHeader title="Pacientes" actions={<button type="button">Novo</button>} />
+      </LayoutAccountProvider>,
+    );
+
+    expect(screen.getByText('JP')).toBeTruthy();
   });
 });

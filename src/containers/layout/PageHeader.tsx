@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LayoutAccountSlot, useLayoutAccount } from '@shared/ui/layout-account-context';
 
 export interface PageHeaderBackButton {
   onClick: () => void;
@@ -58,6 +59,7 @@ export function PageHeader({
   bleed = true,
 }: PageHeaderProps) {
   const bleedClass = bleed ? PAGE_HEADER_BLEED : 'px-4 sm:px-6 lg:px-8';
+  const account = useLayoutAccount();
 
   return (
     <header
@@ -116,9 +118,20 @@ export function PageHeader({
           </div>
         </div>
 
-        {actions ? (
-          <div className={`flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end lg:order-2 lg:flex-nowrap ${tabs ? '' : 'lg:ml-auto'}`}>
+        {actions || account ? (
+          <div
+            className={
+              actions
+                ? `flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end lg:order-2 lg:flex-nowrap ${tabs ? '' : 'lg:ml-auto'}`
+                : `hidden shrink-0 lg:order-2 lg:flex lg:items-center ${tabs ? '' : 'lg:ml-auto'}`
+            }
+          >
             {actions}
+            {account ? (
+              <div className={actions ? 'hidden border-l border-slate-200 pl-3 lg:flex' : undefined}>
+                <LayoutAccountSlot />
+              </div>
+            ) : null}
           </div>
         ) : null}
 
