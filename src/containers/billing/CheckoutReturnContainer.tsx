@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
+import { planLabel } from '@features/billing/format';
 import type { PaywallBillingState } from '@containers/paywall/paywall.types';
+import { CheckoutCelebration } from './CheckoutCelebration';
+import { isCheckoutTrialStatus } from './checkout-celebration.copy';
+import { checkoutLooksActive, checkoutReturnFromError } from './checkout-return.utils';
 
 interface PaywallStatePayload extends PaywallBillingState {
   plans: unknown[];
@@ -12,8 +16,16 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 15;
 
 interface ConfirmCheckoutResult {
+  plan_id?: string;
   subscription_status: string;
   payment_method_on_file: boolean;
+  trial_ends_at?: string | null;
+}
+
+interface CelebrationState {
+  planId: string;
+  isTrial: boolean;
+  chargeAtIso: string | null;
 }
 
 export default function CheckoutReturnContainer() {
@@ -26,15 +38,22 @@ export default function CheckoutReturnContainer() {
   const planId = searchParams.get('plan');
   const sessionId = searchParams.get('session_id');
 
-  const [status, setStatus] = useState<'waiting' | 'ready' | 'timeout' | 'canceled'>(
+  const [status, setStatus] = useState<'waiting' | 'ready' | 'timeout' | 'canceled' | 'mismatch'>(
     canceled ? 'canceled' : success ? 'waiting' : 'canceled',
   );
+  const [celebration, setCelebration] = useState<CelebrationState | null>(null);
 
   useEffect(() => {
     if (!success || canceled) return;
 
     let attempts = 0;
     let cancelled = false;
+
+    const goReady = (next: CelebrationState) => {
+      if (cancelled) return;
+      setCelebration(next);
+      setStatus('ready');
+    };
 
     const poll = async () => {
       attempts += 1;
@@ -43,13 +62,13 @@ export default function CheckoutReturnContainer() {
           const confirmed = await callFunction<ConfirmCheckoutResult>('confirm-stripe-checkout', {
             session_id: sessionId,
           });
-          if (
-            confirmed.subscription_status === 'active' ||
-            confirmed.subscription_status === 'trial_active' ||
-            confirmed.payment_method_on_file
-          ) {
+          if (checkoutLooksActive(confirmed)) {
             await queryClient.invalidateQueries({ queryKey: ['paywall-state'] });
-            if (!cancelled) setStatus('ready');
+            goReady({
+              planId: confirmed.plan_id ?? planId ?? 'standard',
+              isTrial: isCheckoutTrialStatus(confirmed.subscription_status),
+              chargeAtIso: confirmed.trial_ends_at ?? null,
+            });
             return;
           }
         }
@@ -57,12 +76,19 @@ export default function CheckoutReturnContainer() {
         const state = await callFunction<PaywallStatePayload>('get-paywall-state', {});
         await queryClient.invalidateQueries({ queryKey: ['paywall-state'] });
 
-        if (!state.requires_paywall) {
-          if (!cancelled) setStatus('ready');
+        if (checkoutLooksActive(state)) {
+          goReady({
+            planId: state.subscription_plan || planId || 'standard',
+            isTrial: isCheckoutTrialStatus(state.subscription_status),
+            chargeAtIso: state.trial_ends_at,
+          });
           return;
         }
-      } catch {
-        // continua polling
+      } catch (err) {
+        if (checkoutReturnFromError(err) === 'mismatch') {
+          if (!cancelled) setStatus('mismatch');
+          return;
+        }
       }
 
       if (attempts >= MAX_POLL_ATTEMPTS) {
@@ -78,15 +104,18 @@ export default function CheckoutReturnContainer() {
     return () => {
       cancelled = true;
     };
-  }, [success, canceled, sessionId, queryClient]);
+  }, [success, canceled, sessionId, planId, queryClient]);
 
-  useEffect(() => {
-    if (status !== 'ready') return;
-    const timer = window.setTimeout(() => {
-      navigate('/dashboard', { replace: true });
-    }, 2200);
-    return () => window.clearTimeout(timer);
-  }, [status, navigate]);
+  if (status === 'ready') {
+    return (
+      <CheckoutCelebration
+        planLabel={planLabel(celebration?.planId ?? planId ?? 'standard')}
+        isTrial={celebration?.isTrial ?? false}
+        chargeAtIso={celebration?.chargeAtIso ?? null}
+        onContinue={() => navigate('/dashboard', { replace: true })}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[#F8FAF9] px-4">
@@ -123,15 +152,24 @@ export default function CheckoutReturnContainer() {
           </>
         )}
 
-        {status === 'ready' && (
+        {status === 'mismatch' && (
           <>
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <span className="text-2xl">⏳</span>
             </div>
-            <h1 className="mt-5 font-serif text-2xl text-charcoal">Assinatura ativa!</h1>
-            <p className="mt-2 text-sm text-slate-500">Redirecionando para o painel…</p>
+            <h1 className="mt-5 font-serif text-2xl text-charcoal">Conta diferente</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              O pagamento foi concluído, mas esta página abriu em outra conta.
+              Volte ao navegador onde você iniciou a assinatura e atualize o painel —
+              o plano já deve estar ativo lá.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard', { replace: true })}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              Ir ao painel desta conta
+            </button>
           </>
         )}
 

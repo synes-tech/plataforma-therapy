@@ -26,6 +26,7 @@ interface PatientClinicalRecordTabProps {
   isSaving: boolean;
   saveError: string | null;
   isDirty: boolean;
+  startInEditMode?: boolean;
 }
 
 const inputClass =
@@ -51,8 +52,9 @@ export function PatientClinicalRecordTab({
   isSaving,
   saveError,
   isDirty,
+  startInEditMode = false,
 }: PatientClinicalRecordTabProps) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startInEditMode);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);

@@ -105,7 +105,7 @@ export function TherapistCopilotGate({
             {welcome && ivy.playIntro ? (
               <IvyWelcomeHero bursting={ivy.bursting} runId={ivy.runId} onReplay={ivy.replay} />
             ) : (
-              (hero ?? <TheryAvatar pose="profile" size="md" decorative />)
+              (hero ?? <TheryAvatar pose="profile" size="welcome" decorative />)
             )}
           </div>
           <h1 className="font-serif text-3xl font-medium tracking-tight text-charcoal md:text-4xl">

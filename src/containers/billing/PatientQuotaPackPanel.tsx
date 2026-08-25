@@ -107,8 +107,7 @@ export function PatientQuotaPackPanel({
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-semibold text-charcoal">Módulos Adicionais de pacientes</p>
             <p className="mt-1 text-sm leading-relaxed text-charcoal-muted">
-              Cada módulo adiciona <strong>+{patientsPerModule} pacientes ativos</strong>, +
-              {patientsPerModule * 4} sessões/mês e +375 interações de IA. A cobrança entra na sua
+              Cada módulo adiciona <strong>+{patientsPerModule} pacientes ativos</strong>. A cobrança entra na sua
               assinatura atual ({billingCycle === 'yearly' ? 'ciclo anual com 12% off' : 'ciclo mensal'}),
               com valor proporcional no primeiro mês.
             </p>

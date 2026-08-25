@@ -3,6 +3,7 @@ import { sendSesEmail } from './aws-ses.ts';
 import { createServiceClient } from './supabase.ts';
 import {
   buildBillingPlanChangedEmail,
+  buildBillingTrialEnding24hEmail,
   buildBillingWelcomeEmail,
 } from './billing-email-templates.ts';
 
@@ -104,5 +105,36 @@ export async function notifyBillingPlanChanged(params: {
     text: content.text,
   });
   console.log(`[billing-email] plan_changed sent clinic=${params.clinicId} to=${target.to}`);
+  return true;
+}
+
+export async function notifyBillingTrialEnding24h(params: {
+  clinicId: string;
+  planId: string;
+  trialEndsAt: string;
+}): Promise<boolean> {
+  const supabase = createServiceClient();
+  const target = await loadBillingMailTarget(supabase, params.clinicId);
+  if (!target) {
+    console.log('[billing-email] trial_ending_24h skipped — sem e-mail da clínica', params.clinicId);
+    return false;
+  }
+
+  const origin = (Deno.env.get('STRIPE_APP_ORIGIN') ?? 'https://unithery.com').replace(/\/$/, '');
+  const content = buildBillingTrialEnding24hEmail({
+    ownerName: target.ownerName,
+    clinicName: target.clinicName,
+    planId: params.planId,
+    trialEndsAt: params.trialEndsAt,
+    settingsUrl: `${origin}/settings`,
+  });
+
+  await sendSesEmail({
+    to: target.to,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+  });
+  console.log(`[billing-email] trial_ending_24h sent clinic=${params.clinicId} to=${target.to}`);
   return true;
 }

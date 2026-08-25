@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { formatCurrency } from '@features/billing/format';
 import { CheckoutForm } from '@containers/checkout';
 import type { CheckoutFormData } from '@containers/checkout';
+import { COST_PER_PATIENT_LABEL, paywallCostPerPatientCents } from './paywall-plan-copy';
 import type { PaywallBillingCycle, PaywallPlanCard, PaywallTrigger } from './paywall.types';
 
 export type PaywallStep = 'plans' | 'checkout';
@@ -39,7 +40,7 @@ export function PaywallModal({
   checkoutSubmitting,
   checkoutError,
 }: PaywallModalProps) {
-  const [cycle, setCycle] = useState<PaywallBillingCycle>('monthly');
+  const [cycle, setCycle] = useState<PaywallBillingCycle>('yearly');
 
   if (!isOpen) return null;
 
@@ -98,33 +99,58 @@ export function PaywallModal({
           />
         ) : (
           <>
-            <div className="relative border-b border-white/10 px-6 py-8 text-center md:px-10">
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/80">
-                Unithery · Acesso completo
-              </p>
-              <h2 id="paywall-title" className="mt-3 font-serif text-2xl font-medium tracking-tight text-white md:text-3xl">
-                {trigger === 'plan_catalog'
-                  ? 'Escolha o plano ideal para você'
-                  : 'Desbloqueie o poder total da Unithery'}
-              </h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-400">
-                {trigger === 'plan_catalog'
-                  ? 'Compare os planos disponíveis e altere sua assinatura quando quiser.'
-                  : trialAvailable
-                    ? 'Comece com 14 dias grátis. Cadastre o cartão, não cobramos nada durante o teste.'
-                    : 'Escolha seu plano e conclua o pagamento seguro via Stripe.'}
-              </p>
+            <div className="relative border-b border-white/10 px-6 py-8 text-center md:px-10 md:pr-16 md:text-left">
+              <div className="flex flex-col items-center md:flex-row md:items-center md:justify-between md:gap-4">
+                <h2
+                  id="paywall-title"
+                  className="min-w-0 font-serif text-2xl font-medium tracking-tight text-white md:text-left md:text-3xl"
+                >
+                  {trigger === 'plan_catalog'
+                    ? 'Escolha o plano que melhor te atende'
+                    : 'Desbloqueie o poder total da Unithery'}
+                </h2>
+                <div
+                  className="mt-5 inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/5 p-1 md:mt-0"
+                  role="tablist"
+                  aria-label="Ciclo de cobrança"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={cycle === 'monthly'}
+                    onClick={() => setCycle('monthly')}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                      cycle === 'monthly' ? 'bg-white text-charcoal' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={cycle === 'yearly'}
+                    onClick={() => setCycle('yearly')}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                      cycle === 'yearly' ? 'bg-white text-charcoal' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Anual · 12% off
+                  </button>
+                </div>
+              </div>
               {trigger !== 'plan_catalog' && (
-                <p className="mt-2 text-xs text-slate-500">{trialHint}</p>
+                <>
+                  <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-400 md:mx-0">
+                    {trialAvailable
+                      ? 'Comece com 14 dias grátis. Cadastre o cartão, não cobramos nada durante o teste.'
+                      : 'Escolha seu plano e conclua o pagamento seguro via Stripe.'}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">{trialHint}</p>
+                </>
               )}
               {trigger === 'patient_limit' && (
                 <p className="mt-3 text-xs text-amber-400/90">
-                  Seu plano FREE permite 1 paciente ativo. Assine para adicionar mais.
-                </p>
-              )}
-              {trigger === 'ai_feature' && (
-                <p className="mt-3 text-xs text-amber-400/90">
-                  Você atingiu o limite de interações de IA do seu plano neste mês.
+                  Seu plano permite 1 paciente ativo. Assine para ampliar a carteira.
                 </p>
               )}
               {checkoutError && step === 'plans' && (
@@ -132,36 +158,13 @@ export function PaywallModal({
                   {checkoutError}
                 </p>
               )}
-
-              <div className="mt-5 inline-flex items-center rounded-full border border-white/15 bg-white/5 p-1" role="tablist" aria-label="Ciclo de cobrança">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={cycle === 'monthly'}
-                  onClick={() => setCycle('monthly')}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                    cycle === 'monthly' ? 'bg-white text-charcoal' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Mensal
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={cycle === 'yearly'}
-                  onClick={() => setCycle('yearly')}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                    cycle === 'yearly' ? 'bg-white text-charcoal' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Anual · 12% off
-                </button>
-              </div>
             </div>
 
             <div className={`relative grid gap-4 p-6 md:p-8 ${gridCols}`}>
               {plans.map((plan) => {
                 const monthlyEquivalent = priceForCycle(plan);
+                const isYearly = cycle === 'yearly' && Boolean(plan.preco_anual_mensal_cents);
+                const costPerPatient = paywallCostPerPatientCents(plan, cycle);
                 return (
                   <article
                     key={plan.id}
@@ -179,29 +182,43 @@ export function PaywallModal({
 
                     <h3 className="font-serif text-xl text-white">{plan.nome}</h3>
                     {plan.descricao_curta && (
-                      <p className="mt-1 text-xs text-slate-400">{plan.descricao_curta}</p>
+                      <p className="mt-1.5 text-sm text-white/65">{plan.descricao_curta}</p>
                     )}
 
-                    <p className="mt-4 font-display text-3xl font-semibold text-white">
-                      {formatCurrency(monthlyEquivalent)}
-                      <span className="text-sm font-normal text-slate-500">/mês</span>
-                    </p>
+                    <div className="mt-4 flex items-baseline gap-2">
+                      {isYearly ? (
+                        <span className="text-lg font-semibold text-primary-200">12x</span>
+                      ) : null}
+                      <p className="font-display text-3xl font-semibold text-white">
+                        {formatCurrency(monthlyEquivalent)}
+                        {!isYearly ? (
+                          <span className="text-sm font-normal text-slate-500">/mês</span>
+                        ) : null}
+                      </p>
+                    </div>
                     <p className="mt-1 text-[11px] text-slate-500">
-                      {cycle === 'yearly'
-                        ? `12x de ${formatCurrency(monthlyEquivalent)} no cartão · total ${formatCurrency(monthlyEquivalent * 12)}/ano`
+                      {isYearly
+                        ? `12x de ${formatCurrency(monthlyEquivalent)} no cartão`
                         : plan.preco_anual_mensal_cents
                           ? `ou ${formatCurrency(plan.preco_anual_mensal_cents)}/mês no anual`
                           : 'cobrança mensal recorrente'}
                     </p>
 
-                    {plan.destaque && (
-                      <p className="mt-2 text-xs font-medium text-white">{plan.destaque}</p>
-                    )}
+                    {costPerPatient != null ? (
+                      <p className="mt-3 rounded-lg bg-white/10 px-3 py-2.5 text-left">
+                        <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                          {COST_PER_PATIENT_LABEL}
+                        </span>
+                        <span className="mt-1 block font-serif text-2xl font-medium tracking-tight text-white">
+                          {formatCurrency(costPerPatient)}
+                        </span>
+                      </p>
+                    ) : null}
 
-                    <ul className="mt-5 flex-1 space-y-2">
-                      {plan.features.slice(0, 6).map((feature) => (
-                        <li key={feature} className="flex items-start gap-2 text-xs text-slate-300">
-                          <span className="mt-0.5 text-primary">✓</span>
+                    <ul className="mt-5 flex-1 space-y-2.5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2 text-[13px] leading-snug text-white/80">
+                          <span className="mt-0.5 text-primary-200">✓</span>
                           <span>{feature}</span>
                         </li>
                       ))}

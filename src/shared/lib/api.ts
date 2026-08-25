@@ -45,6 +45,10 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   COMPANION_UNAVAILABLE: 'O Acompanhante está disponível para pacientes adultos com o plano de apoio ativo.',
   BILLING_EXEMPT: 'Conta administrativa — sem assinatura ou cobrança para cancelar.',
   NOTHING_TO_CANCEL: 'Não há assinatura ativa para cancelar.',
+  INTERNAL_ERROR: 'Erro interno no servidor. Tente novamente em instantes.',
+  STRIPE_CHECKOUT_FAILED: 'Não foi possível abrir o checkout do Stripe. Tente novamente.',
+  STRIPE_PRICE_NOT_CONFIGURED: 'Este plano ainda não está disponível para pagamento neste ambiente.',
+  STRIPE_CUSTOMER_INVALID: 'Não foi possível validar o cadastro de cobrança. Tente novamente.',
 };
 
 /**

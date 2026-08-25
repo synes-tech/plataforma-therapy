@@ -1,18 +1,16 @@
-/** Limites oficiais do catálogo `planos` — usado em testes e UI. */
-import { THERAPIST_PLANS, computeAudioMinutesLimit, isTherapistPlan } from './therapist-plans';
+/** Limites oficiais do catálogo `planos` — só pacientes (e profissionais em clínicas) são cotas. */
 
 export const OFFICIAL_PLAN_LIMITS = {
-  free: { professionals: 1, patientsPerProf: 1, audioMinutes: THERAPIST_PLANS.free.audioMinutesPerMonth },
-  standard: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
-  advanced: { professionals: 1, patientsPerProf: 20, audioMinutes: THERAPIST_PLANS.advanced.audioMinutesPerMonth },
-  premium: { professionals: 1, patientsPerProf: 30, audioMinutes: THERAPIST_PLANS.premium.audioMinutesPerMonth },
-  // legado (contas migradas)
-  inicial: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
-  intermediario: { professionals: 1, patientsPerProf: 40, audioMinutes: computeAudioMinutesLimit(160, 60) },
-  consultorio: { professionals: 1, patientsPerProf: 10, audioMinutes: THERAPIST_PLANS.standard.audioMinutesPerMonth },
-  starter: { professionals: 3, patientsPerProf: 40, audioMinutes: computeAudioMinutesLimit(160, 60) },
-  professional: { professionals: 10, patientsPerProf: 60, audioMinutes: computeAudioMinutesLimit(240, 60) },
-  enterprise: { professionals: null, patientsPerProf: null, audioMinutes: null },
+  free: { professionals: 1, patientsPerProf: 1 },
+  standard: { professionals: 1, patientsPerProf: 10 },
+  advanced: { professionals: 1, patientsPerProf: 20 },
+  premium: { professionals: 1, patientsPerProf: 30 },
+  inicial: { professionals: 1, patientsPerProf: 10 },
+  intermediario: { professionals: 1, patientsPerProf: 40 },
+  consultorio: { professionals: 1, patientsPerProf: 10 },
+  starter: { professionals: 3, patientsPerProf: 40 },
+  professional: { professionals: 10, patientsPerProf: 60 },
+  enterprise: { professionals: null, patientsPerProf: null },
 } as const;
 
 export type OfficialPlanId = keyof typeof OFFICIAL_PLAN_LIMITS;
@@ -47,13 +45,8 @@ export function resolveEffectivePlanQuotas(
         : (official?.patientsPerProf ?? null),
     max_family_members_per_patient:
       quotas.max_family_members_per_patient > 0 ? quotas.max_family_members_per_patient : 2,
-    max_ai_queries_per_month:
-      quotas.max_ai_queries_per_month > 0 ? quotas.max_ai_queries_per_month : null,
-    max_audio_minutes_per_month:
-      quotas.max_audio_minutes_per_month > 0
-        ? quotas.max_audio_minutes_per_month
-        : official?.audioMinutes ??
-          (isTherapistPlan(planId) ? THERAPIST_PLANS[planId].audioMinutesPerMonth : null),
+    max_ai_queries_per_month: null,
+    max_audio_minutes_per_month: null,
   };
 }
 

@@ -168,6 +168,7 @@ describe('Persona da Ivy', () => {
     expect(prompt).toContain('5-4-3-2-1');
     expect(prompt).not.toContain('Copiloto Clínico');
     expect(prompt).not.toMatch(/search_patient_embeddings|RAG/);
+    expect(prompt).toMatch(/começando pelo que ela trouxer agora/);
   });
 
   it('classificador pede MODERATE na dúvida, não SEVERE', () => {

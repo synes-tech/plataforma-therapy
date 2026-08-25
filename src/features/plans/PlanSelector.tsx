@@ -24,13 +24,7 @@ const PLANS: Plan[] = [
     highlight: '1 paciente ativo · sem cartão',
     priceLabel: 'Grátis',
     priceNote: 'para sempre',
-    features: [
-      '1 paciente ativo',
-      '4 sessões por mês (50 min)',
-      'Copiloto de IA (20 interações/mês)',
-      'Diário familiar com áudios ilimitados',
-      'Portal da família incluso',
-    ],
+    features: THERAPIST_PLANS.free.features,
   },
   {
     id: 'standard',
@@ -39,13 +33,7 @@ const PLANS: Plan[] = [
     highlight: 'Até 10 pacientes ativos',
     priceLabel: `${formatBRL(THERAPIST_PLANS.standard.monthlyCents)}/mês`,
     priceNote: `ou ${formatBRL(THERAPIST_PLANS.standard.yearlyMonthlyCents ?? 0)}/mês no anual`,
-    features: [
-      'Até 10 pacientes ativos',
-      '40 sessões por mês (60 min)',
-      'Copiloto de IA (750 interações/mês)',
-      'Transcrição e relatórios',
-      'Módulos de +5 pacientes',
-    ],
+    features: THERAPIST_PLANS.standard.features,
   },
   {
     id: 'advanced',
@@ -55,13 +43,7 @@ const PLANS: Plan[] = [
     recommended: true,
     priceLabel: `${formatBRL(THERAPIST_PLANS.advanced.monthlyCents)}/mês`,
     priceNote: `ou ${formatBRL(THERAPIST_PLANS.advanced.yearlyMonthlyCents ?? 0)}/mês no anual`,
-    features: [
-      'Até 20 pacientes ativos',
-      '80 sessões por mês (60 min)',
-      'Copiloto de IA (1.500 interações/mês)',
-      'Tudo do Standard',
-      'Módulos de +5 pacientes',
-    ],
+    features: THERAPIST_PLANS.advanced.features,
   },
   {
     id: 'premium',
@@ -70,13 +52,7 @@ const PLANS: Plan[] = [
     highlight: 'Até 30 pacientes ativos',
     priceLabel: `${formatBRL(THERAPIST_PLANS.premium.monthlyCents)}/mês`,
     priceNote: `ou ${formatBRL(THERAPIST_PLANS.premium.yearlyMonthlyCents ?? 0)}/mês no anual`,
-    features: [
-      'Até 30 pacientes ativos',
-      '120 sessões por mês (60 min)',
-      'Copiloto de IA (2.250 interações/mês)',
-      'Tudo do Advanced',
-      'Módulo Adicional com desconto',
-    ],
+    features: THERAPIST_PLANS.premium.features,
   },
   {
     id: 'starter',

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   billingPlanLabel,
   buildBillingPlanChangedEmail,
+  buildBillingTrialEnding24hEmail,
   buildBillingWelcomeEmail,
 } from '../../../supabase/functions/_shared/billing-email-templates.ts';
 import {
@@ -40,6 +41,21 @@ describe('billing-email-templates', () => {
     expect(mail.html).toContain('Plano Standard');
     expect(mail.html).toContain('Plano Premium');
     expect(billingPlanLabel('advanced')).toBe('Plano Advanced');
+  });
+
+  it('monta o aviso de 24h com o caminho de cancelamento', () => {
+    const mail = buildBillingTrialEnding24hEmail({
+      ownerName: 'Joao',
+      clinicName: 'Consultório Joao',
+      planId: 'premium',
+      trialEndsAt: '2026-09-07T19:00:00.000Z',
+      settingsUrl: 'https://unithery.com/settings',
+    });
+    expect(mail.subject).toContain('24 horas');
+    expect(mail.html).toContain('Plano Premium');
+    expect(mail.html).toContain('Cancelar plano e revogar método de pagamento');
+    expect(mail.html).toContain('https://unithery.com/settings');
+    expect(mail.text).toContain('não precisa fazer nada');
   });
 });
 

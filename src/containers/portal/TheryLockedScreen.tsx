@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { callFunction } from '@shared/lib/api';
 import { TheryAvatar } from '@shared/ui/TheryAvatar';
 import { usePortalContext } from '@shared/lib/portal-context';
+import { PORTAL_ROUTES } from '@shared/lib/portal-nav';
 import { formatBrlCents, subscriptionPanelCopy, THERY_AMOUNT_CENTS } from './portal-subscription.utils';
 
 interface TheryLockedScreenProps {
@@ -22,7 +23,9 @@ export function TheryLockedScreen({ firstName }: TheryLockedScreenProps) {
     setBusy(true);
     setError(null);
     try {
-      const result = await callFunction<{ url: string }>('create-patient-checkout', {});
+      const result = await callFunction<{ url: string }>('create-patient-checkout', {
+        success_path: PORTAL_ROUTES.companion,
+      });
       window.location.href = result.url;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível abrir o checkout.');

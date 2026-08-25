@@ -14,7 +14,7 @@ import {
 import { scanRiskLexicon } from '../../../supabase/functions/_shared/companion/risk-lexicon.ts';
 import { mergeRiskLayers } from '../../../supabase/functions/_shared/companion/risk-merge.ts';
 import { EMERGENCY_PROTOCOL_TEXT } from '../../../supabase/functions/_shared/companion/emergency-protocol.ts';
-import { alertCopy, alertDedupeKey } from '../../../supabase/functions/_shared/companion/alerts.ts';
+import { alertCopy, alertDedupeKey, shouldEmailCrisisAlert } from '../../../supabase/functions/_shared/companion/alerts.ts';
 import { chipsForContext } from './portal-diary';
 import { resolveInviteRouting } from '../../../supabase/functions/_shared/patient-profile.ts';
 
@@ -90,6 +90,9 @@ describe('Caminho dourado — isolamento, risco e onboarding', () => {
     expect(copy.summary).not.toMatch(/sumir do mapa|acabar com tudo/i);
     expect(copy.title).toMatch(/Risco de vida/);
     expect(alertDedupeKey('patient-a', 'SEVERE', '2026-08-22')).toBe('b2c-severe:patient-a:2026-08-22');
+    expect(shouldEmailCrisisAlert({ kind: 'companion_severe', clinicAllowsEmail: false })).toBe(true);
+    expect(shouldEmailCrisisAlert({ kind: 'checkin_crisis', clinicAllowsEmail: false })).toBe(false);
+    expect(shouldEmailCrisisAlert({ kind: 'checkin_crisis', clinicAllowsEmail: true })).toBe(true);
   });
 
   it('Cenário 3: adulto SELF recebe convite no e-mail próprio e o diário é de humor, não agitação', () => {

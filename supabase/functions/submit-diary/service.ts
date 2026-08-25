@@ -3,6 +3,7 @@ import { AppError, ForbiddenError, ValidationError } from '../_shared/errors.ts'
 import { resolveEntryDate, validateDiaryEntryDate } from '../_shared/diary-entry-date.ts';
 import { getFamilyPatientLink } from '../_shared/family-access.ts';
 import { normalizeCategories, normalizeDiaryPayload } from '../_shared/portal-diary.ts';
+import { notifyProfessionalOfCrisis } from '../_shared/companion/crisis-email.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import type { SubmitDiaryPayload, SubmitDiaryResponse } from './types.ts';
 
@@ -115,10 +116,17 @@ export async function submitDiary(
     },
   });
 
-  // 7. Notify professional via Realtime (crisis alert was auto-created by DB trigger)
-  if (payload.crisis_occurred && payload.crisis_level && payload.crisis_level >= 3) {
-    // The DB trigger already created the crisis_alert.
-    // The professional's frontend subscribes to crisis_alerts table via Realtime.
+  // 7. Crise no check-in: o trigger grava crisis_alerts e o e-mail avisa o psicólogo.
+  if (payload.crisis_occurred) {
+    const reported = (payload.notes ?? payload.transcricao ?? '').trim();
+    await notifyProfessionalOfCrisis({
+      patientId: payload.patient_id,
+      clinicId,
+      kind: 'checkin_crisis',
+      reportedText: reported || `Crise marcada no check-in${payload.crisis_level ? ` (nível ${payload.crisis_level}/5)` : ''}.`,
+      crisisLevel: payload.crisis_level ?? null,
+      entryDate,
+    });
     console.log(JSON.stringify({
       level: 'info',
       action: 'crisis_alert_generated',

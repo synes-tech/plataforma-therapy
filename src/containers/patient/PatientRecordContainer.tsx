@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RecordPageSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
@@ -43,6 +43,8 @@ export default function PatientRecordContainer() {
   const { patientId, tab: tabParam } = useParams<{ patientId: string; tab?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const startClinicalEdit = searchParams.get('edit') === '1';
 
   const activeTab = tabFromPath(tabParam);
   const [patient, setPatient] = useState<PatientInfo | null>(null);
@@ -250,6 +252,7 @@ export default function PatientRecordContainer() {
               isSaving={updateMutation.isPending}
               saveError={saveError}
               isDirty={isDirty}
+              startInEditMode={startClinicalEdit}
             />
           )}
 

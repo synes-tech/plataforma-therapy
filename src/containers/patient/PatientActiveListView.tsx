@@ -4,6 +4,7 @@ import { LoadingOverlay, PatientListTableSkeleton } from '@containers/loading';
 import { callFunction } from '@shared/lib/api';
 import { useAuthStore } from '@shared/lib/auth-store';
 import { PatientActiveTable } from './PatientActiveTable';
+import { PatientLinkManageFlow } from './PatientLinkManageFlow';
 import { PatientListFiltersBar } from './PatientListFiltersBar';
 import { PatientListPagination } from './PatientListPagination';
 import {
@@ -29,6 +30,7 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState<PatientListFilters>(DEFAULT_PATIENT_FILTERS);
   const [page, setPage] = useState(1);
+  const [managePatient, setManagePatient] = useState<PatientListItem | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -133,7 +135,7 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
             </p>
           </div>
 
-          <PatientActiveTable patients={pageItems} />
+          <PatientActiveTable patients={pageItems} onDelete={setManagePatient} />
 
           <PatientListPagination
             page={pagination.safePage}
@@ -145,6 +147,16 @@ export function PatientActiveListView({ onOpenCreate }: PatientActiveListViewPro
           />
         </div>
       )}
+
+      {managePatient ? (
+        <PatientLinkManageFlow
+          patientId={managePatient.id}
+          patientName={managePatient.name}
+          triggerVisibility="none"
+          autoOpen
+          onClosed={() => setManagePatient(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -17,8 +17,33 @@
  * Ref: docs/plano-implementacao-planos-producao.md
  */
 
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import Stripe from 'stripe';
 import pg from 'pg';
+
+function loadEnvFile(file) {
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq < 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (key && process.env[key] === undefined) process.env[key] = val;
+  }
+}
+
+loadEnvFile(resolve('.env'));
+loadEnvFile(resolve('.env.local'));
 
 const args = process.argv.slice(2);
 const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : 'test';
@@ -32,18 +57,92 @@ if (mode === 'live' && !args.includes('--confirm-live')) {
   process.exit(1);
 }
 
-const secretKey =
-  mode === 'test' ? process.env.STRIPE_TEST_SECRET_KEY : process.env.STRIPE_LIVE_SECRET_KEY;
-if (!secretKey) {
-  console.error(`Chave STRIPE_${mode.toUpperCase()}_SECRET_KEY não encontrada no ambiente.`);
-  process.exit(1);
+function fromGcloudSecret(name) {
+  try {
+    return execFileSync(
+      'gcloud',
+      [
+        'secrets',
+        'versions',
+        'access',
+        'latest',
+        `--secret=${name}`,
+        '--project=plataforma-therapy-ai',
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim();
+  } catch {
+    return null;
+  }
 }
-if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não encontrada no ambiente.');
+
+function fromCloudRunEnv(varName) {
+  try {
+    const json = execFileSync(
+      'gcloud',
+      [
+        'run',
+        'services',
+        'describe',
+        'unithery-api-staging',
+        '--region=us-central1',
+        '--project=plataforma-therapy-ai',
+        '--format=json',
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    const env = JSON.parse(json)?.spec?.template?.spec?.containers?.[0]?.env ?? [];
+    const hit = env.find((e) => e.name === varName);
+    if (hit?.value) return hit.value;
+    const secretName =
+      hit?.valueFrom?.secretKeyRef?.name ??
+      hit?.valueSource?.secretKeyRef?.secret ??
+      hit?.valueSource?.secretKeyRef?.name;
+    if (secretName) return fromGcloudSecret(secretName);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveStripeSecret(billingMode) {
+  const envName = billingMode === 'test' ? 'STRIPE_TEST_SECRET_KEY' : 'STRIPE_LIVE_SECRET_KEY';
+  if (process.env[envName]) return process.env[envName];
+  const candidates = [
+    envName,
+    envName.toLowerCase().replaceAll('_', '-'),
+    billingMode === 'test' ? 'stripe-test-secret-key' : 'stripe-live-secret-key',
+  ];
+  for (const name of candidates) {
+    const val = fromGcloudSecret(name);
+    if (val) return val;
+  }
+  return fromCloudRunEnv(envName);
+}
+
+const secretKey = resolveStripeSecret(mode);
+if (!secretKey) {
+  console.error(`Chave STRIPE_${mode.toUpperCase()}_SECRET_KEY não encontrada no ambiente, Secret Manager ou Cloud Run.`);
   process.exit(1);
 }
 
 const stripe = new Stripe(secretKey);
+
+async function connectDb() {
+  try {
+    const { connect } = await import('./cloudsql-connect.mjs');
+    return await connect();
+  } catch (error) {
+    if (!process.env.DATABASE_URL) throw error;
+    console.warn('Cloud SQL indisponível, usando DATABASE_URL do ambiente.');
+    const client = new pg.Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+    await client.connect();
+    return client;
+  }
+}
 
 // ------------------------------------------------------------------
 // Catálogo canônico (espelho de planos / plan_addons no banco)
@@ -54,7 +153,7 @@ const PLANS = [
   {
     id: 'standard',
     productName: 'Unithery — Plano Standard',
-    description: 'Até 10 pacientes ativos · 40 sessões/mês · 750 interações de IA/mês',
+    description: 'Até 10 pacientes ativos · Copiloto de IA · Diário familiar e portal',
     patientLimit: 10,
     monthlyCents: 23700,
     yearlyMonthlyCents: 20700,
@@ -62,7 +161,7 @@ const PLANS = [
   {
     id: 'advanced',
     productName: 'Unithery — Plano Advanced',
-    description: 'Até 20 pacientes ativos · 80 sessões/mês · 1.500 interações de IA/mês',
+    description: 'Até 20 pacientes ativos · Copiloto de IA · Diário familiar e portal',
     patientLimit: 20,
     monthlyCents: 42700,
     yearlyMonthlyCents: 37700,
@@ -70,7 +169,7 @@ const PLANS = [
   {
     id: 'premium',
     productName: 'Unithery — Plano Premium',
-    description: 'Até 30 pacientes ativos · 120 sessões/mês · 2.250 interações de IA/mês',
+    description: 'Até 30 pacientes ativos · Copiloto de IA · Diário familiar e portal',
     patientLimit: 30,
     monthlyCents: 65700,
     yearlyMonthlyCents: 57700,
@@ -81,14 +180,14 @@ const ADDONS = [
   {
     id: 'modulo_sa',
     productName: 'Unithery — Módulo Adicional (+5 pacientes)',
-    description: 'Para planos Standard e Advanced: +5 pacientes, +20 sessões, +375 interações de IA/mês',
+    description: 'Para planos Standard e Advanced: +5 pacientes ativos',
     monthlyCents: 12943,
     yearlyMonthlyCents: 11390,
   },
   {
     id: 'modulo_p',
     productName: 'Unithery — Módulo Adicional Premium (+5 pacientes)',
-    description: 'Para o plano Premium: +5 pacientes, +20 sessões, +375 interações de IA/mês',
+    description: 'Para o plano Premium: +5 pacientes ativos',
     monthlyCents: 10632,
     yearlyMonthlyCents: 9356,
   },
@@ -212,11 +311,7 @@ async function main() {
   }
 
   console.log('\nGravando price IDs no banco...');
-  const client = new pg.Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
-  await client.connect();
+  const client = await connectDb();
   try {
     for (const u of dbUpdates) {
       if (u.table === 'planos') {

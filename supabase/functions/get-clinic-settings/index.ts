@@ -198,8 +198,8 @@ serve(async (req: Request) => {
             max_professionals: settings?.max_professionals ?? 0,
             max_patients_per_professional: settings?.max_patients_per_professional ?? 0,
             max_family_members_per_patient: settings?.max_family_members_per_patient ?? 0,
-            max_ai_queries_per_month: settings?.max_ai_queries_per_month ?? 0,
-            max_audio_minutes_per_month: settings?.max_audio_minutes_per_month ?? 0,
+            max_ai_queries_per_month: null,
+            max_audio_minutes_per_month: null,
           },
       ai_usage: {
         ai_reports_this_month: usage.ai_reports,

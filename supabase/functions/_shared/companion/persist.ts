@@ -3,6 +3,7 @@ import { AppError } from '../errors.ts';
 import type { ClinicalRiskLevel } from '../patient-profile.ts';
 import type { RiskDetector } from './risk-merge.ts';
 import { alertCopy, alertDedupeKey, brDateKey, shouldNotifyNow } from './alerts.ts';
+import { notifyProfessionalOfCrisis } from './crisis-email.ts';
 
 export interface CompanionThread {
   id: string;
@@ -129,6 +130,7 @@ export async function raiseCompanionClinicalAlert(params: {
   messageId: string;
   detector: RiskDetector;
   severity: 'MODERATE' | 'SEVERE';
+  reportedText?: string;
 }): Promise<void> {
   const supabase = createServiceClient();
   const copy = alertCopy(params.severity);
@@ -167,6 +169,13 @@ export async function raiseCompanionClinicalAlert(params: {
       severity: params.severity,
     }));
   }
+
+  await notifyProfessionalOfCrisis({
+    patientId: params.patientId,
+    clinicId: params.clinicId,
+    kind: params.severity === 'SEVERE' ? 'companion_severe' : 'companion_moderate',
+    reportedText: params.reportedText ?? '',
+  });
 }
 
 export async function raiseSevereClinicalAlert(params: {

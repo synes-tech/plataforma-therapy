@@ -39,7 +39,7 @@ export function IvyWelcomeHero({ bursting, runId, onReplay }: IvyWelcomeHeroProp
         aria-label="Ver apresentação da Ivy"
         title="Ver apresentação da Ivy"
       >
-        <TheryAvatar pose="happy" variant="figure" size="lg" decorative />
+        <TheryAvatar pose="happy" variant="figure" size="welcome" decorative />
       </button>
     </div>
   );

@@ -3,7 +3,7 @@ import { AppError, ForbiddenError } from '../_shared/errors.ts';
 import type { AuthenticatedUser } from '../_shared/auth.ts';
 import { requiresPaywall } from '../_shared/paywall.ts';
 import { isUserBillingExempt } from '../_shared/billing-exempt.ts';
-import { getStripeAppOrigin, getStripeClient } from '../_shared/stripe.ts';
+import { getStripeAppOrigin, getStripeClient, isStripeMissingResourceError, wrapStripeError } from '../_shared/stripe.ts';
 import {
   addonIdForPlan,
   assertStripeBillingEnabled,
@@ -48,22 +48,33 @@ async function getOrCreateStripeCustomer(
   stripe: ReturnType<typeof getStripeClient>,
 ): Promise<string> {
   if (clinic.stripe_customer_id) {
-    return clinic.stripe_customer_id;
+    try {
+      const existing = await stripe.customers.retrieve(clinic.stripe_customer_id);
+      if (!('deleted' in existing && existing.deleted)) {
+        return existing.id;
+      }
+    } catch (error) {
+      if (!isStripeMissingResourceError(error)) wrapStripeError(error, 'Não foi possível validar o cadastro de cobrança.');
+    }
   }
 
-  const customer = await stripe.customers.create({
-    email: clinic.email,
-    name: clinic.name,
-    metadata: { clinic_id: clinic.id },
-  });
+  try {
+    const customer = await stripe.customers.create({
+      email: clinic.email,
+      name: clinic.name,
+      metadata: { clinic_id: clinic.id },
+    });
 
-  const supabase = createServiceClient();
-  await supabase
-    .from('clinics')
-    .update({ stripe_customer_id: customer.id })
-    .eq('id', clinic.id);
+    const supabase = createServiceClient();
+    await supabase
+      .from('clinics')
+      .update({ stripe_customer_id: customer.id })
+      .eq('id', clinic.id);
 
-  return customer.id;
+    return customer.id;
+  } catch (error) {
+    wrapStripeError(error, 'Não foi possível criar o cadastro de cobrança.');
+  }
 }
 
 function assertCheckoutAllowed(
@@ -204,37 +215,42 @@ export async function createStripeCheckout(
   // Trial de 14 dias com cartão — concedido uma única vez por clínica
   const grantTrial = clinic.trial_used !== true;
 
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    billing_address_collection: 'auto',
-    line_items: lineItems,
-    mode: 'subscription',
-    allow_promotion_codes: true,
-    payment_method_collection: 'always',
-    success_url:
-      `${origin}/checkout/return?success=1&session_id={CHECKOUT_SESSION_ID}&plan=${payload.plan_id}`,
-    cancel_url: `${origin}/checkout/return?canceled=1&plan=${payload.plan_id}`,
-    metadata: {
-      source: 'unithery_billing',
-      account_type: 'clinic',
-      clinic_id: clinicId,
-      plan_id: payload.plan_id,
-      user_id: caller.id,
-      stripe_mode: mode,
-      billing_cycle: billingCycle,
-      addon_quantity: String(addonQuantity),
-      trial_granted: grantTrial ? 'true' : 'false',
-    },
-    subscription_data: {
-      ...(grantTrial ? { trial_period_days: TRIAL_DAYS } : {}),
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      billing_address_collection: 'auto',
+      line_items: lineItems,
+      mode: 'subscription',
+      allow_promotion_codes: true,
+      payment_method_collection: 'always',
+      success_url:
+        `${origin}/checkout/return?success=1&session_id={CHECKOUT_SESSION_ID}&plan=${payload.plan_id}`,
+      cancel_url: `${origin}/checkout/return?canceled=1&plan=${payload.plan_id}`,
       metadata: {
+        source: 'unithery_billing',
         account_type: 'clinic',
         clinic_id: clinicId,
         plan_id: payload.plan_id,
+        user_id: caller.id,
+        stripe_mode: mode,
         billing_cycle: billingCycle,
+        addon_quantity: String(addonQuantity),
+        trial_granted: grantTrial ? 'true' : 'false',
       },
-    },
-  });
+      subscription_data: {
+        ...(grantTrial ? { trial_period_days: TRIAL_DAYS } : {}),
+        metadata: {
+          account_type: 'clinic',
+          clinic_id: clinicId,
+          plan_id: payload.plan_id,
+          billing_cycle: billingCycle,
+        },
+      },
+    });
+  } catch (error) {
+    wrapStripeError(error, 'Não foi possível abrir o checkout do Stripe. Tente novamente.');
+  }
 
   if (!session.url) {
     throw new AppError({

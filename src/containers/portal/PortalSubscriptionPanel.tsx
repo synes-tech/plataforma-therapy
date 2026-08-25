@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { callFunction } from '@shared/lib/api';
 import { PORTAL_CONTEXT_QUERY_KEY, usePortalContext } from '@shared/lib/portal-context';
+import { PORTAL_ROUTES } from '@shared/lib/portal-nav';
 import { StandardModal } from '@shared/ui/StandardModal';
 import { TheryAvatar } from '@shared/ui/TheryAvatar';
 import {
@@ -10,18 +10,13 @@ import {
   subscriptionPanelCopy,
 } from './portal-subscription.utils';
 
-const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 12;
-
 export function PortalSubscriptionPanel() {
   const { data: portal } = usePortalContext();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const polling = useRef(false);
 
   const visible = showTherySubscriptionPanel(portal);
   const copy = subscriptionPanelCopy(
@@ -29,52 +24,15 @@ export function PortalSubscriptionPanel() {
     Boolean(portal?.capabilities.can_subscribe),
   );
 
-  useEffect(() => {
-    if (searchParams.get('checkout') !== 'success' || polling.current) return;
-    polling.current = true;
-
-    let attempts = 0;
-    let cancelled = false;
-
-    const clearQuery = () => {
-      const next = new URLSearchParams(searchParams);
-      next.delete('checkout');
-      next.delete('session_id');
-      setSearchParams(next, { replace: true });
-    };
-
-    const poll = async () => {
-      attempts += 1;
-      await queryClient.invalidateQueries({ queryKey: PORTAL_CONTEXT_QUERY_KEY });
-      await queryClient.refetchQueries({ queryKey: PORTAL_CONTEXT_QUERY_KEY });
-      const fresh = queryClient.getQueryData(PORTAL_CONTEXT_QUERY_KEY) as typeof portal;
-      if (fresh?.capabilities.companion_chat || fresh?.subscription?.active) {
-        if (!cancelled) {
-          setNotice('Ivy liberada. Ela já está no centro do seu menu.');
-          clearQuery();
-        }
-        return;
-      }
-      if (attempts < MAX_POLL_ATTEMPTS && !cancelled) {
-        window.setTimeout(() => void poll(), POLL_INTERVAL_MS);
-        return;
-      }
-      if (!cancelled) clearQuery();
-    };
-
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [queryClient, searchParams, setSearchParams]);
-
   if (!visible || !portal) return null;
 
   const startCheckout = async () => {
     setBusy(true);
     setError(null);
     try {
-      const result = await callFunction<{ url: string }>('create-patient-checkout', {});
+      const result = await callFunction<{ url: string }>('create-patient-checkout', {
+        success_path: PORTAL_ROUTES.companion,
+      });
       window.location.href = result.url;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível abrir o checkout.');

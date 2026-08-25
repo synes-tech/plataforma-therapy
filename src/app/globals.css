@@ -23,13 +23,6 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
-  @media (max-width: 639px) {
-    select,
-    select option {
-      font-size: 16px;
-    }
-  }
-
   /* Focus visible for keyboard navigation */
   :focus-visible {
     outline: 2px solid #1A86E2;
@@ -229,4 +222,38 @@
 
 .thery-caret-blink {
   animation: thery-caret-blink 1.05s steps(1) infinite;
+}
+
+/*
+ * PWA mobile: a tela fica na escala do app.
+ * iOS dá zoom sozinho se o input tiver fonte < 16px; pinch e pan horizontal
+ * quebram a sensação de aplicativo instalado.
+ */
+html {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+#root {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+@media (max-width: 1023px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .overflow-x-auto,
+  .overflow-x-scroll {
+    overflow-x: hidden;
+  }
 }

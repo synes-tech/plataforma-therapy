@@ -94,6 +94,20 @@ describe('therapist-plans (catálogo v2)', () => {
     expect(costPerPatientCents(10000, 0)).toBe(0);
   });
 
+  it('features anunciam só o teto de pacientes, sem cota de IA ou sessão', () => {
+    expect(THERAPIST_PLANS.free.features).toEqual([
+      '1 paciente ativo',
+      'Copiloto de IA',
+      'Diário familiar & Portal',
+    ]);
+    expect(THERAPIST_PLANS.standard.features[0]).toBe('Atende até 10 pacientes ativos');
+    expect(THERAPIST_PLANS.advanced.features[0]).toBe('Atende de 11 a 20 pacientes ativos');
+    expect(THERAPIST_PLANS.premium.features[0]).toBe('Atende de 21 a 30 pacientes ativos');
+    for (const plan of Object.values(THERAPIST_PLANS)) {
+      expect(plan.features.join(' ')).not.toMatch(/interações\/mês|sessões por mês/i);
+    }
+  });
+
   it('soma bônus de upsell ao limite base', () => {
     expect(effectivePatientLimit(10, 5)).toBe(15);
     expect(effectivePatientLimit(30, 10)).toBe(40);

@@ -11,6 +11,7 @@ import {
   formatPlanoPriceLabel,
   type PlanoCatalogItem,
 } from '@shared/lib/planos';
+import { isTherapistPlan, THERAPIST_PLANS } from '@shared/lib/therapist-plans';
 
 interface RegisterPlanSelectorProps {
   accountType: AccountType;
@@ -29,20 +30,28 @@ async function fetchPlanos(): Promise<PlanoCatalogItem[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    id: row.id as PlanId,
-    nome: row.nome,
-    tipo_perfil: row.tipo_perfil as 'autonomo' | 'clinica',
-    preco_mensal_cents: row.preco_mensal_cents,
-    preco_anual_mensal_cents: row.preco_anual_mensal_cents ?? null,
-    limite_profissionais: row.limite_profissionais,
-    limite_pacientes_por_prof: row.limite_pacientes_por_prof,
-    descricao_curta: row.descricao_curta,
-    destaque: row.destaque,
-    features: Array.isArray(row.features) ? (row.features as string[]) : [],
-    recomendado: row.recomendado,
-    sort_order: row.sort_order,
-  }));
+  return (data ?? []).map((row) => {
+    const id = row.id as PlanId;
+    const catalog = isTherapistPlan(id) ? THERAPIST_PLANS[id] : null;
+    return {
+      id,
+      nome: row.nome,
+      tipo_perfil: row.tipo_perfil as 'autonomo' | 'clinica',
+      preco_mensal_cents: row.preco_mensal_cents,
+      preco_anual_mensal_cents: row.preco_anual_mensal_cents ?? null,
+      limite_profissionais: row.limite_profissionais,
+      limite_pacientes_por_prof: row.limite_pacientes_por_prof,
+      descricao_curta: catalog?.descricao ?? row.descricao_curta,
+      destaque: catalog
+        ? catalog.patientLimit === 1
+          ? '1 paciente ativo'
+          : `Até ${catalog.patientLimit} pacientes ativos`
+        : row.destaque,
+      features: catalog?.features ?? (Array.isArray(row.features) ? (row.features as string[]) : []),
+      recomendado: row.recomendado,
+      sort_order: row.sort_order,
+    };
+  });
 }
 
 function filterByAccountType(plans: PlanoCatalogItem[], accountType: AccountType) {

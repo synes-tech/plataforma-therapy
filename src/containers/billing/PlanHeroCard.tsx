@@ -89,10 +89,10 @@ export function PlanHeroCard({
           {billingExempt
             ? 'Acesso administrativo da plataforma: sem paywall, sem cobrança Stripe e com cotas ilimitadas para operação e validação interna.'
             : isFree
-              ? 'Você está no plano gratuito: 1 paciente ativo, 4 sessões/mês e 20 interações de IA. Assine um plano para ampliar sua carteira — os planos pagos começam com 14 dias grátis.'
+              ? 'Você está no plano gratuito: 1 paciente ativo e copiloto de IA. Assine um plano para ampliar sua carteira — os planos pagos começam com 14 dias grátis.'
               : isSolo
-                ? 'Seu plano cobre pacientes ativos, sessões, IA clínica e recursos do consultório. Amplie a carteira com Módulos Adicionais de +5 pacientes quando precisar.'
-                : 'Seu plano cobre pacientes ativos, IA clínica e recursos da clínica. Extensões de backup são contratadas separadamente abaixo.'}
+                ? 'O único limite do plano é o número de pacientes ativos. Amplie a carteira com Módulos Adicionais de +5 pacientes quando precisar.'
+                : 'O único limite do plano é o número de pacientes ativos. Extensões de backup são contratadas separadamente abaixo.'}
         </p>
         {!billingExempt && (
           <div className="mt-5 flex flex-wrap items-center gap-3">

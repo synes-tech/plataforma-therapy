@@ -156,3 +156,7 @@ export function careTrackClass(track: PatientCareTrack): string {
   if (track === 'infantil') return 'bg-primary-50 text-primary ring-1 ring-primary/20';
   return 'bg-slate-100 text-charcoal-muted ring-1 ring-slate-200';
 }
+
+export function patientClinicalEditPath(patientId: string): string {
+  return `/patients/${patientId}/clinical?edit=1`;
+}

@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   shouldBlockNewPatient,
@@ -63,7 +64,7 @@ describe('paywall v2 — planos de produção', () => {
     ).toBe(false);
   });
 
-  it('IA nunca é pré-bloqueada no frontend (cota é do backend)', () => {
+  it('IA nunca é bloqueada no frontend (sem cota de interações)', () => {
     expect(shouldBlockAiFeature(freeState)).toBe(false);
     expect(shouldBlockAiFeature({ ...freeState, requires_paywall: false })).toBe(false);
   });
@@ -76,5 +77,12 @@ describe('paywall v2 — planos de produção', () => {
   it('clínica vê Starter e Professional', () => {
     const visible = plansForAccountType(samplePlans, 'corporate');
     expect(visible.map((p) => p.id)).toEqual(['starter', 'professional']);
+  });
+
+  it('modal de planos não inclui laboratório Stripe de R$ 1', () => {
+    const src = readFileSync(new URL('./PaywallModal.tsx', import.meta.url), 'utf8');
+    expect(src).not.toContain('PaywallStripeTestLab');
+    expect(src).not.toContain('teste_1_real');
+    expect(src).not.toMatch(/TESTE 1 REAL/i);
   });
 });

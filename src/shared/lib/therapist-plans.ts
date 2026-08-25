@@ -62,10 +62,8 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     destaque: false,
     features: [
       '1 paciente ativo',
-      '4 sessões por mês (50 minutos cada)',
-      'Copiloto de IA (20 interações/mês)',
-      'Diário familiar com áudios ilimitados',
-      'Portal da família incluso',
+      'Copiloto de IA',
+      'Diário familiar & Portal',
     ],
   },
   standard: {
@@ -81,13 +79,12 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     yearlyMonthlyCents: 20700,
     destaque: false,
     features: [
-      'Até 10 pacientes ativos',
-      '40 sessões por mês (60 minutos cada)',
-      'Copiloto de IA com contexto por paciente (750 interações/mês)',
-      'Transcrição de sessões e relatórios',
-      'Anexos vetorizados na base de conhecimento',
-      'Diário familiar com áudios ilimitados',
-      'Módulos Adicionais de +5 pacientes quando precisar',
+      'Atende até 10 pacientes ativos',
+      'Copiloto de IA com integração com paciente',
+      'Transcrição de sessões e relatórios compartilhados, com interação do seu copiloto de IA',
+      'Inclusão de anexos e prontuários com interatividade da IA',
+      'Diário familiar com áudios transcritos para o terapeuta em tempo real',
+      'Compra adicional de pacote de pacientes a qualquer momento, dentro do seu acesso',
     ],
   },
   advanced: {
@@ -103,13 +100,12 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     yearlyMonthlyCents: 37700,
     destaque: true,
     features: [
-      'Até 20 pacientes ativos',
-      '80 sessões por mês (60 minutos cada)',
-      'Copiloto de IA com contexto por paciente (1.500 interações/mês)',
-      'Transcrição de sessões e relatórios',
-      'Anexos vetorizados na base de conhecimento',
-      'Diário familiar com áudios ilimitados',
-      'Módulos Adicionais de +5 pacientes quando precisar',
+      'Atende de 11 a 20 pacientes ativos',
+      'Copiloto de IA com integração com paciente',
+      'Transcrição de sessões e relatórios compartilhados, com interação do seu copiloto de IA',
+      'Inclusão de anexos e prontuários com interatividade da IA',
+      'Diário familiar com áudios transcritos para o terapeuta em tempo real',
+      'Compra adicional de pacote de pacientes a qualquer momento, dentro do seu acesso',
     ],
   },
   premium: {
@@ -125,18 +121,17 @@ export const THERAPIST_PLANS: Record<TherapistPlanId, TherapistPlanDef> = {
     yearlyMonthlyCents: 57700,
     destaque: false,
     features: [
-      'Até 30 pacientes ativos',
-      '120 sessões por mês (60 minutos cada)',
-      'Copiloto de IA com contexto por paciente (2.250 interações/mês)',
-      'Transcrição de sessões e relatórios',
-      'Anexos vetorizados na base de conhecimento',
-      'Diário familiar com áudios ilimitados',
-      'Módulo Adicional com desconto exclusivo',
+      'Atende de 21 a 30 pacientes ativos',
+      'Copiloto de IA com integração com paciente',
+      'Transcrição de sessões e relatórios compartilhados, com interação do seu copiloto de IA',
+      'Inclusão de anexos e prontuários com interatividade da IA',
+      'Diário familiar com áudios transcritos para o terapeuta em tempo real',
+      'Compra adicional de pacote de pacientes a qualquer momento, com desconto exclusivo',
     ],
   },
 };
 
-/** Módulos Adicionais (upsell): +5 pacientes, +20 sessões, +375 interações IA/mês. */
+/** Módulos Adicionais (upsell): +5 pacientes ativos. */
 export const PATIENT_ADDON_MODULES = {
   modulo_sa: {
     id: 'modulo_sa',

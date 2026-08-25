@@ -79,6 +79,7 @@ FUNCTIONS=(
   "create-patient-checkout"
   "cancel-patient-subscription"
   "warn-patient-trial-ending"
+  "warn-clinic-trial-ending"
   "delete-saved-recommendation"
   "get-paywall-state"
   "process-checkout-bypass"

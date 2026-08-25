@@ -15,6 +15,8 @@ interface PatientLinkManageFlowProps {
   /** desktop: botão só a partir de sm; none: sem botão (use onReady); all: sempre visível */
   triggerVisibility?: 'all' | 'desktop' | 'none';
   onReady?: (handlers: { openManage: () => void }) => void;
+  autoOpen?: boolean;
+  onClosed?: () => void;
 }
 
 type Step = 'closed' | 'choose' | 'delete_confirm';
@@ -25,12 +27,14 @@ export function PatientLinkManageFlow({
   statusVinculo = 'ativo',
   triggerVisibility = 'all',
   onReady,
+  autoOpen = false,
+  onClosed,
 }: PatientLinkManageFlowProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { refreshState } = usePaywall();
 
-  const [step, setStep] = useState<Step>('closed');
+  const [step, setStep] = useState<Step>(autoOpen ? 'choose' : 'closed');
   const [actionError, setActionError] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState('');
@@ -41,18 +45,14 @@ export function PatientLinkManageFlow({
         patient_id: patientId,
         ...payload,
       }),
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       queryClient.invalidateQueries({ queryKey: ['archived-patients'] });
       refreshState();
       setStep('closed');
       setActionError(null);
-
-      if (variables.acao === 'delete') {
-        navigate('/patients', { replace: true });
-      } else {
-        navigate('/patients', { replace: true });
-      }
+      onClosed?.();
+      navigate('/patients', { replace: true });
     },
     onError: (err: Error & { code?: string }) => {
       if (err.code === 'PAYMENT_REQUIRED') {
@@ -72,10 +72,6 @@ export function PatientLinkManageFlow({
     },
   });
 
-  if (statusVinculo !== 'ativo') {
-    return null;
-  }
-
   const openManageStable = useCallback(() => {
     setActionError(null);
     setStep('choose');
@@ -85,10 +81,15 @@ export function PatientLinkManageFlow({
     onReady?.({ openManage: openManageStable });
   }, [onReady, openManageStable]);
 
+  if (statusVinculo !== 'ativo') {
+    return null;
+  }
+
   function closeAll() {
     if (mutation.isPending) return;
     setStep('closed');
     setActionError(null);
+    onClosed?.();
   }
 
   function confirmUnlink() {

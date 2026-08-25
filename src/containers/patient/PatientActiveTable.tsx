@@ -2,15 +2,25 @@ import { useNavigate } from 'react-router-dom';
 import { DiagnosisChips } from '@features/patients/DiagnosisChips';
 import { PatientAvatar } from './PatientAvatar';
 import { PatientCareTrackBadge } from './PatientCareTrackBadge';
+import { PatientListActionsMenu } from './PatientListActionsMenu';
 import type { PatientListItem } from './patient-list.types';
-import { getPatientAge } from './patient-list.utils';
+import { getPatientAge, patientClinicalEditPath } from './patient-list.utils';
 
 interface PatientActiveTableProps {
   patients: PatientListItem[];
+  onDelete: (patient: PatientListItem) => void;
 }
 
-export function PatientActiveTable({ patients }: PatientActiveTableProps) {
+export function PatientActiveTable({ patients, onDelete }: PatientActiveTableProps) {
   const navigate = useNavigate();
+
+  function openRecord(patientId: string) {
+    navigate(`/patients/${patientId}/copilot`);
+  }
+
+  function openEdit(patientId: string) {
+    navigate(patientClinicalEditPath(patientId));
+  }
 
   return (
     <>
@@ -31,7 +41,7 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                 <td className="px-5 py-3.5">
                   <button
                     type="button"
-                    onClick={() => navigate(`/patients/${patient.id}/copilot`)}
+                    onClick={() => openRecord(patient.id)}
                     className="flex min-w-0 items-center gap-3 text-left transition-opacity hover:opacity-90"
                   >
                     <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="sm" />
@@ -46,16 +56,11 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
                   <PatientCareTrackBadge patient={patient} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/patients/${patient.id}/copilot`)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-charcoal px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-charcoal-light active:scale-[0.98]"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Central
-                  </button>
+                  <PatientListActionsMenu
+                    onOpenCentral={() => openRecord(patient.id)}
+                    onEdit={() => openEdit(patient.id)}
+                    onDelete={() => onDelete(patient)}
+                  />
                 </td>
               </tr>
             ))}
@@ -69,7 +74,7 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
             <div className="flex items-start gap-3">
               <button
                 type="button"
-                onClick={() => navigate(`/patients/${patient.id}/copilot`)}
+                onClick={() => openRecord(patient.id)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <PatientAvatar name={patient.name} fotoUrl={patient.foto_url} size="sm" />
@@ -85,13 +90,14 @@ export function PatientActiveTable({ patients }: PatientActiveTableProps) {
             <div className="mt-3">
               <DiagnosisChips diagnoses={patient.diagnoses} max={3} />
             </div>
-            <button
-              type="button"
-              onClick={() => navigate(`/patients/${patient.id}/copilot`)}
-              className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-charcoal px-3.5 text-xs font-medium text-white"
-            >
-              Central do Paciente
-            </button>
+            <div className="mt-3">
+              <PatientListActionsMenu
+                compact={false}
+                onOpenCentral={() => openRecord(patient.id)}
+                onEdit={() => openEdit(patient.id)}
+                onDelete={() => onDelete(patient)}
+              />
+            </div>
           </article>
         ))}
       </div>

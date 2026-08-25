@@ -9,7 +9,7 @@ export function computeTrialEndsAt(from: Date = new Date()): Date {
 
 /**
  * Plano de entrada no registro (v2): terapeuta solo entra no FREE
- * (1 paciente, 4 sessões/mês, 20 interações de IA). O trial de 14 dias
+ * (1 paciente ativo, copiloto de IA sem cota). O trial de 14 dias
  * é concedido apenas no primeiro checkout de um plano pago.
  */
 export function defaultTrialPlanId(accountType: 'solo' | 'corporate'): 'free' | 'starter' {

@@ -78,6 +78,9 @@ export async function provisionClinicFromStripe(
   }
   if (params.trialEndsAt !== undefined) {
     updatePayload.trial_ends_at = params.trialEndsAt;
+    if (params.trialEndsAt) {
+      updatePayload.trial_ending_email_sent_at = null;
+    }
   }
   if (params.commitmentEndsAt !== undefined) {
     updatePayload.commitment_ends_at = params.commitmentEndsAt;

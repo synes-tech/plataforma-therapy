@@ -45,6 +45,24 @@ export function shouldNotifyNow(severity: ClinicalRiskLevel, at = new Date()): b
   return hour >= 8 && hour < 20;
 }
 
+export type CrisisEmailKind = 'companion_severe' | 'companion_moderate' | 'checkin_crisis';
+
+/**
+ * SEVERE da Ivy sempre e-mail (dever de cuidado).
+ * Check-in de crise e MODERATE respeitam a preferência da clínica;
+ * MODERATE ainda fica no horário clínico.
+ */
+export function shouldEmailCrisisAlert(input: {
+  kind: CrisisEmailKind;
+  clinicAllowsEmail: boolean;
+  at?: Date;
+}): boolean {
+  if (input.kind === 'companion_severe') return true;
+  if (!input.clinicAllowsEmail) return false;
+  if (input.kind === 'companion_moderate') return shouldNotifyNow('MODERATE', input.at);
+  return true;
+}
+
 export function alertCopy(severity: 'MODERATE' | 'SEVERE'): { title: string; summary: string } {
   if (severity === 'SEVERE') {
     return { title: SEVERE_ALERT_TITLE, summary: SEVERE_ALERT_SUMMARY };

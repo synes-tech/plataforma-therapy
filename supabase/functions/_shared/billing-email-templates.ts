@@ -1,4 +1,4 @@
-export type BillingEmailKind = 'welcome' | 'plan_changed';
+export type BillingEmailKind = 'welcome' | 'plan_changed' | 'trial_ending_24h';
 
 const BRAND = {
   primary: '#1A86E2',
@@ -154,6 +154,83 @@ export function buildBillingPlanChangedEmail(params: {
     `Olá, ${name}!`,
     `A assinatura de ${clinic} foi atualizada.`,
     `De ${previous} para ${next} (${cycle}).`,
+    '',
+    'Equipe Unithery',
+  ].join('\n');
+
+  return { subject, html: wrapLayout(title, bodyHtml), text };
+}
+
+export function formatTrialChargeDate(iso: string | Date): string {
+  const date = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'em breve';
+  return date.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+export function buildBillingTrialEnding24hEmail(params: {
+  ownerName: string;
+  clinicName: string;
+  planId: string;
+  trialEndsAt: string;
+  settingsUrl: string;
+}): { subject: string; html: string; text: string } {
+  const name = params.ownerName.trim() || 'profissional';
+  const clinic = params.clinicName.trim() || 'seu consultório';
+  const plan = billingPlanLabel(params.planId);
+  const chargeDate = formatTrialChargeDate(params.trialEndsAt);
+  const settingsUrl = params.settingsUrl.replace(/\/$/, '');
+
+  const subject = `Faltam 24 horas para o fim do seu período grátis na Unithery`;
+  const title = 'Seu período grátis termina amanhã';
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px;">Olá, <strong style="color:${BRAND.text};">${escapeHtml(name)}</strong>!</p>
+    <p style="margin:0 0 16px;">
+      O período de teste de 14 dias de <strong style="color:${BRAND.text};">${escapeHtml(clinic)}</strong>
+      no <strong style="color:${BRAND.text};">${escapeHtml(plan)}</strong> termina em
+      <strong style="color:${BRAND.text};">${escapeHtml(chargeDate)}</strong>.
+    </p>
+    <p style="margin:0 0 16px;">
+      <strong style="color:${BRAND.text};">Se quiser continuar, não precisa fazer nada.</strong>
+      No dia ${escapeHtml(chargeDate)} a cobrança será feita automaticamente no cartão cadastrado.
+    </p>
+    <p style="margin:0 0 12px;">
+      Se não quiser ser cobrado, cancele a assinatura <strong style="color:${BRAND.text};">antes desse dia</strong>:
+    </p>
+    <ol style="margin:0 0 20px;padding-left:20px;">
+      <li style="margin:0 0 8px;">Entre na Unithery</li>
+      <li style="margin:0 0 8px;">Abra <strong style="color:${BRAND.text};">Configurações</strong></li>
+      <li style="margin:0 0 8px;">Na seção <strong style="color:${BRAND.text};">Plano</strong>, clique em
+        <em>Cancelar plano e revogar método de pagamento</em></li>
+    </ol>
+    <p style="margin:0 0 22px;">
+      <a href="${escapeHtml(settingsUrl)}" style="display:inline-block;background:${BRAND.primary};color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">
+        Abrir Configurações → Plano
+      </a>
+    </p>
+    <p style="margin:0;font-size:14px;color:${BRAND.mint};font-weight:600;">Equipe Unithery</p>
+  `;
+
+  const text = [
+    'Unithery',
+    'Seu período grátis termina amanhã',
+    '',
+    `Olá, ${name}!`,
+    `O período de teste de 14 dias de ${clinic} no ${plan} termina em ${chargeDate}.`,
+    '',
+    'Se quiser continuar, não precisa fazer nada. A cobrança será feita automaticamente no cartão cadastrado.',
+    '',
+    'Se não quiser ser cobrado, cancele antes desse dia:',
+    '1. Entre na Unithery',
+    '2. Abra Configurações',
+    '3. Na seção Plano, clique em Cancelar plano e revogar método de pagamento',
+    '',
+    `Link: ${settingsUrl}`,
     '',
     'Equipe Unithery',
   ].join('\n');

@@ -21,6 +21,7 @@ interface StripeCheckoutResult {
 import { PaywallModal, type PaywallStep } from './PaywallModal';
 import { CheckoutWelcomeToast } from './CheckoutWelcomeToast';
 import { PaywallContext, type PaywallContextValue } from './paywall-context';
+import { overlayLandingPlanCopy } from './paywall-plan-copy';
 import {
   plansForAccountType,
   shouldBlockAiFeature,
@@ -77,7 +78,7 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
 
   const state = data ?? DEFAULT_STATE;
   const visiblePlans = useMemo(
-    () => plansForAccountType(state.plans, state.account_type),
+    () => plansForAccountType(state.plans, state.account_type).map(overlayLandingPlanCopy),
     [state.plans, state.account_type],
   );
 
@@ -246,7 +247,7 @@ export function PaywallProvider({ children }: { children: ReactNode }) {
 
   const handlePaymentRequired = useCallback(() => {
     refreshState();
-    openPaywall('ai_feature');
+    openPaywall('plan_catalog');
   }, [openPaywall, refreshState]);
 
   const value = useMemo<PaywallContextValue>(

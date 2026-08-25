@@ -22,6 +22,13 @@ function buildMeta(requestId?: string): ApiResponse['meta'] {
   };
 }
 
+function looksLikeStripeError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const rec = error as { type?: unknown; message?: unknown };
+  if (typeof rec.type === 'string' && rec.type.toLowerCase().includes('stripe')) return true;
+  return typeof rec.message === 'string' && /No such (customer|price|product)|price specified is inactive/i.test(rec.message);
+}
+
 export function successResponse<T>(data: T, req: Request, statusCode = 200): Response {
   const origin = req.headers.get('origin');
   const requestId = req.headers.get('x-request-id') ?? undefined;
@@ -55,6 +62,10 @@ export function errorResponse(error: unknown, req: Request): Response {
     code = error.code;
     message = error.message;
     details = error.details;
+  } else if (looksLikeStripeError(error)) {
+    statusCode = 502;
+    code = 'STRIPE_CHECKOUT_FAILED';
+    message = 'Não foi possível abrir o checkout do Stripe. Tente novamente.';
   }
 
   const body: ApiResponse = {

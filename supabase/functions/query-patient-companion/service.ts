@@ -8,6 +8,8 @@ import { classifyCompanionRisk } from '../_shared/companion/risk-classifier.ts';
 import { mergeRiskLayers, type MergedRisk } from '../_shared/companion/risk-merge.ts';
 import { EMERGENCY_PROTOCOL_TEXT } from '../_shared/companion/emergency-protocol.ts';
 import { buildTherySystemInstruction } from '../_shared/companion/thery-prompt.ts';
+import { formatCompanionMemoryBlock } from '../_shared/companion/companion-memory.ts';
+import { loadCompanionMemory } from '../_shared/companion/companion-memory-load.ts';
 import { detectPromptInjection, enforceTheryOutput } from '../_shared/companion/output-guardrails.ts';
 import {
   getOrCreateCompanionThread,
@@ -91,6 +93,7 @@ async function persistTurn(params: {
       messageId: userMessageId,
       detector: params.merged.detector,
       severity: 'SEVERE',
+      reportedText: params.userText,
     });
   } else if (params.merged.risk_level === 'MODERATE') {
     await raiseCompanionClinicalAlert({
@@ -99,6 +102,7 @@ async function persistTurn(params: {
       messageId: userMessageId,
       detector: params.merged.detector,
       severity: 'MODERATE',
+      reportedText: params.userText,
     });
   }
 
@@ -126,6 +130,7 @@ export async function queryPatientCompanion(
     portalLinkId: context.access.link_id,
   });
   const history = await loadRecentCompanionMessages(thread.id);
+  const memoryBlock = formatCompanionMemoryBlock(await loadCompanionMemory(patientId));
   const priorAssistant = [...history].reverse().find((item) => item.role === 'assistant')?.content;
 
   const lexicon = scanRiskLexicon(payload.message);
@@ -148,6 +153,7 @@ export async function queryPatientCompanion(
       system: buildTherySystemInstruction({
         firstName: context.patient.first_name || firstName(context.patient.name),
         intensity: merged.risk_level === 'MODERATE' ? 'coping' : 'normal',
+        memoryBlock,
       }),
     });
     tokens = generated.tokens;
@@ -206,6 +212,7 @@ export function queryPatientCompanionStream(
           portalLinkId: context.access.link_id,
         });
         const history = await loadRecentCompanionMessages(thread.id);
+        const memoryBlock = formatCompanionMemoryBlock(await loadCompanionMemory(patientId));
         const priorAssistant = [...history].reverse().find((item) => item.role === 'assistant')?.content;
         const classifierPromise = classifyCompanionRisk(payload.message, { priorAssistant });
 
@@ -302,6 +309,7 @@ export function queryPatientCompanionStream(
           system: buildTherySystemInstruction({
             firstName: context.patient.first_name || firstName(context.patient.name),
             intensity: merged.risk_level === 'MODERATE' ? 'coping' : 'normal',
+            memoryBlock,
           }),
         })) {
           if (chunk.done) {

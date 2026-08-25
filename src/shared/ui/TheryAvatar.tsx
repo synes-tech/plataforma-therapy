@@ -1,6 +1,6 @@
 import { THERY_POSES, type TheryPose } from '@shared/lib/thery-assets';
 
-export type TheryAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'hero' | 'tour';
+export type TheryAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'hero' | 'tour' | 'welcome';
 export type TheryAvatarVariant = 'circle' | 'figure';
 
 interface TheryAvatarProps {
@@ -19,6 +19,7 @@ const CIRCLE: Record<TheryAvatarSize, string> = {
   lg: 'h-24 w-24',
   hero: 'h-36 w-36',
   tour: 'h-28 w-28',
+  welcome: 'h-32 w-32',
 };
 
 const FIGURE: Record<TheryAvatarSize, string> = {
@@ -28,6 +29,7 @@ const FIGURE: Record<TheryAvatarSize, string> = {
   lg: 'h-44 w-auto',
   hero: 'h-56 w-auto max-h-[42vh]',
   tour: 'h-52 w-auto sm:h-64 lg:h-[20rem]',
+  welcome: 'h-[22rem] w-auto max-h-[min(22rem,52vh)]',
 };
 
 export function TheryAvatar({

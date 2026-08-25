@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, it, expect } from 'vitest';
-import { isQuotaExceeded, OFFICIAL_PLAN_LIMITS } from './plan-quota-limits';
+import { isQuotaExceeded, OFFICIAL_PLAN_LIMITS, resolveEffectivePlanQuotas } from './plan-quota-limits';
 
 describe('plan quota boundaries (crítico)', () => {
   it('bloqueia o 11º paciente no Plano Inicial (limite 10)', () => {
@@ -26,5 +26,18 @@ describe('plan quota boundaries (crítico)', () => {
   it('Enterprise não aplica limite numérico', () => {
     expect(isQuotaExceeded(9999, OFFICIAL_PLAN_LIMITS.enterprise.professionals)).toBe(false);
     expect(isQuotaExceeded(9999, OFFICIAL_PLAN_LIMITS.enterprise.patientsPerProf)).toBe(false);
+  });
+
+  it('IA e áudio nunca entram como cota efetiva', () => {
+    const quotas = resolveEffectivePlanQuotas('premium', {
+      max_professionals: 1,
+      max_patients_per_professional: 30,
+      max_family_members_per_patient: 2,
+      max_ai_queries_per_month: 2250,
+      max_audio_minutes_per_month: 9360,
+    });
+    expect(quotas.max_ai_queries_per_month).toBeNull();
+    expect(quotas.max_audio_minutes_per_month).toBeNull();
+    expect(quotas.max_patients_per_professional).toBe(30);
   });
 });

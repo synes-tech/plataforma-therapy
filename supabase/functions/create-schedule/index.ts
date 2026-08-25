@@ -79,63 +79,6 @@ serve(async (req: Request) => {
       throw new AppError({ code: 'PAST_DATE', message: 'Não é possível agendar no passado', statusCode: 400 });
     }
 
-    // Cota de sessões do plano (v2):
-    // - limite hard: total mensal do plano (pacientes efetivos × 4)
-    // - limite soft: 4 sessões por paciente/mês (aviso detalhado, sem bloquear)
-    const { data: quota } = await supabase.rpc('check_session_quota', {
-      p_clinic_id: professional.clinic_id,
-      p_patient_id: patient_id,
-    });
-
-    const quotaState = (quota ?? null) as {
-      unlimited?: boolean;
-      total_used?: number;
-      total_limit?: number;
-      patient_used?: number;
-      patient_recommended?: number;
-      warn_patient?: boolean;
-      blocked_total?: boolean;
-      error?: string;
-    } | null;
-
-    if (quotaState && !quotaState.error && !quotaState.unlimited && quotaState.blocked_total) {
-      throw new AppError({
-        code: 'SESSION_QUOTA_EXCEEDED',
-        message: `Você atingiu o limite de ${quotaState.total_limit} sessões deste mês no seu plano. Faça upgrade ou contrate um Módulo Adicional para continuar agendando.`,
-        statusCode: 402,
-        details: {
-          total_used: quotaState.total_used,
-          total_limit: quotaState.total_limit,
-        },
-      });
-    }
-
-    // Duração máxima da sessão conforme o plano (FREE 50 min, pagos 60 min)
-    const { data: clinicPlan } = await supabase
-      .from('clinics')
-      .select('subscription_plan, billing_exempt')
-      .eq('id', professional.clinic_id)
-      .single();
-
-    const billingExempt = clinicPlan?.billing_exempt === true;
-    if (!billingExempt) {
-      const { data: planoRow } = await supabase
-        .from('planos')
-        .select('duracao_sessao_minutos, nome')
-        .eq('id', clinicPlan?.subscription_plan ?? '')
-        .maybeSingle();
-
-      const maxDuration = Number(planoRow?.duracao_sessao_minutos ?? 60);
-      if (duration_minutes > maxDuration) {
-        throw new AppError({
-          code: 'SESSION_DURATION_LIMIT',
-          message: `Seu plano ${planoRow?.nome ?? ''} permite sessões de até ${maxDuration} minutos.`,
-          statusCode: 400,
-          details: { max_duration_minutes: maxDuration },
-        });
-      }
-    }
-
     // Create the schedule entry
     const { data: created, error } = await supabase
       .from('therapist_schedule')
@@ -184,21 +127,8 @@ serve(async (req: Request) => {
       console.error('[create-schedule] session email notify failed', emailErr);
     }
 
-    // Aviso soft: recomendação de 4 sessões/paciente/mês excedida
-    const quotaWarning =
-      quotaState && !quotaState.error && quotaState.warn_patient
-        ? {
-            code: 'PATIENT_SESSION_RECOMMENDATION_EXCEEDED',
-            patient_used: (quotaState.patient_used ?? 0) + 1,
-            patient_recommended: quotaState.patient_recommended ?? 4,
-            total_used: (quotaState.total_used ?? 0) + 1,
-            total_limit: quotaState.total_limit ?? null,
-            message: `O limite recomendado de sessões para este paciente (${quotaState.patient_recommended ?? 4}/mês) já foi atingido. Se realizar mais sessões com ele, poderá faltar para outros pacientes — seu limite total é de ${quotaState.total_limit} sessões/mês (usadas: ${(quotaState.total_used ?? 0) + 1}).`,
-          }
-        : null;
-
     return successResponse(
-      { ...created, quota_warning: quotaWarning, email_notify: emailNotify },
+      { ...created, email_notify: emailNotify },
       req,
       201,
     );

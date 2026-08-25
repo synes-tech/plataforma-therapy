@@ -8,7 +8,6 @@ import { StandardModal } from '@shared/ui/StandardModal';
 import { callFunction } from '@shared/lib/api';
 import { OwnerProfilePhotoUpload } from './OwnerProfilePhotoUpload';
 import { uploadOwnerAvatarFile } from './owner-avatar.upload';
-import { MfaSettingsSection } from './MfaSettingsSection';
 import { planLabel } from '@features/billing/format';
 import { effectivePatientLimit } from '@shared/lib/therapist-plans';
 import {
@@ -549,7 +548,7 @@ export default function SettingsContainer() {
         <div className="divide-y divide-slate-100">
           <SettingsToggle
             label="Alertas de crise"
-            description="E-mail quando uma família registrar uma crise."
+            description="E-mail quando o paciente registrar uma crise no check-in ou um alerta na Ivy."
             checked={prefs.crisis_alerts_email}
             onChange={(v) => updatePref('crisis_alerts_email', v)}
             disabled={!isEditing}
@@ -561,13 +560,6 @@ export default function SettingsContainer() {
             onChange={(v) => updatePref('weekly_digest_email', v)}
             disabled={!isEditing}
           />
-          <SettingsToggle
-            label="Uso de IA"
-            description="Aviso quando o uso de IA se aproximar do limite do plano."
-            checked={prefs.ai_usage_alerts}
-            onChange={(v) => updatePref('ai_usage_alerts', v)}
-            disabled={!isEditing}
-          />
         </div>
         {isEditing && (
           <div className="mt-5 flex justify-end border-t border-slate-100 pt-4 sm:hidden">
@@ -576,7 +568,7 @@ export default function SettingsContainer() {
         )}
       </SettingsSection>
 
-      <SettingsSection title="Segurança" description="Acesso, senha e autenticação em duas etapas.">
+      <SettingsSection title="Segurança" description="Acesso e senha da conta.">
         <div className="divide-y divide-slate-100">
           <SettingsRow
             label="Responsável"
@@ -584,7 +576,6 @@ export default function SettingsContainer() {
           >
             <span className="text-xs text-charcoal-muted">Titular da conta</span>
           </SettingsRow>
-          <MfaSettingsSection />
           <SettingsRow label="Senha" description="Altere a senha na tela de acesso da plataforma.">
             <a
               href="/login"

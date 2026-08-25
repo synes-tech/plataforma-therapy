@@ -209,27 +209,13 @@ export async function recordAiUsage(
 }
 
 /**
- * Gate de IA v2 (planos de produção): controle por cota mensal de interações.
- * Todos os planos (inclusive FREE, com 20/mês) têm acesso à IA dentro da cota.
- * Registra 1 interação por chamada, exceto quando `record: false`.
+ * Uso de IA, áudio e transcrição não têm cota de plano.
+ * Mantém o registro analítico quando `record` não é false.
  */
 export async function assertCanUseAiPaywall(
   clinicId: string,
   options: { record?: boolean; userId?: string | null; feature?: string } = {},
 ): Promise<void> {
-  if (await isClinicBillingExempt(clinicId)) return;
-
-  const quota = await getAiInteractionQuota(clinicId);
-
-  if (quota.blocked) {
-    throw new AppError({
-      code: 'AI_QUOTA_EXCEEDED',
-      message: `Você atingiu o limite de ${quota.limit} interações de IA neste mês. Faça upgrade de plano ou contrate um Módulo Adicional para continuar.`,
-      statusCode: 402,
-      details: { used: quota.used, limit: quota.limit },
-    });
-  }
-
   if (options.record !== false) {
     await recordAiUsage(clinicId, options.userId ?? null, options.feature ?? 'copilot');
   }

@@ -5,6 +5,7 @@ import { UserProfile } from './UserProfile';
 import { BRAND_ICON_SRC, BRAND_LOGO_SRC } from '@shared/lib/brand-assets';
 import { portalTitle, usePortalContext } from '@shared/lib/portal-context';
 import { isPortalTheryPath, portalNavItems, type PortalNavIcon, type PortalNavItem } from '@shared/lib/portal-nav';
+import { PortalCheckoutCelebration } from '@containers/portal/PortalCheckoutCelebration';
 import { TheryTourProvider } from '@containers/onboarding-thery/TheryTourProvider';
 import { portalNavTourId } from '@containers/onboarding-thery/thery-tour.utils';
 
@@ -291,6 +292,7 @@ function PortalLayoutChrome({ children }: PortalLayoutProps) {
 export function PortalLayout({ children }: PortalLayoutProps) {
   return (
     <TheryTourProvider>
+      <PortalCheckoutCelebration />
       <PortalLayoutChrome>{children}</PortalLayoutChrome>
     </TheryTourProvider>
   );

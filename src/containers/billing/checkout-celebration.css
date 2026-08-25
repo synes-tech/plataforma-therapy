@@ -1,0 +1,30 @@
+.checkout-celebration-stage {
+  min-height: 18rem;
+}
+
+.checkout-celebration-ivy.is-pop {
+  animation: checkout-ivy-zoom 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes checkout-ivy-zoom {
+  0% {
+    transform: scale(0.62);
+    opacity: 0.4;
+  }
+  42% {
+    transform: scale(1.38);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-celebration-ivy.is-pop {
+    animation: none;
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}

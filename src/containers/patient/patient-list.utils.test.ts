@@ -3,6 +3,7 @@ import {
   applyPatientListFilters,
   getPaginationMeta,
   paginatePatients,
+  patientClinicalEditPath,
   resolveFamilyLinkStatus,
   resolvePatientCareTrack,
 } from './patient-list.utils';
@@ -78,5 +79,9 @@ describe('patient-list.utils', () => {
     expect(resolvePatientCareTrack({ birth_date: '2010-01-01' })).toBe('infantil');
     expect(resolvePatientCareTrack({ birth_date: '1990-01-01' })).toBe('individual');
     expect(resolvePatientCareTrack({ birth_date: '2018-01-01', profile_type: 'ADULT' })).toBe('individual');
+  });
+
+  it('abre a ficha clínica em modo edição', () => {
+    expect(patientClinicalEditPath('abc')).toBe('/patients/abc/clinical?edit=1');
   });
 });

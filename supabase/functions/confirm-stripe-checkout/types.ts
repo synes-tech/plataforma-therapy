@@ -4,4 +4,5 @@ export interface ConfirmStripeCheckoutResponse {
   subscription_status: string;
   payment_method_on_file: boolean;
   stripe_subscription_id: string | null;
+  trial_ends_at: string | null;
 }

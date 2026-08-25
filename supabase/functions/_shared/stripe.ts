@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe@17.7.0';
 import { AppError } from './errors.ts';
+import { originFromRequest, resolveStripeReturnOrigin } from './stripe-return-origin.ts';
 
 export type StripeBillingMode = 'test' | 'live';
 export type StripeCheckoutPlanId = 'inicial' | 'intermediario' | 'teste_1_real';
@@ -87,13 +88,10 @@ export function getStripeSecretKey(): string {
 }
 
 export function getStripeAppOrigin(req: Request): string {
-  const configured = Deno.env.get('STRIPE_APP_ORIGIN');
-  if (configured) return configured.replace(/\/$/, '');
-
-  const origin = req.headers.get('origin');
-  if (origin) return origin.replace(/\/$/, '');
-
-  return 'http://localhost:5173';
+  return resolveStripeReturnOrigin(
+    originFromRequest(req),
+    Deno.env.get('STRIPE_APP_ORIGIN'),
+  );
 }
 
 function envKey(mode: StripeBillingMode, planId: StripeCheckoutPlanId, kind: 'PRICE' | 'PRODUCT'): string {
@@ -157,4 +155,50 @@ export function defaultStripeTestLookupKey(planId: StripeCheckoutPlanId): string
   const specific = Deno.env.get(`STRIPE_TEST_LOOKUP_KEY_${planId.toUpperCase()}`);
   if (specific) return specific;
   return Deno.env.get('STRIPE_TEST_LOOKUP_KEY') ?? `plano_${planId}_mensal`;
+}
+
+export function stripePlanLookupKey(planId: string, cycle: 'monthly' | 'yearly'): string {
+  return `plano_${planId}_${cycle === 'yearly' ? 'anual' : 'mensal'}`;
+}
+
+export function stripeAddonLookupKey(addonId: string, cycle: 'monthly' | 'yearly'): string {
+  return `addon_${addonId}_${cycle === 'yearly' ? 'anual' : 'mensal'}`;
+}
+
+function stripeErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+export function isStripeMissingResourceError(error: unknown): boolean {
+  if (stripeErrorCode(error) === 'resource_missing') return true;
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /No such (customer|price|product)/i.test(message);
+}
+
+export function wrapStripeError(error: unknown, fallbackMessage: string): never {
+  if (error instanceof AppError) throw error;
+
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (/No such customer/i.test(message)) {
+    throw new AppError({
+      code: 'STRIPE_CUSTOMER_INVALID',
+      message: 'Cadastro de cobrança inválido neste ambiente. Tente novamente.',
+      statusCode: 409,
+    });
+  }
+  if (/No such price/i.test(message) || /price specified is inactive/i.test(message)) {
+    throw new AppError({
+      code: 'STRIPE_PRICE_NOT_FOUND',
+      message: 'Preço do plano não encontrado no Stripe. Recrie o catálogo deste ambiente.',
+      statusCode: 404,
+    });
+  }
+
+  throw new AppError({
+    code: 'STRIPE_CHECKOUT_FAILED',
+    message: fallbackMessage,
+    statusCode: 502,
+  });
 }

@@ -2,7 +2,10 @@ import { AppError } from './errors.ts';
 import {
   defaultStripeTestLookupKey,
   getStripeClient,
+  isStripeMissingResourceError,
   resolveStripePriceId,
+  stripeAddonLookupKey,
+  stripePlanLookupKey,
   type StripeBillingMode,
 } from './stripe.ts';
 import { createServiceClient } from './supabase.ts';
@@ -86,13 +89,23 @@ export async function resolveBillingPriceId(
     });
   }
 
-  const fromDb =
+  const dbColumn =
     cycle === 'yearly'
-      ? (mode === 'live' ? plano.stripe_price_id_live_anual : plano.stripe_price_id_test_anual)
-      : (mode === 'live' ? plano.stripe_price_id_live : plano.stripe_price_id_test);
+      ? (mode === 'live' ? 'stripe_price_id_live_anual' : 'stripe_price_id_test_anual')
+      : (mode === 'live' ? 'stripe_price_id_live' : 'stripe_price_id_test');
+  const fromDb = plano[dbColumn] as string | null;
 
-  if (fromDb) {
-    return { priceId: fromDb as string, mode };
+  const resolved = await resolvePriceIdFromDbOrLookup({
+    stripe,
+    fromDb,
+    lookupKey: stripePlanLookupKey(planId, cycle),
+  });
+
+  if (resolved) {
+    if (resolved !== fromDb) {
+      await supabase.from('planos').update({ [dbColumn]: resolved }).eq('id', planId);
+    }
+    return { priceId: resolved, mode };
   }
 
   if (cycle === 'monthly' && LEGACY_THERAPIST_PLANS.has(planId)) {
@@ -110,6 +123,24 @@ export async function resolveBillingPriceId(
     message: `Preço Stripe não configurado para o plano "${planId}" (modo ${mode}, ciclo ${cycle}).`,
     statusCode: 404,
   });
+}
+
+async function resolvePriceIdFromDbOrLookup(params: {
+  stripe: ReturnType<typeof getStripeClient>;
+  fromDb: string | null;
+  lookupKey: string;
+}): Promise<string | null> {
+  if (params.fromDb) {
+    try {
+      const price = await params.stripe.prices.retrieve(params.fromDb);
+      if (price?.id && price.active !== false) return price.id;
+    } catch (error) {
+      if (!isStripeMissingResourceError(error)) throw error;
+    }
+  }
+
+  const byLookup = await params.stripe.prices.list({ lookup_keys: [params.lookupKey], limit: 1 });
+  return byLookup.data[0]?.id ?? null;
 }
 
 export interface AddonPriceInfo {
@@ -145,10 +176,17 @@ export async function resolveAddonPriceId(
     });
   }
 
-  const priceId =
+  const dbColumn =
     cycle === 'yearly'
-      ? (mode === 'live' ? addon.stripe_price_id_live_anual : addon.stripe_price_id_test_anual)
-      : (mode === 'live' ? addon.stripe_price_id_live_mensal : addon.stripe_price_id_test_mensal);
+      ? (mode === 'live' ? 'stripe_price_id_live_anual' : 'stripe_price_id_test_anual')
+      : (mode === 'live' ? 'stripe_price_id_live_mensal' : 'stripe_price_id_test_mensal');
+  const fromDb = (addon[dbColumn] as string | null) ?? null;
+  const stripe = getStripeClient(mode);
+  const priceId = await resolvePriceIdFromDbOrLookup({
+    stripe,
+    fromDb,
+    lookupKey: stripeAddonLookupKey(addonId, cycle),
+  });
 
   if (!priceId) {
     throw new AppError({
@@ -158,9 +196,13 @@ export async function resolveAddonPriceId(
     });
   }
 
+  if (priceId !== fromDb) {
+    await supabase.from('plan_addons').update({ [dbColumn]: priceId }).eq('id', addonId);
+  }
+
   return {
     addonId: addon.id as string,
-    priceId: priceId as string,
+    priceId,
     mode,
     pacientesBonus: Number(addon.pacientes_bonus),
     precoMensalCents: Number(addon.preco_mensal_cents),

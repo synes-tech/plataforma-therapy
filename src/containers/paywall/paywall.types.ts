@@ -32,9 +32,7 @@ export function shouldBlockNewPatient(state: PaywallBillingState): boolean {
 }
 
 /**
- * v2: IA não é mais bloqueada preventivamente no frontend.
- * Todos os planos (inclusive FREE) têm cota mensal de interações;
- * o backend responde 402 AI_QUOTA_EXCEEDED quando a cota esgota.
+ * IA, áudio e transcrição não têm cota. O único limite do plano é de pacientes.
  */
 export function shouldBlockAiFeature(_state: PaywallBillingState): boolean {
   return false;

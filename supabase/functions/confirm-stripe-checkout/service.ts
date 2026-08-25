@@ -22,8 +22,16 @@ export async function confirmStripeCheckout(
     expand: ['subscription'],
   });
 
-  if (session.metadata?.clinic_id !== caller.clinic_id) {
-    throw new ForbiddenError('Sessão de checkout não pertence a esta clínica');
+  const sessionClinicId = session.metadata?.clinic_id?.trim().toLowerCase() ?? '';
+  const callerClinicId = caller.clinic_id.trim().toLowerCase();
+  const sessionUserId = session.metadata?.user_id?.trim().toLowerCase() ?? '';
+  const callerUserId = caller.id.trim().toLowerCase();
+  const ownsSession = sessionClinicId === callerClinicId || sessionUserId === callerUserId;
+
+  if (!ownsSession) {
+    throw new ForbiddenError(
+      'Esta sessão de pagamento foi iniciada em outra conta. Volte ao aplicativo onde você concluiu o checkout.',
+    );
   }
 
   await provisionFromCheckoutSession(
@@ -35,7 +43,7 @@ export async function confirmStripeCheckout(
   const supabase = createServiceClient();
   const { data: clinic, error } = await supabase
     .from('clinics')
-    .select('id, subscription_plan, subscription_status, payment_method_on_file, stripe_subscription_id')
+    .select('id, subscription_plan, subscription_status, payment_method_on_file, stripe_subscription_id, trial_ends_at')
     .eq('id', caller.clinic_id)
     .single();
 
@@ -53,5 +61,6 @@ export async function confirmStripeCheckout(
     subscription_status: clinic.subscription_status as string,
     payment_method_on_file: Boolean(clinic.payment_method_on_file),
     stripe_subscription_id: (clinic.stripe_subscription_id as string | null) ?? null,
+    trial_ends_at: (clinic.trial_ends_at as string | null) ?? null,
   };
 }

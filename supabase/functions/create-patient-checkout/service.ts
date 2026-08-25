@@ -99,7 +99,7 @@ export async function createPatientCheckout(
   const stripe = getStripeClient(mode);
   const priceId = await resolveTheryPriceId(stripe, mode);
   const origin = getStripeAppOrigin(req);
-  const successPath = payload.success_path ?? '/portal/agreements';
+  const successPath = payload.success_path ?? '/portal/ivy';
   const customerId = await getOrCreatePatientCustomer(
     {
       patientId: patient.id as string,
